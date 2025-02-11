@@ -1,6 +1,7 @@
 #include "MainLoop.hpp"
 #include <glad/glad.h>
 #include <engine/Math/Interpolation.hpp>
+#include <engine/Math/OdeIntegration/RungeKutta4.hpp>
 #include <game/PlotUtils.hpp>
 #include <engine/Math/Mat2.hpp>
 #include <engine/Math/Angles.hpp>
@@ -102,124 +103,78 @@ void renderClosedParametrizationOfRectangle(
 	}
 }
 
-void MainLoop::update1() {
-	if (Input::isKeyDown(KeyCode::ESCAPE)) {
-		Window::toggleCursor();
-	}
+void updatePosition(
+	Vec2& uvPosition, f32& uvForwardAngle,
+	Vec3 tangentSpaceForward,
+	Vec3 uTangent,
+	Vec3 vTangent) {
+	//Vec3 cameraUp = torusNormal(uvPosition.x, uvPosition.y, r, R);
+	//Vec3 forwardTangent = torusTangentU(uvPosition.x, uvPosition.y, r, R).normalized();
+	//Vec3 tangentSpaceForward =
+	//	Quat(uvForwardAngle, cameraUp) *
+	//	forwardTangent;
+	//tangentSpaceForward -= dot(tangentSpaceForward, cameraUp) * cameraUp;
 
-	if (Input::isKeyDown(KeyCode::X)) {
-		Window::close();
-	}
+	//const auto uTangent = torusTangentU(uvPosition.x, uvPosition.y, r, R);
+	//const auto vTangent = torusTangentV(uvPosition.x, uvPosition.y, r, R);
+	//// Orthonormal basis for tangent space.
+	//Vec3 xAxis = uTangent.normalized();
+	//Vec3 yAxis = cross(uTangent, cameraUp).normalized();
+	//Vec2 ru = Vec2(dot(uTangent, xAxis), dot(uTangent, yAxis));
+	//Vec2 rv = Vec2(dot(vTangent, xAxis), dot(vTangent, yAxis));
+	//Vec2 f = Vec2(dot(tangentSpaceForward, xAxis), dot(tangentSpaceForward, yAxis));
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-	glViewport(0, 0, Window::size().x, Window::size().y);
+	//// Want to solve 
+	//// a1 ru + a2 rv = f
+	//// for a1, a2
+	//const auto coordinates = Mat2(ru, rv).inversed() * f;
 
-	const auto r = 0.4f;
-	const auto R = 1.0f;
-	renderClosedParametrizationOfRectangle(
-		renderer,
-		[&](f32 u, f32 v) { return torus(u, v, r, R); },
-		[&](f32 u, f32 v) { return torusNormal(u, v, r, R); },
-		0.0f, TAU<f32>,
-		0.0f, TAU<f32>
-	);
+	////uvPosition += direction.normalized() * speed;
+	//if (Input::isKeyHeld(KeyCode::W)) {
+	//	uvPosition += coordinates * 0.01f;
+	//}
+	//if (Input::isKeyHeld(KeyCode::S)) {
+	//	uvPosition -= coordinates * 0.01f;
+	//}
 
-	Vec3 cameraUp = torusNormal(uvPosition.x, uvPosition.y, r, R);
-	Vec3 forwardTangent = torusTangentU(uvPosition.x, uvPosition.y, r, R).normalized();
-	Vec3 tangentSpaceForward =
-		Quat(uvForwardAngle, cameraUp) *
-		forwardTangent;
-	tangentSpaceForward -= dot(tangentSpaceForward, cameraUp) * cameraUp;
+	//Vec3 cameraPosition = torus(uvPosition.x, uvPosition.y, r, R) + cameraUp * 0.2f;
+	//Vec3 cameraRight = cross(cameraUp, forwardTangent).normalized();
+	//Vec3 cameraForward =
+	//	Quat(uvForwardAngle, cameraUp) *
+	//	Quat(rightAxisAngle, cameraRight) *
+	//	forwardTangent;
+	//const auto view = Mat4::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp);
+	//const auto aspectRatio = Window::aspectRatio();
+	//const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
+	//const auto viewProjection = projection * view;
+	//renderer.viewProjection = viewProjection;
 
-	const auto uTangent = torusTangentU(uvPosition.x, uvPosition.y, r, R);
-	const auto vTangent = torusTangentV(uvPosition.x, uvPosition.y, r, R);
-	// Orthonormal basis for tangent space.
-	Vec3 xAxis = uTangent.normalized();
-	Vec3 yAxis = cross(uTangent, cameraUp).normalized();
-	Vec2 ru = Vec2(dot(uTangent, xAxis), dot(uTangent, yAxis));
-	Vec2 rv = Vec2(dot(vTangent, xAxis), dot(vTangent, yAxis));
-	Vec2 f = Vec2(dot(tangentSpaceForward, xAxis), dot(tangentSpaceForward, yAxis));
+	//if (Window::isCursorEnabled()) {
+	//	lastMousePosition = std::nullopt;
+	//} else {
+	//	Vec2 mouseOffset(0.0f);
+	//	if (lastMousePosition.has_value()) {
+	//		mouseOffset = Input::cursorPosWindowSpace() - *lastMousePosition;
+	//	} else {
+	//		mouseOffset = Vec2(0.0f);
+	//	}
 
-	// Want to solve 
-	// a1 ru + a2 rv = f
-	// for a1, a2
-	const auto coordinates = Mat2(ru, rv).inversed() * f;
+	//	lastMousePosition = Input::cursorPosWindowSpace();
 
-	//uvPosition += direction.normalized() * speed;
-	if (Input::isKeyHeld(KeyCode::W)) {
-		uvPosition += coordinates * 0.01f;
-	} 
-	if (Input::isKeyHeld(KeyCode::S)) {
-		uvPosition -= coordinates * 0.01f;
-	}
-	
-	Vec3 cameraPosition = torus(uvPosition.x, uvPosition.y, r, R) + cameraUp * 0.2f;
-	Vec3 cameraRight = cross(cameraUp, forwardTangent).normalized();
-	Vec3 cameraForward = 
-		Quat(uvForwardAngle, cameraUp) * 
-		Quat(rightAxisAngle, cameraRight) *
-		forwardTangent;
-	const auto view = Mat4::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp);
-	const auto aspectRatio = Window::aspectRatio();
-	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
-	const auto viewProjection = projection * view;
-	renderer.viewProjection = viewProjection;
+	//	// Angle change per pixel per second?
+	//	float rotationSpeed = 0.1f;
+	//	float movementSpeed = 1.0f;
+	//	// x+ is right both in window space and in the used coordinate system.
+	//	// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.
+	//	/*angleAroundUpAxis += mouseOffset.x * rotationSpeed * dt;*/
+	//	uvForwardAngle += mouseOffset.x * rotationSpeed * dt;
+	//	// Down is positive in window space and a positive rotation around the x axis rotates down.
+	//	rightAxisAngle += mouseOffset.y * rotationSpeed * dt;
 
-	if (Window::isCursorEnabled()) {
-		lastMousePosition = std::nullopt;
-	} else {
-		Vec2 mouseOffset(0.0f);
-		if (lastMousePosition.has_value()) {
-			mouseOffset = Input::cursorPosWindowSpace() - *lastMousePosition;
-		} else {
-			mouseOffset = Vec2(0.0f);
-		}
-
-		lastMousePosition = Input::cursorPosWindowSpace();
-
-		// Angle change per pixel per second?
-		float rotationSpeed = 0.1f;
-		float movementSpeed = 1.0f;
-		// x+ is right both in window space and in the used coordinate system.
-		// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.
-		/*angleAroundUpAxis += mouseOffset.x * rotationSpeed * dt;*/
-		uvForwardAngle += mouseOffset.x * rotationSpeed * dt;
-		// Down is positive in window space and a positive rotation around the x axis rotates down.
-		rightAxisAngle += mouseOffset.y * rotationSpeed * dt;
-
-		uvForwardAngle = normalizeAngleZeroToTau(uvForwardAngle);
-		rightAxisAngle = std::clamp(rightAxisAngle, -degToRad(89.0f), degToRad(89.0f));
-	}
-
-	uvPosition.x = fmod(uvPosition.x, TAU<f32>);
-	uvPosition.y = fmod(uvPosition.y, TAU<f32>);
-	uvPositions.push_back(uvPosition);
-	ImGui::Begin("plot");
-	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
-		ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, TAU<f32>);
-		//ImPlot::SetPlotLimits
-		plotVec2Scatter("points", uvPositions);
-		ImPlot::EndPlot();
-	}
-	ImGui::End();
-	/*renderer.camera.up = cameraUp;
-	renderer.camera.position = cameraPosition + cameraUp * 0.1f;*/
-	{
-		/*const auto view = camera.viewMatrix();
-		const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
-		return projection * view;*/
-	}
-
-
-	/*if (Window::isCursorEnabled()) {
-		renderer.camera.lastMousePosition = std::nullopt;
-	} else {
-		renderer.camera.update(dt);
-	}*/
-	renderer.renderTriangles();
+	//	uvForwardAngle = normalizeAngleZeroToTau(uvForwardAngle);
+	//	rightAxisAngle = std::clamp(rightAxisAngle, -degToRad(89.0f), degToRad(89.0f));
+	//}
 }
-
 
 void MainLoop::update() {
 	if (Input::isKeyDown(KeyCode::ESCAPE)) {
@@ -234,38 +189,16 @@ void MainLoop::update() {
 	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, Window::size().x, Window::size().y);
 
-	const auto r = 1.0f;
+	const auto r = 0.4f;
 	const auto R = 10.0f;
-	{
-		const auto startIndex = renderer.trianglesIndices.size();
-		const auto size = 50;
-		for (i32 vi = 0; vi < size; vi++) {
-			for (i32 ui = 0; ui < size; ui++) {
-				const auto u = f32(ui) / size * TAU<f32>;
-				const auto v = f32(vi) / size * TAU<f32>;
-				const auto p = torus(u, v, r, R);
-				const auto n = torusNormal(u, v, r, R);
-				renderer.addVertex(Vertex3Pn{ .position = p, .normal = n });
-			}
-		}
+	renderClosedParametrizationOfRectangle(
+		renderer,
+		[&](f32 u, f32 v) { return torus(u, v, r, R); },
+		[&](f32 u, f32 v) { return torusNormal(u, v, r, R); },
+		0.0f, TAU<f32>,
+		0.0f, TAU<f32>
+	);
 
-		auto index = [&size](i32 ui, i32 vi) {
-			// Wrap aroud
-			if (ui == size) { ui = 0; }
-			if (vi == size) { vi = 0; }
-
-			return vi * size + ui;
-			};
-		for (i32 vi = 0; vi < size; vi++) {
-			for (i32 ui = 0; ui < size; ui++) {
-				const auto i0 = index(ui, vi);
-				const auto i1 = index(ui + 1, vi);
-				const auto i2 = index(ui + 1, vi + 1);
-				const auto i3 = index(ui, vi + 1);
-				renderer.addQuad(i0, i1, i2, i3);
-			}
-		}
-	}
 	Vec3 cameraUp = torusNormal(uvPosition.x, uvPosition.y, r, R);
 	const auto uTangent = torusTangentU(uvPosition.x, uvPosition.y, r, R);
 	const auto vTangent = torusTangentV(uvPosition.x, uvPosition.y, r, R);
@@ -313,16 +246,58 @@ void MainLoop::update() {
 		x'(a) = -sin(a) x_u + cos(a) x_v
 		*/
 
-		const auto f = cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent;
-		const auto df = -sin(uvForwardAngle) * uTangent + cos(uvForwardAngle) * vTangent;
+		// dF/dA = rhs
+		auto rhs = [&](f32 a, f32 _) {
+			const auto f = cos(a) * uTangent + sin(a) * vTangent;
+			const auto df = -sin(a) * uTangent + cos(a) * vTangent;
 
-		// this is the unsimplified form
-		const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
-		//const auto scale = (df + f * (dot(f, df)/ pow(f.length(), 3))).length();
+			// this is the unsimplified form
+			const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
+			//const auto scale = (df + f * (dot(f, df)/ pow(f.length(), 3))).length();
 
- 		const auto dFLength = mouseOffset.x * rotationSpeed * dt;
-		const auto da = dFLength / scale;
-		uvForwardAngle += da;
+			return mouseOffset.x * rotationSpeed / scale;
+		};
+		/*
+		rhs can get quite big so if the step size is too big (the user moves the mouse too fast) then things glitch out. The mouse might spin multiple times in a single step and it look like it just teleported. This happens for example with the torus and n = 1.
+		*/
+		// This is what rhs looks like.
+		/*if (ImPlot::BeginPlot("rhs")) {
+			auto rhs = [&](f32 a, f32 _) {
+				const auto f = cos(a) * uTangent + sin(a) * vTangent;
+				const auto df = -sin(a) * uTangent + cos(a) * vTangent;
+				const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
+				return 1.0f / scale;
+			};
+
+			ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, 40.0f);
+			std::vector<f32> xs, ys;
+			const auto n = 200;
+			for (i32 i = 0; i < 200; i++) {
+				const auto x = lerp(0.0f, TAU<f32>, f32(i) / (n - 1));
+				const auto y = rhs(x, 0.0f);
+				xs.push_back(x);
+				ys.push_back(y);
+			}
+			ImPlot::PlotLine("rhs(a)", xs.data(), ys.data(), n);
+			ImPlot::EndPlot();
+		}*/
+
+
+		i32 n = 5;
+		for (i32 i = 0; i < n; i++) {
+			uvForwardAngle = rungeKutta4Step(rhs, uvForwardAngle, 0.0f, dt / n);
+		}
+
+		//const auto f = cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent;
+		//const auto df = -sin(uvForwardAngle) * uTangent + cos(uvForwardAngle) * vTangent;
+
+		//// this is the unsimplified form
+		//const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
+		////const auto scale = (df + f * (dot(f, df)/ pow(f.length(), 3))).length();
+
+ 	//	const auto dFLength = mouseOffset.x * rotationSpeed * dt;
+		//const auto da = dFLength / scale;
+		//uvForwardAngle += da;
 		/*uvForwardAngle += mouseOffset.x * rotationSpeed * dt / 
 			(-sin(uvForwardAngle) * uTangent + cos(uvForwardAngle) * vTangent).length();*/
 		rightAxisAngle += mouseOffset.y * rotationSpeed * dt;
@@ -342,11 +317,8 @@ void MainLoop::update() {
 		velocity.y -= dot(velocity, symbols.y * velocity) * dt;
 		const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
 		velocity /= v;
-		//ImGui::Text("%g", );
 		uvPosition += velocity * dt;
 		uvForwardAngle = velocity.angle();
-			//uvVelocity += 
-			//uvPosition += uvVelocity
 	}
 
 	/*if (Input::isKeyHeld(KeyCode::UP)) { direction.y += 1.0f; }
@@ -356,27 +328,30 @@ void MainLoop::update() {
 	uvPosition.y = fmod(uvPosition.y, TAU<f32>);
 	if (uvPosition.x < 0.0f) { uvPosition.x += TAU<f32>; }
 	if (uvPosition.y < 0.0f) { uvPosition.y += TAU<f32>; }
-	Vec2 p = uvPosition;
-	if (p.x > PI<f32>) {
-		p.x -= TAU<f32>;
-	}
-	if (p.y > PI<f32>) {
-		p.y -= TAU<f32>;
-	}
-	//uvPositions.push_back(p);
-	//ImGui::Begin("plot");
-	//if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
-
-	//	ImPlot::SetupAxesLimits(-PI<f32>, PI<f32>, -PI<f32>, PI<f32>);
-	//	//ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, TAU<f32>);
-	//	/*Vec2 forward = uvPosition + Vec2::oriented(uvForwardAngle) * 0.3f;
-	//	f32 xs[] = { uvPosition.x, forward.x };
-	//	f32 ys[] = { uvPosition.y, forward.y };
-	//	ImPlot::PlotLine("arrow", xs, ys, 2);*/
-	//	plotVec2Scatter("points", uvPositions);
-	//	ImPlot::EndPlot();
+	//Vec2 p = uvPosition;
+	//if (p.x > PI<f32>) {
+	//	p.x -= TAU<f32>;
 	//}
-	//ImGui::End();
+	//if (p.y > PI<f32>) {
+	//	p.y -= TAU<f32>;
+	//}
+	//uvPositions.push_back(p);
+	ImGui::Begin("plot");
+	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
+
+		//ImPlot::SetupAxesLimits(-PI<f32>, PI<f32>, -PI<f32>, PI<f32>);
+		ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, TAU<f32>);
+		Vec2 forward = uvPosition + Vec2::oriented(uvForwardAngle) * 0.3f;
+		f32 xs[] = { uvPosition.x, forward.x };
+		f32 ys[] = { uvPosition.y, forward.y };
+		ImPlot::PlotLine("arrow", xs, ys, 2);
+		//plotVec2Scatter("points", uvPositions);
+		ImPlot::EndPlot();
+	}
+	ImGui::End();
 
 	renderer.renderTriangles();
+
+	ImPlot::ShowDemoWindow();
+
 }
