@@ -15,8 +15,8 @@ struct Renderer {
 	void triangle(Vertex3Pn v0, Vertex3Pn v1, Vertex3Pn v2);
 	void renderTriangles();
 
-	Camera3d camera;
-	Mat4 viewProjection();
+	//Camera3d camera;
+	Mat4 viewProjection;
 
 	std::vector<i32> trianglesIndices;
 	std::vector<Vertex3Pn> trianglesVertices;

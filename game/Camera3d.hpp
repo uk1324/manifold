@@ -10,7 +10,8 @@ struct Camera3d {
 	Vec3 position = Vec3(0.0f);
 	float angleAroundUpAxis = 0.0f;
 	float angleAroundRightAxis = 0.0f;
-
+	Vec3 up = Vec3(0.0f, 1.0f, 0.0f);
+	
 	// Angle change per pixel.
 	float rotationSpeed = 0.1f;
 	float movementSpeed = 1.0f;
@@ -19,4 +20,5 @@ struct Camera3d {
 	Quat cameraForwardRotation() const;
 	Mat4 viewMatrix() const;
 	Vec3 forward() const;
+	Mat4 viewProjection() const;
 };

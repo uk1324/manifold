@@ -13,11 +13,12 @@ Renderer Renderer::make() {
 	auto trianglesVao = createInstancingVao<BasicShadingShader>(trianglesVbo, trianglesIbo, instancesVbo);
 
 	return Renderer{
+		.viewProjection = Mat4::identity,
 		.trianglesShader = MAKE_GENERATED_SHADER(BASIC_SHADING),
 		MOVE(trianglesVbo),
 		MOVE(trianglesIbo),
 		MOVE(trianglesVao),
-		MOVE(instancesVbo)
+		MOVE(instancesVbo),
 	};
 }
 
@@ -60,7 +61,7 @@ void Renderer::renderTriangles() {
 	trianglesIbo.allocateData(trianglesIndices.data(), trianglesIndices.size() * sizeof(u32));
 
 	shaderSetUniforms(trianglesShader, BasicShadingVertUniforms{
-		.transform = viewProjection()
+		.transform = viewProjection
 	});
 	trianglesShader.use();
 	trianglesVao.bind();
@@ -70,9 +71,9 @@ void Renderer::renderTriangles() {
 	trianglesIndices.clear();
 }
 
-Mat4 Renderer::viewProjection() {
-	const auto view = camera.viewMatrix();
-	const auto aspectRatio = Window::aspectRatio();
-	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
-	return projection * view;
-}
+//Mat4 Renderer::viewProjection() {
+//	const auto view = camera.viewMatrix();
+//	const auto aspectRatio = Window::aspectRatio();
+//	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
+//	return projection * view;
+//}

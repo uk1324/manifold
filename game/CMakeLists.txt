@@ -1,4 +1,4 @@
-add_executable(game "main.cpp" "MainLoop.cpp" "Camera3d.cpp" "Renderer.cpp")
+add_executable(game "main.cpp" "MainLoop.cpp" "Camera3d.cpp" "Renderer.cpp" "PlotUtils.cpp")
 
 target_link_libraries(game PUBLIC engine)
 
