@@ -1,0 +1,14 @@
+struct Vertex3Pn {
+	Vec3 position;
+	Vec3 normal;
+}
+
+shader BasicShading {
+	vertexStruct = Vertex3Pn;
+	vertUniforms = {
+		Mat4 transform;
+	};
+	vertOut = {
+		Vec3 normal;
+	};
+}
