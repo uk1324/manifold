@@ -8,6 +8,10 @@
 #include <engine/Math/Constants.hpp>
 #include <engine/Window.hpp>
 #include <engine/Input/Input.hpp>
+#include <game/Surfaces/Helicoid.hpp>
+#include <game/Surfaces/Cone.hpp>
+#include <game/Surfaces/Torus.hpp>
+#include <game/Surfaces/Sphere.hpp>
 #include <imgui/implot.h>
 
 const auto dt = 1.0f / 60.0f;
@@ -18,80 +22,34 @@ MainLoop::MainLoop()
 	Window::disableCursor();
 }
 
-// https://trecs.se/torus.php
-Vec3 torus(f32 u, f32 v, f32 r, f32 R) {
-	return Vec3(
-		(R + r * cos(v)) * cos(u),
-		(R + r * cos(v)) * sin(u),
-		r * sin(v)
-	);
-}
-
-Vec3 torusTangentU(f32 u, f32 v, f32 r, f32 R) {
-	return Vec3(
-		-(R + r * cos(v)) * sin(u),
-		(R + r * cos(v)) * cos(u),
-		0.0f
-	);
-}
-
-Vec3 torusTangentV(f32 u, f32 v, f32 r, f32 R) {
-	return Vec3(
-		-r * sin(v) * cos(u),
-		-r * sin(v) * sin(u),
-		r * cos(v)
-	);
-}
-
-Vec3 torusNormal(f32 u, f32 v, f32 r, f32 R) {
-	return Vec3(
-		cos(u) * cos(v),
-		sin(u) * cos(v),
-		sin(v)
-	).normalized();
-}
-	
-struct ChristoffelSymbols {
-	Mat2 x;
-	Mat2 y;
-};
-
-ChristoffelSymbols torusChristoffelSymbols(f32 u, f32 v, f32 r, f32 R) {
-	const auto a = -r * sin(v) / (R + r * cos(v));
-	return {
-		.x = Mat2(Vec2(0, a), Vec2(a, 0)),
-		.y = Mat2(Vec2((R + r * cos(v)) * sin(v) / r, 0.0), Vec2(0.0f, 0.0f)),
-	};
-}
-
 void renderClosedParametrizationOfRectangle(
 	Renderer& renderer, 
 	auto position, 
 	auto normal,
 	f32 uMin, f32 uMax, f32 vMin, f32 vMax) {
-	const auto r = 0.4f;
-	const auto R = 1.0f;
 	{
 		const auto startIndex = renderer.trianglesIndices.size();
-		const auto size = 50;
-		for (i32 vi = 0; vi < size; vi++) {
-			for (i32 ui = 0; ui < size; ui++) {
-				const auto u = lerp(uMin, uMax, f32(ui) / size);
-				const auto v = lerp(vMin, vMax, f32(vi) / size);
+		const auto size = 100;
+		for (i32 vi = 0; vi <= size; vi++) {
+			for (i32 ui = 0; ui <= size; ui++) {
+				const auto ut = f32(ui) / size;
+				const auto vt = f32(vi) / size;
+				const auto u = lerp(uMin, uMax, ut);
+				const auto v = lerp(vMin, vMax, vt);
 				const auto p = position(u, v);
 				const auto n = normal(u, v);
-				renderer.addVertex(Vertex3Pn{ .position = p, .normal = n });
+				renderer.addVertex(Vertex3Pnt{ .position = p, .normal = n, .uv = Vec2(ut, vt) });
 			}
 		}
 
 		auto index = [&size](i32 ui, i32 vi) {
-			// Wrap aroud
-			if (ui == size) { ui = 0; }
-			if (vi == size) { vi = 0; }
+			//// Wrap aroud
+			//if (ui == size) { ui = 0; }
+			//if (vi == size) { vi = 0; }
 
-			return vi * size + ui;
-			};
-		for (i32 vi = 0; vi < size; vi++) {
+			return vi * (size + 1) + ui;
+		};
+ 		for (i32 vi = 0; vi < size; vi++) {
 			for (i32 ui = 0; ui < size; ui++) {
 				const auto i0 = index(ui, vi);
 				const auto i1 = index(ui + 1, vi);
@@ -185,26 +143,38 @@ void MainLoop::update() {
 		Window::close();
 	}
 
+	static bool flipNormal = true;
+	ImGui::Checkbox("flip normal", &flipNormal);
+
+	const auto normalSign = flipNormal ? -1.0f : 1.0f;
+	//Torus surface{ .r = 0.4f, .R = 2.0f };
+	Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
+	//Cone surface{ 
+	//	.a = 1.0f,
+	//	.b = 1.0f,
+	//	.uMin = -2.0f, 
+	//	.uMax = 2.0f, 
+	//};
+	//Sphere surface{ .r = 1.0f, };
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, Window::size().x, Window::size().y);
 
-	const auto r = 0.4f;
-	const auto R = 10.0f;
 	renderClosedParametrizationOfRectangle(
 		renderer,
-		[&](f32 u, f32 v) { return torus(u, v, r, R); },
-		[&](f32 u, f32 v) { return torusNormal(u, v, r, R); },
-		0.0f, TAU<f32>,
-		0.0f, TAU<f32>
+		[&](f32 u, f32 v) { return surface.position(u, v); },
+		[&](f32 u, f32 v) { return surface.normal(u, v); },
+		surface.uMin, surface.uMax,
+		surface.vMin, surface.vMax
 	);
 
-	Vec3 cameraUp = torusNormal(uvPosition.x, uvPosition.y, r, R);
-	const auto uTangent = torusTangentU(uvPosition.x, uvPosition.y, r, R);
-	const auto vTangent = torusTangentV(uvPosition.x, uvPosition.y, r, R);
+	Vec3 cameraUp = surface.normal(uvPosition.x, uvPosition.y) * normalSign;
+	const auto uTangent = surface.tangentU(uvPosition.x, uvPosition.y);
+	const auto vTangent = surface.tangentV(uvPosition.x, uvPosition.y);
 	const auto forwardTangent = (cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent).normalized();
 
-	Vec3 cameraPosition = torus(uvPosition.x, uvPosition.y, r, R) + cameraUp * 0.2f;
+	Vec3 cameraPosition = surface.position(uvPosition.x, uvPosition.y) + cameraUp * 0.2f;
 	Vec3 cameraRight = cross(cameraUp, forwardTangent).normalized();
 	Vec3 cameraForward =
 		Quat(rightAxisAngle, cameraRight) *
@@ -255,32 +225,34 @@ void MainLoop::update() {
 			const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
 			//const auto scale = (df + f * (dot(f, df)/ pow(f.length(), 3))).length();
 
-			return mouseOffset.x * rotationSpeed / scale;
+			auto result = 1.0f / scale;
+			result *= mouseOffset.x * rotationSpeed * normalSign;
+			return result;
 		};
 		/*
 		rhs can get quite big so if the step size is too big (the user moves the mouse too fast) then things glitch out. The mouse might spin multiple times in a single step and it look like it just teleported. This happens for example with the torus and n = 1.
 		*/
 		// This is what rhs looks like.
-		/*if (ImPlot::BeginPlot("rhs")) {
-			auto rhs = [&](f32 a, f32 _) {
-				const auto f = cos(a) * uTangent + sin(a) * vTangent;
-				const auto df = -sin(a) * uTangent + cos(a) * vTangent;
-				const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
-				return 1.0f / scale;
-			};
+		//if (ImPlot::BeginPlot("rhs")) {
+		//	auto rhs = [&](f32 a, f32 _) {
+		//		const auto f = cos(a) * uTangent + sin(a) * vTangent;
+		//		const auto df = -sin(a) * uTangent + cos(a) * vTangent;
+		//		const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
+		//		return 1.0f / scale;
+		//	};
 
-			ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, 40.0f);
-			std::vector<f32> xs, ys;
-			const auto n = 200;
-			for (i32 i = 0; i < 200; i++) {
-				const auto x = lerp(0.0f, TAU<f32>, f32(i) / (n - 1));
-				const auto y = rhs(x, 0.0f);
-				xs.push_back(x);
-				ys.push_back(y);
-			}
-			ImPlot::PlotLine("rhs(a)", xs.data(), ys.data(), n);
-			ImPlot::EndPlot();
-		}*/
+		//	ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, 40.0f);
+		//	std::vector<f32> xs, ys;
+		//	const auto n = 200;
+		//	for (i32 i = 0; i < 200; i++) {
+		//		const auto x = lerp(0.0f, TAU<f32>, f32(i) / (n - 1));
+		//		const auto y = rhs(x, 0.0f);
+		//		xs.push_back(x);
+		//		ys.push_back(y);
+		//	}
+		//	ImPlot::PlotLine("rhs(a)", xs.data(), ys.data(), n);
+		//	ImPlot::EndPlot();
+		//}
 
 
 		i32 n = 5;
@@ -288,67 +260,92 @@ void MainLoop::update() {
 			uvForwardAngle = rungeKutta4Step(rhs, uvForwardAngle, 0.0f, dt / n);
 		}
 
-		//const auto f = cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent;
-		//const auto df = -sin(uvForwardAngle) * uTangent + cos(uvForwardAngle) * vTangent;
-
-		//// this is the unsimplified form
-		//const auto scale = ((df * f.length() - f * (dot(f, df) / f.length())) / f.lengthSquared()).length();
-		////const auto scale = (df + f * (dot(f, df)/ pow(f.length(), 3))).length();
-
- 	//	const auto dFLength = mouseOffset.x * rotationSpeed * dt;
-		//const auto da = dFLength / scale;
-		//uvForwardAngle += da;
-		/*uvForwardAngle += mouseOffset.x * rotationSpeed * dt / 
-			(-sin(uvForwardAngle) * uTangent + cos(uvForwardAngle) * vTangent).length();*/
 		rightAxisAngle += mouseOffset.y * rotationSpeed * dt;
 
 		uvForwardAngle = normalizeAngleZeroToTau(uvForwardAngle);
 		rightAxisAngle = std::clamp(rightAxisAngle, -degToRad(89.0f), degToRad(89.0f));
 	}
 	
-	/*if (Input::isKeyHeld(KeyCode::A)) { uvForwardAngle += 1.0f * dt; }
-	if (Input::isKeyHeld(KeyCode::D)) { uvForwardAngle -= 1.0f * dt; }*/
+	
+	auto movementRhs = [&](Vec4 state, f32 _) {
+		const auto symbols = surface.christoffelSymbols(state.x, state.y);
+		Vec2 velocity(state.z, state.w);
 
+		return Vec4(
+			velocity.x,
+			velocity.y,
+			-dot(velocity, symbols.x * velocity),
+			-dot(velocity, symbols.y * velocity)
+		);
+	};
 
+	// Solutions to the geodesic equation are constant speed
+	// https://www.ams.jhu.edu/~mmiche18/120a.1.10w/lectures.html
+	// Lecture 25: https://www.ams.jhu.edu/~mmiche18/120a.1.10w/LECTURES/Math120A_Lecture_25.pdf
+
+	// Unrelated, but this is a formulation that uses time instead of arclength. 
+	// https://en.wikipedia.org/wiki/Geodesics_in_general_relativity#Equivalent_mathematical_expression_using_coordinate_time_as_parameter
+	// This only makes sense in spacetime.
 	if (Input::isKeyHeld(KeyCode::W)) {
-		const auto symbols = torusChristoffelSymbols(uvPosition.x, uvPosition.y, r, R);
 		Vec2 velocity = Vec2::oriented(uvForwardAngle);
-		velocity.x -= dot(velocity, symbols.x * velocity) * dt;
-		velocity.y -= dot(velocity, symbols.y * velocity) * dt;
 		const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
+		// Unit speed initial condition.
 		velocity /= v;
-		uvPosition += velocity * dt;
-		uvForwardAngle = velocity.angle();
+
+		i32 n = 5;
+		Vec4 state(uvPosition.x, uvPosition.y, velocity.x, velocity.y);
+		for (i32 i = 0; i < n; i++) {
+			state = rungeKutta4Step(movementRhs, state, 0.0f, dt / n);
+		}
+		const auto v2 = (state.z * uTangent + state.w * vTangent).length();
+		//ImGui::Text("%g", v2);
+
+		uvPosition = Vec2(state.x, state.y);
+		uvForwardAngle = Vec2(state.z, state.w).angle();
 	}
 
-	/*if (Input::isKeyHeld(KeyCode::UP)) { direction.y += 1.0f; }
-	if (Input::isKeyHeld(KeyCode::DOWN)) { direction.y -= 1.0f; }*/
+	auto wrapToRange = [](f32 value, f32 min, f32 max) {
+		value -= min;
+		const auto range = max - min;
+		value = fmod(value, range);
+		if (value < 0.0f) {
+			value += range;
+		}
+		value += min;
+		return value;
+	};
 
-	uvPosition.x = fmod(uvPosition.x, TAU<f32>);
-	uvPosition.y = fmod(uvPosition.y, TAU<f32>);
-	if (uvPosition.x < 0.0f) { uvPosition.x += TAU<f32>; }
-	if (uvPosition.y < 0.0f) { uvPosition.y += TAU<f32>; }
-	//Vec2 p = uvPosition;
-	//if (p.x > PI<f32>) {
-	//	p.x -= TAU<f32>;
-	//}
-	//if (p.y > PI<f32>) {
-	//	p.y -= TAU<f32>;
-	//}
-	//uvPositions.push_back(p);
-	ImGui::Begin("plot");
-	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
+	auto handleConnectivity = [&wrapToRange](f32 value, f32 min, f32 max, SquareSideConnectivity connectivity) -> f32 {
+		switch (connectivity) {
+			using enum SquareSideConnectivity;
+		case NONE:
+			return std::clamp(value, min, max);
 
-		//ImPlot::SetupAxesLimits(-PI<f32>, PI<f32>, -PI<f32>, PI<f32>);
-		ImPlot::SetupAxesLimits(0.0f, TAU<f32>, 0.0f, TAU<f32>);
-		Vec2 forward = uvPosition + Vec2::oriented(uvForwardAngle) * 0.3f;
-		f32 xs[] = { uvPosition.x, forward.x };
-		f32 ys[] = { uvPosition.y, forward.y };
-		ImPlot::PlotLine("arrow", xs, ys, 2);
-		//plotVec2Scatter("points", uvPositions);
-		ImPlot::EndPlot();
-	}
-	ImGui::End();
+		case NORMAL:
+			return wrapToRange(value, min, max);
+
+		case REVERSED:
+			// TODO:
+			return value;
+		};
+	};
+
+	uvPosition.x = handleConnectivity(uvPosition.x, surface.uMin, surface.uMax, surface.uConnectivity);
+	uvPosition.y = handleConnectivity(uvPosition.y, surface.vMin, surface.vMax, surface.vConnectivity);
+
+	uvPositions.push_back(uvPosition);
+	//ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
+	//ImGui::Begin("plot");
+	//if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
+	//	ImPlot::SetupAxesLimits(surface.uMin, surface.uMax, surface.vMin, surface.vMax, ImPlotCond_Always);
+	//	Vec2 forward = uvPosition + Vec2::oriented(uvForwardAngle) * 0.3f;
+	//	f32 xs[] = { uvPosition.x, forward.x };
+	//	f32 ys[] = { uvPosition.y, forward.y };
+	//	ImPlot::PlotLine("arrow", xs, ys, 2);
+	//	plotVec2Scatter("points", uvPositions);
+	//	ImPlot::EndPlot();
+	//}
+	//ImGui::End();
 
 	renderer.renderTriangles();
 

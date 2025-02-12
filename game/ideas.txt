@@ -1,92 +1,26 @@
-Could have a CAS console.
+Ray tracing to choose a point to go to on the surface from the fly mode.
+After the triangle is hit the barycentric coordinates of a point inside the triangle can be calculated and interpolated to get the uv coordinate. This is just the approximate coordinate. 
+Rendering the uv coordinates to a texture and then reading them would achive the same approximate result.
 
-Could have an argument into simplify that would record the domain of the expression. For example whenever there is a negative power it would assert that the base is nonzero.
+If you could parametrize each part of the surface as x3 = f(x1, x2) (basically just a regular region, thesre are also called monge patches i think?) where x1, x2, x3 are x, y, z in any order (that is you can choose the axis on which you project to). Then you can find the inverse of a point by just projecting it onto a set of axes.
+Because the inverse is easy to find it should also be possible to switch between the patches.
+For differential equations you would also need to map between the tangent spaces.
+If you have some tangent in P1 then you can map it into the tangent space of the manifold. Then you can represent the vector in the tanget space in the tangent basis of P2.
+The issue with calculating the coordinates of the tangent vector in the basis of P2 is that you need to calculate the inverse of a 3x2 matrix. Instead of doing that you can represent all the vectors in some basis of the tangent space and then invernt a 2x2 matrix. Obviously representing the vectors in some basis is just the same problem again, but if the chosen basis is orthonormal then you can do it easily. You can construct such a basis by picking a random vector (could be one from the P2 basis) and then calculating the cross product of it with the normal to the tangent space.
+In the case of a x3 = f(x1, x2) type patch the tangent in the P2 is just (v1, v2).
 
+A nice parametrization of the sphere.
+You can map between the sphere and a cube using the map C -> S that just normalizes the position on the cube. The inverse just finds the intrsection of the ray with a cube. 
+You can easily create a coordinate on a cube by just unwrapping it into a net.
+This parametrization is nice, because you can easily map between the sphere and the cube and you know which coordinate chart to switch to without having to do inverses (because the topology of the cube is simple).
 
-https://people.eecs.berkeley.edu/~fateman/papers/y=z2w.pdf
-We could give a symb olic If   answer along the lines of the
-construction ab ove This is rarely useful unless a it collapses sub
-stantially as a consequence of arithmetic andor logical simplication
-and b the CAS is able to continue computation with conditional
-expressions including for example adding and multiplying them in
-verting them   etc This is a challenge but in some sense inevitable
-if the answer to the questions of domain are not and cannot yet b e
-known Although we ve written this out it do es not seem to war
-rant rep etition
+Another possible parametrization is f(u, v) = (u, v, sqrt(1-u^2-v^2)), the issue with this map is that there are overlaps, between the regions.
 
-The symbolic differentiation of ln(x) -> 1/x has a larger domain than the original function. Technically 1/x is the derivative of ln(|x|). This can also be interpreted as the analytic continutation of the derivative of ln(x)
+If you know that there always exists a patch that covers a point on the surface you could try steping the movement forward and if you go out of the current patch you try to find another patch and try to move again. There would probably be cases where moving forward would always step out of the current patch (Don't have a concreate example, but maybe try something with a non-convex boundary or maybe something at the intersection of 3 patches). With the nice parametrization of the sphere it is obvious (well in the case of larger steps there are probably some edge cases) which patch to transition to.
+If the steps are small enought so that you can gurantee that at each step to go from part of the surface that is convered by patch 1 to a part of the surface that is convered by patch 2 you have to go though the part of the surface that is convered by the intersection of the 2 patches then the transitions are going to be simpler.
+If should be emphesized that in general the patches lie in different coordinate systems (in the sense that for example one part would use gnomonic projection and another stereographic projection, that is they use inconsistent projection) in the case of the nice parametrization of the sphere a single coordinate system (on a bunch of squares glued together) is used which is nice.
 
-Also you can define one sided derivatives in the function is defined on a closed set.
-
-let m = sin(x)**2 + cos(x)**2 - 1
-mm^(-1) gets simplified to 1 by most systems. Which is a correct transformation on the domain the expression is defined that is on the empty set.
-
-Are there any operations that produce incorrect results because of domains.
-One example might be differentation. If the derivative is defined only on open sets the the derivative of a function defined on a closed set is undefined on the boundary.
-
-In integration integrals might be different based on wether expressions are equal. For example
-sin(nx) is not always -1/n cos(nx), because n can be zero. n could be replaced with m (where m has a different variable than x).
-
-x^k when k = -1 is also wrong
+Actually switching the vector also needs to be handled.
 
 
-Crimes and misdemeanors in the computer algebra trade https://math.unm.edu/~wester/cas/references/Stoutemyer.pdf
-
-Also 
-solving
-sin(x) = a
-doesn't just give
-x = arcsin(a)
-
-In sympy
-Things like arcsin(sin(x)) don't get automatically simplified but when using solve for 
-arcsin(sin(x)) it gives only [0]
-
-TODO: Write the rewrite rules inside the functions implementing them
-
-
-((-1)^2)^(1/2) = (1)^(1/2)
-(-1)^(2 * (1/2)) = (-1)^1 = -1
-
-a is real
-(a^(1/2))^2 = (a^2)^(1/2)
-because the expression a^(1/2) is only defined for non negative a
-
-One issue with using domains for computation is that the numerical computation of a simplified form of the domain expression might evaluate to a different value. Then the function will be undefined at 2 points instead of one for example.
-
-I guess if the function isn't too weird then the function would be undefined for a range of floating point numbers around the point.
-
-Also you can have both x > 0 and x < 0 as the domain assumptions which are contradictory.
-Is this really an issue. If you simplify an expression and it turns out to be undefined one some region then it still should be correct.
-
-Another issue is the order of operations. If you have an expression like (x^2)^(1/2) x^(1/2) then if you simplify left to right you wont notice the domain is actually x > 0
-
-For solving inequalitites the monoticity of functions can be used.
-
-e^(ln(sin(x)^2 + cos(x)^2 - 1))
-is evaluated as 0 by wolfram alpha
-same for 
-e^ln(0)
-this might be because e^(-inf) = 0
-
-
-If we are solving an equation then a simplification like canceling in (x-1)^2 / (x^2 - 1) is invalid, because it introduces erronous solutions. But this simplification is valid if we have a function which we are simplifying. Assuming the domain is noted.
-This gives the difference between indeterminates and variables. And these objects have different semantics. In one case you are looking for an equivalence of equations and in the other for equality of expressions.
-This distinction is also made in 
-"Computer algebra and theorem proving" Clemens Ballarin
-https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=da10d8aae2d41b98922a31a9f34fd299afb014f8
-
-Integration by substitution using a function with a different domain that the integrated function will also break the domain of antiderivative. For example tangent half angle substitution.
-https://en.wikipedia.org/wiki/Tangent_half-angle_substitution#Examples
-
-If you cannot know if an expression is equal to zero then you can't use the euclidean algorithm for gcd, because it checks when was the last nonzero remainder. Which will give wrong results if the zero remainder is not detected.
-
-Could have functions that can apply theorems instead of the ad hoc application of rules. Each step would be added to a list.
-
-I guess using computer algebra that isn't fully correct is nice for just exploring and playing around.
-
-You can still have algorithm that just type check if the input has some decision algorithm. For example have a gcd algorithm that takes a decision algorithm for a certain kind of expression as an input.
-
-How should conditionals be simplified.
-
-Writing dx/dx' prints ""internal error" in mathdf and prints an exception in console
+Show the vector flow field on the surface. Not sure which direction should the initial condition give. I guess it would only make sense to display the change in the velocity at each point, but that depends on the current velocity.

@@ -6,7 +6,7 @@ struct MainLoop {
 	MainLoop();
 	void update();
 
-	Vec2 uvPosition = Vec2(0.0f);
+	Vec2 uvPosition = Vec2(0.1f);
 	f32 uvForwardAngle = 0.0f;
 	f32 rightAxisAngle = 0.0f;
 	std::optional<Vec2> lastMousePosition;

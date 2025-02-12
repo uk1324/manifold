@@ -43,13 +43,13 @@ void Renderer::addQuad(i32 i0, i32 i1, i32 i2, i32 i3) {
 	trianglesIndices.push_back(i3);
 }
 
-i32 Renderer::addVertex(Vertex3Pn vertex) {
+i32 Renderer::addVertex(Vertex3Pnt vertex) {
 	const auto index = trianglesVertices.size();
 	trianglesVertices.push_back(vertex);
 	return i32(index);
 }
 
-void Renderer::triangle(Vertex3Pn v0, Vertex3Pn v1, Vertex3Pn v2) {
+void Renderer::triangle(Vertex3Pnt v0, Vertex3Pnt v1, Vertex3Pnt v2) {
 	const auto i0 = addVertex(v0);
 	const auto i1 = addVertex(v1);
 	const auto i2 = addVertex(v2);
@@ -57,7 +57,7 @@ void Renderer::triangle(Vertex3Pn v0, Vertex3Pn v1, Vertex3Pn v2) {
 }
 
 void Renderer::renderTriangles() {
-	trianglesVbo.allocateData(trianglesVertices.data(), trianglesVertices.size() * sizeof(Vertex3Pn));
+	trianglesVbo.allocateData(trianglesVertices.data(), trianglesVertices.size() * sizeof(Vertex3Pnt));
 	trianglesIbo.allocateData(trianglesIndices.data(), trianglesIndices.size() * sizeof(u32));
 
 	shaderSetUniforms(trianglesShader, BasicShadingVertUniforms{
