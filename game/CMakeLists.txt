@@ -1,4 +1,4 @@
-add_executable(game "main.cpp" "MainLoop.cpp" "Camera3d.cpp" "Renderer.cpp" "PlotUtils.cpp" "Surfaces/Torus.cpp" "Surfaces/Sphere.cpp" "Surfaces/Helicoid.cpp" "Surfaces/Cone.cpp" "Surfaces/MobiusStrip.cpp")
+add_executable(game "main.cpp" "MainLoop.cpp" "Camera3d.cpp" "Renderer.cpp" "PlotUtils.cpp" "Surfaces/Torus.cpp" "Surfaces/Sphere.cpp" "Surfaces/Helicoid.cpp" "Surfaces/Cone.cpp" "Surfaces/MobiusStrip.cpp" "Surfaces/Pseudosphere.cpp" "Surfaces/Trefoil.cpp")
 
 target_link_libraries(game PUBLIC engine)
 

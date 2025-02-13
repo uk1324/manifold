@@ -9,8 +9,11 @@
 #include <engine/Window.hpp>
 #include <engine/Input/Input.hpp>
 #include <game/Surfaces/Helicoid.hpp>
+#include <game/Surfaces/Pseudosphere.hpp>
 #include <game/Surfaces/Cone.hpp>
 #include <game/Surfaces/Torus.hpp>
+#include <game/Surfaces/Trefoil.hpp>
+#include <game/Surfaces/MobiusStrip.hpp>
 #include <game/Surfaces/Sphere.hpp>
 #include <imgui/implot.h>
 
@@ -148,7 +151,10 @@ void MainLoop::update() {
 
 	const auto normalSign = flipNormal ? -1.0f : 1.0f;
 	//Torus surface{ .r = 0.4f, .R = 2.0f };
-	Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
+	Trefoil surface{ .r = 0.4f, .R = 2.0f };
+	/*Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };*/
+	//MobiusStrip surface;
+	//Pseudosphere surface{ .r = 2.0f };
 	//Cone surface{ 
 	//	.a = 1.0f,
 	//	.b = 1.0f,
@@ -292,6 +298,9 @@ void MainLoop::update() {
 		// Unit speed initial condition.
 		velocity /= v;
 
+		const auto a = movementRhs(Vec4(uvPosition.x, uvPosition.y, velocity.x, velocity.y), 0.0f);
+		ImGui::Text("%g", Vec2(a.z, a.w).length());
+
 		i32 n = 5;
 		Vec4 state(uvPosition.x, uvPosition.y, velocity.x, velocity.y);
 		for (i32 i = 0; i < n; i++) {
@@ -334,21 +343,20 @@ void MainLoop::update() {
 	uvPosition.y = handleConnectivity(uvPosition.y, surface.vMin, surface.vMax, surface.vConnectivity);
 
 	uvPositions.push_back(uvPosition);
-	//ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
-	//ImGui::Begin("plot");
-	//if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
-	//	ImPlot::SetupAxesLimits(surface.uMin, surface.uMax, surface.vMin, surface.vMax, ImPlotCond_Always);
-	//	Vec2 forward = uvPosition + Vec2::oriented(uvForwardAngle) * 0.3f;
-	//	f32 xs[] = { uvPosition.x, forward.x };
-	//	f32 ys[] = { uvPosition.y, forward.y };
-	//	ImPlot::PlotLine("arrow", xs, ys, 2);
-	//	plotVec2Scatter("points", uvPositions);
-	//	ImPlot::EndPlot();
-	//}
-	//ImGui::End();
+	ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
+	ImGui::Begin("plot");
+	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
+		ImPlot::SetupAxesLimits(surface.uMin, surface.uMax, surface.vMin, surface.vMax, ImPlotCond_Always);
+		Vec2 forward = uvPosition + Vec2::oriented(uvForwardAngle) * 0.3f;
+		f32 xs[] = { uvPosition.x, forward.x };
+		f32 ys[] = { uvPosition.y, forward.y };
+		ImPlot::PlotLine("arrow", xs, ys, 2);
+		plotVec2Scatter("points", uvPositions);
+		ImPlot::EndPlot();
+	}
+	ImGui::End();
 
 	renderer.renderTriangles();
 
-	ImPlot::ShowDemoWindow();
 
 }
