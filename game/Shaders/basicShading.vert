@@ -6,13 +6,13 @@ layout(location = 2) in vec2 vertexUv;
 
 uniform mat4 transform; 
 
-out vec3 normal; 
+out vec3 interpolatedNormal; 
 out vec2 uv; 
 
 /*generated end*/
 
 void main() {
 	uv = vertexUv;
-	normal = vertexNormal;
+	interpolatedNormal = vertexNormal;
 	gl_Position = transform * vec4(vertexPosition, 1.0);
 }

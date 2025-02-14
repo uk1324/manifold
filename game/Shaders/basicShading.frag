@@ -1,6 +1,8 @@
 #version 430 core
 
-in vec3 normal; 
+uniform float opacity; 
+
+in vec3 interpolatedNormal; 
 in vec2 uv; 
 out vec4 fragColor;
 
@@ -23,6 +25,7 @@ float checkersTexture( in vec2 p ) {
 
 
 void main() {
+    vec3 normal = normalize(interpolatedNormal);
 //	vec3 lightDir = vec3(0, -1, 0);
 //	float diffuse = max(0.0, dot(normal, -lightDir)) + 0.1;
 //	fragColor = vec4(vec3(diffuse), 1.0);
@@ -30,7 +33,7 @@ void main() {
     vec3 normalColor = (normal + 1) / 2;
     //float pattern = checkersTextureGradBox(uv * 4, dFdx(uv), dFdy(uv));
     float pattern = checkersTexture((uv) * 10);
-	fragColor = vec4(normalColor * (pattern + 1.0 / 2.0), 1.0);
+	fragColor = vec4(normalColor * (pattern + 1.0 / 2.0), opacity);
     //fragColor = vec4(uv, 0.0, 1.0);
     //fragColor = vec4(vec3(pattern), 1.0);
 }

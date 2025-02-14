@@ -9,8 +9,13 @@ shader BasicShading {
 	vertUniforms = {
 		Mat4 transform;
 	};
+	fragUniforms = {
+		float opacity;
+	};
 	vertOut = {
-		Vec3 normal;
+		Vec3 interpolatedNormal;
 		Vec2 uv;
 	};
 }
+
+

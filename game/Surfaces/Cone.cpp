@@ -1,6 +1,6 @@
 #include "Cone.hpp"
 
-Vec3 Cone::position(f32 u, f32 v) {
+Vec3 Cone::position(f32 u, f32 v) const {
 	return Vec3(
 		a * u * cos(v),
 		b * u * sin(v),
@@ -8,7 +8,7 @@ Vec3 Cone::position(f32 u, f32 v) {
 	);
 }
 
-Vec3 Cone::tangentU(f32 u, f32 v) {
+Vec3 Cone::tangentU(f32 u, f32 v) const {
 	return Vec3(
 		a * cos(v),
 		a * sin(v),
@@ -16,7 +16,7 @@ Vec3 Cone::tangentU(f32 u, f32 v) {
 	);
 }
 
-Vec3 Cone::tangentV(f32 u, f32 v) {
+Vec3 Cone::tangentV(f32 u, f32 v) const {
 	return Vec3(
 		-a * u * sin(v),
 		a * u * cos(v),
@@ -24,7 +24,7 @@ Vec3 Cone::tangentV(f32 u, f32 v) {
 	);
 }
 
-Vec3 Cone::normal(f32 u, f32 v) {
+Vec3 Cone::normal(f32 u, f32 v) const {
 	return Vec3(
 		-b * u * cos(v),
 		-a * u * sin(v),
@@ -32,7 +32,7 @@ Vec3 Cone::normal(f32 u, f32 v) {
 	).normalized();
 }
 
-ChristoffelSymbols Cone::christoffelSymbols(f32 u, f32 v) {
+ChristoffelSymbols Cone::christoffelSymbols(f32 u, f32 v) const {
 	const auto a = 1.0f / u;
 	return {
 		.x = Mat2(

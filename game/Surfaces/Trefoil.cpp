@@ -3,6 +3,7 @@
 
 const auto step = 0.05f;
 
+// Could scale the grid text based on the length of the curve.
 Vec3 trefoilCurve(f32 t) {
 	const auto n = 2;
 	/*return Vec3(sin(t) + 2 * sin(n * t), cos(t) - 2 * cos(n * t), -sin(3 * t));*/
@@ -22,7 +23,7 @@ Vec3 trefoilCurveNormal(f32 t) {
 	return derivativeMidpoint([](f32 t) { return trefoilCurveTangent(t); }, t, step).normalized();
 }
 
-Vec3 Trefoil::position(f32 u, f32 v) {
+Vec3 Trefoil::position(f32 u, f32 v) const {
 	const auto r = 0.4f;
 	//const auto r = 0.2f;
 	const auto p = trefoilCurve(u);
@@ -30,23 +31,18 @@ Vec3 Trefoil::position(f32 u, f32 v) {
 	const auto normal = trefoilCurveNormal(u);
 	const auto binormal = cross(tangent, normal);
 	return p + r * (cos(v) * normal + sin(v) * binormal);
-	//return Vec3(
-	//	(R + r * cos(v)) * cos(u),
-	//	(R + r * cos(v)) * sin(u),
-	//	r * sin(v)
-	//);
 }
 
 
-Vec3 Trefoil::tangentU(f32 u, f32 v) {
+Vec3 Trefoil::tangentU(f32 u, f32 v) const {
 	return derivativeMidpoint([&v, this](f32 u) { return position(u, v); }, u, step);
 }
 
-Vec3 Trefoil::tangentV(f32 u, f32 v) {
+Vec3 Trefoil::tangentV(f32 u, f32 v) const {
 	return derivativeMidpoint([&u, this](f32 v) { return position(u, v); }, v, step);
 }
 
-Vec3 Trefoil::normal(f32 u, f32 v) {
+Vec3 Trefoil::normal(f32 u, f32 v) const {
 	return cross(tangentU(u, v), tangentV(u, v)).normalized();
 }
 
@@ -69,7 +65,7 @@ void matrixMultiply(Matrix1 a, i32 aSizeX, i32 aSizeY, Matrix2 b, i32 bSizeX, i3
 	}
 }
 
-ChristoffelSymbols Trefoil::christoffelSymbols(f32 u, f32 v) {
+ChristoffelSymbols Trefoil::christoffelSymbols(f32 u, f32 v) const {
 	Vec3 p_xi[] { tangentU(u, v), tangentV(u, v) };
 
 	Vec3 p_x01 = mixedDerivativeMidpoint([this](f32 u, f32 v) { return position(u, v); }, u, v, step, step);

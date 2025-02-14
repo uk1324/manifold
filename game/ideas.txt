@@ -24,3 +24,10 @@ Actually switching the vector also needs to be handled.
 
 
 Show the vector flow field on the surface. Not sure which direction should the initial condition give. I guess it would only make sense to display the change in the velocity at each point, but that depends on the current velocity.
+
+In some cases the Gauss map can be used to give a parametrization. 
+https://math.stackexchange.com/questions/379254/when-is-the-gauss-map-on-a-surface-bijective
+Could then further projective the sphere onto the cube to get a coordinate system.
+
+
+https://math.stackexchange.com/questions/389196/prove-that-gauss-map-on-m-is-surjective

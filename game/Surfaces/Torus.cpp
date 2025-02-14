@@ -43,22 +43,22 @@ ChristoffelSymbols torusChristoffelSymbols(f32 u, f32 v, f32 r, f32 R) {
 	};
 }
 
-Vec3 Torus::position(f32 u, f32 v) {
+Vec3 Torus::position(f32 u, f32 v) const {
 	return torusPosition(u, v, r, R);
 }
 
-Vec3 Torus::tangentU(f32 u, f32 v) {
+Vec3 Torus::tangentU(f32 u, f32 v) const {
 	return torusTangentU(u, v, r, R);
 }
 
-Vec3 Torus::tangentV(f32 u, f32 v) {
+Vec3 Torus::tangentV(f32 u, f32 v) const {
 	return torusTangentV(u, v, r, R);
 }
 
-Vec3 Torus::normal(f32 u, f32 v) {
+Vec3 Torus::normal(f32 u, f32 v) const {
 	return torusNormal(u, v, r, R);
 }
 
-ChristoffelSymbols Torus::christoffelSymbols(f32 u, f32 v) {
+ChristoffelSymbols Torus::christoffelSymbols(f32 u, f32 v) const {
 	return torusChristoffelSymbols(u, v, r, R);
 }
