@@ -16,5 +16,6 @@ struct FpsCamera3d {
 
 	void update(float dt);
 	Quat cameraForwardRotation() const;
+	Vec3 forward() const;
 	Mat4 viewMatrix() const;
 };

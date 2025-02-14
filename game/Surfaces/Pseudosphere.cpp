@@ -1,6 +1,6 @@
 #include "Pseudosphere.hpp"
 
-Vec3 Pseudosphere::position(f32 u, f32 v) {
+Vec3 Pseudosphere::position(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = r * 1.0 / ((1.0 / 2.0) * exp(u) + (1.0 / 2.0) * exp(-u));
@@ -10,7 +10,7 @@ Vec3 Pseudosphere::position(f32 u, f32 v) {
 	return m;
 }
 
-Vec3 Pseudosphere::tangentU(f32 u, f32 v) {
+Vec3 Pseudosphere::tangentU(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = tanh(u);
@@ -21,7 +21,7 @@ Vec3 Pseudosphere::tangentU(f32 u, f32 v) {
 	return m;
 }
 
-Vec3 Pseudosphere::tangentV(f32 u, f32 v) {
+Vec3 Pseudosphere::tangentV(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = r * 1.0 / ((1.0 / 2.0) * exp(u) + (1.0 / 2.0) * exp(-u));
@@ -31,7 +31,7 @@ Vec3 Pseudosphere::tangentV(f32 u, f32 v) {
 	return m;
 }
 
-Vec3 Pseudosphere::normal(f32 u, f32 v) {
+Vec3 Pseudosphere::normal(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = tanh(u);
@@ -41,7 +41,7 @@ Vec3 Pseudosphere::normal(f32 u, f32 v) {
 	return m.normalized();
 }
 
-ChristoffelSymbols Pseudosphere::christoffelSymbols(f32 u, f32 v) {
+ChristoffelSymbols Pseudosphere::christoffelSymbols(f32 u, f32 v) const {
 	f32 x0 = tanh(u);
 	f32 x1 = -x0;
 	Mat2 x = Mat2::identity, y = Mat2::identity;

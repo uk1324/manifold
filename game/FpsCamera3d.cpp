@@ -43,7 +43,7 @@ void FpsCamera3d::update(float dt) {
 	movement += dir;
 
 
-	const auto forwardMovement = (cameraForwardRotation() * Vec3::FORWARD);
+	const auto forwardMovement = forward();
 	/*if (Input::isKeyHeld(KeyCode::W)) movement += forwardMovement;
 	if (Input::isKeyHeld(KeyCode::S)) movement -= forwardMovement;*/
 
@@ -55,7 +55,11 @@ Quat FpsCamera3d::cameraForwardRotation() const {
 	return Quat(angleAroundUpAxis, Vec3::UP) * Quat(angleAroundRightAxis, Vec3::RIGHT);
 }
 
+Vec3 FpsCamera3d::forward() const {
+	return cameraForwardRotation() * Vec3::FORWARD;
+}
+
 Mat4 FpsCamera3d::viewMatrix() const {
-	auto target = position + cameraForwardRotation() * Vec3::FORWARD;
+	auto target = position + forward();
 	return Mat4::lookAt(position, target, Vec3::UP);
 }

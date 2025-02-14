@@ -16,25 +16,29 @@ struct SufaceCamera {
 
 	// In 3d space
 	f32 angleToTangentPlane = 0.0f;
+	f32 height = 0.2f;
 
+	bool normalFlipped = false;
 	std::optional<Vec2> lastMousePosition;
+
+	f32 normalSign() const;
 
 	template<typename Surface>
 	Mat4 update(const Surface& surface, f32 dt);
+	Vec3 cameraPosition(Vec3 position, Vec3 normalAtUvPosition) const;
+	template<typename Surface>
+	Vec3 cameraPosition(const Surface& surface) const;
 };
 
 template<typename Surface>
 Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
-	static bool flipNormal = true;
-	ImGui::Checkbox("flip normal", &flipNormal);
-	const auto normalSign = flipNormal ? -1.0f : 1.0f;
-
+	const auto normalSign = this->normalSign();
 	Vec3 cameraUp = surface.normal(uvPosition.x, uvPosition.y) * normalSign;
 	const auto uTangent = surface.tangentU(uvPosition.x, uvPosition.y);
 	const auto vTangent = surface.tangentV(uvPosition.x, uvPosition.y);
 
 	const auto forwardTangent = (cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent).normalized();
-	Vec3 cameraPosition = surface.position(uvPosition.x, uvPosition.y) + cameraUp * 0.2f;
+	Vec3 cameraPosition = this->cameraPosition(surface.position(uvPosition.x, uvPosition.y), cameraUp);
 	Vec3 cameraRight = cross(cameraUp, forwardTangent).normalized();
 	Vec3 cameraForward =
 		Quat(angleToTangentPlane, cameraRight) *
@@ -192,4 +196,9 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 	uvPosition.y = handleConnectivity(uvPosition.y, surface.vMin, surface.vMax, surface.vConnectivity);
 
 	return view;
+}
+
+template<typename Surface>
+Vec3 SufaceCamera::cameraPosition(const Surface& surface) const {
+	return cameraPosition(surface.position(uvPosition.x, uvPosition.y), surface.normal(uvPosition.x, uvPosition.y));
 }

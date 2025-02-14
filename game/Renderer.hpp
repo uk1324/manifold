@@ -4,8 +4,8 @@
 #include <engine/Graphics/Vao.hpp>
 #include <engine/Graphics/Ibo.hpp>
 #include <game/Shaders/basicShadingData.hpp>
+#include <gfx2d/Gfx2d.hpp>
 #include <game/Shaders/coloredShadingData.hpp>
-
 
 void indicesAddTri(std::vector<i32>& indicies, i32 i0, i32 i1, i32 i2);
 void indicesAddQuad(std::vector<i32>& indicies, i32 i00, i32 i01, i32 i11, i32 i10);
@@ -30,21 +30,42 @@ struct Renderer {
 	Vao trianglesVao;
 
 	ShaderProgram& coloredShader;
-	Vao cyllinderVao;
-	Vbo cyllinderVbo;
-	Ibo cyllinderIbo;
-	i32 cyllinderIndexCount;
+
+	struct Mesh {
+		Vbo vbo;
+		Ibo ibo;
+		Vao vao;
+		i32 indexCount;
+	};
+
+	Mesh cyllinderMesh;
 	std::vector<ColoredShadingInstance> cyllinders;
+	void initColoredShading();
 	// The issue with using this for rendering curves is that the normal vectors are not interpolated because they are the same at both the top and the bottom of the cylinnder, which makes if flat shaded.
-	void line(Vec3 a, Vec3 b, f32 radius, Vec3 color);
+	void line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps = true);
 	void renderCyllinders();
-	Vao hemisphereVao;
-	Vbo hemisphereVbo;
-	Ibo hemisphereIbo;
-	i32 hemisphereIndexCount;
+	void cyllinder(Vec3 a, Vec3 b, f32 radius, Vec3 color);
+	Mesh hemisphere;
 	std::vector<ColoredShadingInstance> hemispheres;
+	void sphere(Vec3 center, f32 radius, Vec3 color);
 	void renderHemispheres();
+	Mesh coneMesh;
+	std::vector<ColoredShadingInstance> cones;
+	void cone(Vec3 bottom, Vec3 top, f32 radius, Vec3 color);
+	void arrowStartEnd(
+		Vec3 start, 
+		Vec3 end, 
+		f32 radius, 
+		f32 coneRadius, 
+		f32 coneLength, 
+		Vec3 lineColor,
+		Vec3 coneColor);
+	void renderCones();
+	Mesh circleMesh;
+	std::vector<ColoredShadingInstance> circles;
+	void renderCircles();
 
 	Vbo instancesVbo;
 
+	Gfx2d gfx2d;
 };

@@ -6,12 +6,12 @@ const auto step = 0.05f;
 // Could scale the grid text based on the length of the curve.
 Vec3 trefoilCurve(f32 t) {
 	const auto n = 2;
-	/*return Vec3(sin(t) + 2 * sin(n * t), cos(t) - 2 * cos(n * t), -sin(3 * t));*/
-	return Vec3(
+	return Vec3(sin(t) + 2 * sin(n * t), cos(t) - 2 * cos(n * t), -sin(3 * t));
+	/*return Vec3(
 		(2 + cos(2.0f * t)) * cos(3.0f * t),
 		(2 + cos(2.0f * t)) * sin(3.0f * t),
 		sin(4.0f * t)
-	);
+	);*/
 }
 
 Vec3 trefoilCurveTangent(f32 t) {

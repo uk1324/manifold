@@ -31,3 +31,5 @@ Could then further projective the sphere onto the cube to get a coordinate syste
 
 
 https://math.stackexchange.com/questions/389196/prove-that-gauss-map-on-m-is-surjective
+
+Add some cool looking skybox
