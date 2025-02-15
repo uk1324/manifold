@@ -47,3 +47,7 @@ The vector field can also be visualized using a particle system.
 Random vector fields can be generated using procedural noise.
 
 Fluid flows can also be used to generate flows in 3d.
+
+Could do a visualization of bifuractions. Give examples. For example create an slider that allows you to move 2 sources untill they merge.
+
+Could find the stationary points by using raymarching in the uv domain.

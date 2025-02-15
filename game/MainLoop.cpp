@@ -73,6 +73,7 @@ void generateParametrizationOfRectangle(
 }
 
 //Torus surface{ .r = 0.4f, .R = 2.0f };
+//Torus surface{ .r = 0.4f, .R = 1.0f };
 //Trefoil surface{ .r = 0.4f, .R = 2.0f };
 //Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
 //MobiusStrip surface;
@@ -87,7 +88,7 @@ Sphere surface{ .r = 1.0f };
 
 MainLoop::MainLoop()
 	: renderer(Renderer::make())
-	, noise(0) {
+	, noise(5) {
 
 	generateParametrizationOfRectangle(
 		surfaceMesh,
@@ -115,6 +116,15 @@ MainLoop::MainLoop()
 	for (i32 i = 0; i < particleCount; i++) {
 		randomInitializeParticle(i);
 	}
+	for (i32 i = 0; i < particleCount; i++) {
+		const auto elapsed = std::uniform_int_distribution<i32>(0, flowParticles.lifetime[i] - 1)(rng);
+		for (i32 j = 1; j <= elapsed; j++) {
+			flowParticles.position(i, j) = flowParticles.position(i, 0);
+		}
+		flowParticles.elapsed[i] = elapsed;
+	}
+
+	randomizeVectorField(5);
 
 	Window::disableCursor();
 }
@@ -128,6 +138,10 @@ void MainLoop::update() {
 
 	if (Input::isKeyDown(KeyCode::X)) {
 		Window::close();
+	}
+
+	if (ImGui::Button("randomize")) {
+		randomizeVectorField(rng());
 	}
 
 	//auto renderLine = [this](Vec3 a, Vec3 b) {
@@ -210,14 +224,14 @@ void MainLoop::update() {
 	std::sort(sortedTriangles.begin(), sortedTriangles.end(), lessThan);
 
 
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+	/*for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
 		const auto index = indicesOffset + sortedTriangles[i] * 3;
 		renderer.addTriangle(
 			surfaceMesh.indices[index],
 			surfaceMesh.indices[index + 1],
 			surfaceMesh.indices[index + 2]
 		);
-	}
+	}*/
 
 	//renderer.sphere(Vec3(0.0f, 0.0f, 5.0f), 0.1f, Color3::GREEN);
 
@@ -268,51 +282,80 @@ void MainLoop::update() {
 
 	static std::vector<Vec3> points;
 	
-	auto particle = [this](Vec3 v, f32 a, f32 size) {
-		renderer.flowParticle(fpsCamera.cameraForwardRotation(), size, v, Vec4(Color3::WHITE, a));
+	auto particle = [this](Vec3 v, f32 a, f32 size, Vec3 color) {
+		renderer.flowParticle(fpsCamera.cameraForwardRotation(), size, v, Vec4(color, a));
 	};
-	auto vectorField = [this](Vec3 v) -> Vec3 {
-		return Vec3(
-			noise.value3d(v),
-			noise.value3d(v + Vec3(214.0f, 0.0f, 0.0f)),
-			noise.value3d(v + Vec3(0.0f, 24.456f, 0.0f))
-		);
-	};
+	static bool stopped = false;
+	ImGui::Checkbox("stopped", &stopped);
+	bool step = !stopped;
+	if (ImGui::Button("step")) {
+		step = true;
+	}
 	// Updating every other frame makes it look laggy.
-	const auto disappearTime = 5;
+	// creation frame = 0
+	// normally updates for lifetime frames. On frame = lifetime - 1 is the last update.
+	// When frame >= lifetime then the it starts disappearing. 
+	// On frame lifetime + disappearTime it would fully disappear so instead it's respawned.
+	const auto disappearTime = 10;
 	for (i32 i = 0; i < flowParticles.particleCount(); i++) {
-		const auto lifetime = flowParticles.lifetime[i];
+		const auto& lifetime = flowParticles.lifetime[i];
 		auto& elapsed = flowParticles.elapsed[i];
-		elapsed++;
-		const auto disapperElapsed = std::max(0, elapsed - lifetime);
-		if (elapsed < lifetime) {
-			const auto p = flowParticles.position(i, elapsed - 1);
-			const auto position = surface.position(p.x, p.y);
-			const auto tangentU = surface.tangentU(p.x, p.y);
-			const auto tangentV = surface.tangentV(p.x, p.y);
+		if (step) {
+			elapsed++;
+			const auto disapperElapsed = std::max(0, elapsed - lifetime);
+			if (elapsed < lifetime) {
+				const auto p = flowParticles.position(i, elapsed - 1);
+				const auto position = surface.position(p.x, p.y);
+				const auto tangentU = surface.tangentU(p.x, p.y);
+				const auto tangentV = surface.tangentV(p.x, p.y);
 
-			const auto normal = flowParticles.normal(i, elapsed - 1);
-			const auto vector = vectorField(position);
-			const auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-			const auto newPosition = p + vectorUv * dt * 5.0f;
-			flowParticles.position(i, elapsed) = newPosition;
-			flowParticles.normal(i, elapsed) = surface.normal(newPosition.x, newPosition.y);
-		} else if (disapperElapsed >= disappearTime) {
-			randomInitializeParticle(i);
+				const auto normal = flowParticles.normal(i, elapsed - 1);
+				const auto vector = vectorFieldSample(position);
+				 auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+				const auto newPosition = p + vectorUv * dt * 5.0f;
+				//const auto newPosition = p;
+				/*flowParticles.position(i, elapsed) = newPosition;*/
+				flowParticles.position(i, elapsed) = newPosition;
+				flowParticles.normal(i, elapsed) = surface.normal(newPosition.x, newPosition.y);
+			} else if (disapperElapsed >= disappearTime - 1) {
+				randomInitializeParticle(i);
+			}
 		}
+ 		const auto disapperElapsed = std::max(0, elapsed - lifetime);
 
 
-		for (i32 positionI = 0; positionI < std::min(elapsed, FlowParticles::maxLifetime); positionI++) {
+		const auto frameCount = elapsed + 1;
+		/*for (i32 positionI = 0; positionI < std::min(frameCount, lifetime) - 1; positionI++) {
+			const auto a = flowParticles.position(i, positionI);
+			const auto b = flowParticles.position(i, positionI + 1);
+			renderer.line(surface.position(a.x, a.y), surface.position(b.x, b.y), 0.01f, Color3::BLUE);
+		}*/
+ 		for (i32 positionI = 0; positionI < std::min(frameCount, lifetime); positionI++) {
 			const auto disappearT = f32(disapperElapsed) / f32(disappearTime);
 			const auto p = flowParticles.position(i, positionI);
 			f32 a = 0.5f;
 			f32 t = 1.0f;
-			t *= f32(positionI) / f32(elapsed + 1);
+			t *= f32(positionI + 1) / f32(frameCount);
 			t *= 1.0f - disappearT;
 			const auto maxSize = 0.03f;
 			const auto size = (t + 1.0f) / 2.0f * maxSize;
-			particle(surface.position(p.x, p.y) + flowParticles.normal(i, positionI) * maxSize, a * t, size);
+			//const auto color = Color3::fromHsv(f32(positionI + 1) / f32(frameCount), 1.0f, 1.0f);
+			/*const auto color = Color3::scientificColoring(f32(positionI + 1) / f32(frameCount), 0.0f, 1.0f);*/
+			//const auto color = Color3::WHITE;
+
+			const auto position = surface.position(p.x, p.y);
+			const auto tangentU = surface.tangentU(p.x, p.y);
+			const auto tangentV = surface.tangentV(p.x, p.y);
+			const auto vector = vectorFieldSample(position);
+			const auto normal = flowParticles.normal(i, positionI);
+			auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+			const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
+
+			const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
+
+			particle(position + flowParticles.normal(i, positionI) * maxSize, a * t, size, color);
 		}
+
 	}
 	
 	glEnable(GL_DEPTH_TEST);
@@ -431,7 +474,7 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 	}
 
 	}
-	{
+	if (false) {
 		const auto initialPosition = surface.position(initialPositionUv.x, initialPositionUv.y);
 		const auto initialVelocity =
 			(surface.tangentU(initialPositionUv.x, initialPositionUv.y) * initialVelocityUv.x +
@@ -451,7 +494,7 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 		);
 	}
 
-	{
+	if (false) {
 		auto movementRhs = [&](Vec4 state, f32 _) {
 		const auto symbols = surface.christoffelSymbols(state.x, state.y);
 			Vec2 velocity(state.z, state.w);
@@ -526,8 +569,48 @@ void MainLoop::randomInitializeParticle(i32 i) {
 	const auto lifetime = std::uniform_int_distribution<i32>(
 		i32(FlowParticles::maxLifetime * f32(0.7f)),
 		FlowParticles::maxLifetime)(rng);
+	//const auto lifetime = FlowParticles::maxLifetime;
 	flowParticles.initializeParticle(i, position, surface.normal(position.x, position.y), lifetime);
 }
+
+void MainLoop::randomizeVectorField(usize seed) {
+	noise = PerlinNoise(seed);
+	vectorFieldMinLength = std::numeric_limits<f32>::infinity();
+	vectorFieldMaxLength = -std::numeric_limits<f32>::infinity();
+	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+		Vec3 v[3];
+		getTriangle(surfaceMesh.positions, surfaceMesh.indices, v, i);
+		const auto normal = cross(v[1] - v[0], v[2] - v[0]).normalized();
+		const auto centroid = (v[0] + v[1] + v[2]) / 3.0f;
+		const auto vector = vectorFieldSample(centroid);
+		const auto projectedOntoTangentSpace = vector - dot(vector, normal) * normal;
+		const auto length = projectedOntoTangentSpace.lengthSquared();
+		if (length > vectorFieldMaxLength) {
+			vectorFieldMaxLength = length;
+		}
+		if (length < vectorFieldMinLength) {
+			vectorFieldMinLength = length;
+		}
+	}
+	vectorFieldMaxLength = sqrt(vectorFieldMaxLength);
+	vectorFieldMinLength = sqrt(vectorFieldMinLength);
+}
+
+Vec3 MainLoop::vectorFieldSample(Vec3 v) const {
+	v /= 10.0f;
+	return Vec3(
+		noise.value3d(v),
+		noise.value3d(v + Vec3(214.0f, 0.0f, 0.0f)),
+		noise.value3d(v + Vec3(0.0f, 24.456f, 0.0f))
+	);
+}
+
+//Vec3 MainLoop::vectorFieldSample(Vec3 pos, Vec2 uvPos, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const {
+//	const auto tangentU = surface.tangentU(uvPos.x, uvPos.y);
+//	const auto tangentV = surface.tangentV(uvPos.x, uvPos.y);
+//	const auto vector = vectorFieldSample(pos);
+//	return vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+//}
 
 i32 MainLoop::Surface::vertexCount() const {
 	return positions.size();
@@ -545,6 +628,10 @@ void MainLoop::Surface::addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt) {
 }
 
 Vec2& MainLoop::FlowParticles::position(i32 particleIndex, i32 frame) {
+	ASSERT(particleIndex < particleCount());
+	if (lifetime[particleIndex] > 0) {
+		ASSERT(frame < lifetime[particleIndex]);
+	}
 	return positionsData[maxLifetime * particleIndex + frame];
 }
 
@@ -574,6 +661,7 @@ void MainLoop::FlowParticles::tryAllocate(Vec2 position, Vec3 normal, i32 lifeti
 
 void MainLoop::FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime) {
 	this->position(i, 0) = position;
+	this->normal(i, 0) = normal;
 	this->lifetime[i] = lifetime;
 	this->elapsed[i] = 0;
 }

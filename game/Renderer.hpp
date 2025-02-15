@@ -42,6 +42,8 @@ struct Renderer {
 	Mesh flowParticleRectMesh;
 	static void drawRectMeshInstances(usize count);
 
+	Vec3 vectorFieldSample(Vec3 pos);
+
 	ShaderProgram& flowParticleShader;
 	std::vector<FlowParticleInstance> flowParticles;
 	void flowParticle(Quat cameraRoatation, f32 size, Vec3 position, Vec4 color);

@@ -2,7 +2,7 @@
 
 // https://trecs.se/M%C3%B6biusStrip.php
 
-Vec3 MobiusStrip::position(f32 u, f32 v) {
+Vec3 MobiusStrip::position(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = (1.0 / 2.0) * u;
@@ -14,7 +14,7 @@ Vec3 MobiusStrip::position(f32 u, f32 v) {
 	return m;
 }
 
-Vec3 MobiusStrip::tangentU(f32 u, f32 v) {
+Vec3 MobiusStrip::tangentU(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = cos(u);
@@ -29,7 +29,7 @@ Vec3 MobiusStrip::tangentU(f32 u, f32 v) {
 	return m;
 }
 
-Vec3 MobiusStrip::tangentV(f32 u, f32 v) {
+Vec3 MobiusStrip::tangentV(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = (1.0 / 2.0) * u;
@@ -40,7 +40,7 @@ Vec3 MobiusStrip::tangentV(f32 u, f32 v) {
 	return m;
 }
 
-Vec3 MobiusStrip::normal(f32 u, f32 v) {
+Vec3 MobiusStrip::normal(f32 u, f32 v) const {
 	Vec3 m(0.0f);
 	f32* out = m.data();
 	f32 x0 = (1.0 / 8.0) * v;
@@ -56,7 +56,7 @@ Vec3 MobiusStrip::normal(f32 u, f32 v) {
 	return m.normalized();
 }
 
-ChristoffelSymbols MobiusStrip::christoffelSymbols(f32 u, f32 v) {
+ChristoffelSymbols MobiusStrip::christoffelSymbols(f32 u, f32 v) const {
 	f32 x0 = (1.0 / 2.0) * u;
 	f32 x1 = sin(x0);
 	f32 x2 = pow(v, 2);

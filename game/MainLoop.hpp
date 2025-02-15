@@ -70,6 +70,13 @@ struct MainLoop {
 	void randomInitializeParticle(i32 i);
 
 	PerlinNoise noise;
+	void randomizeVectorField(usize seed);
+
+	Vec3 vectorFieldSample(Vec3 v) const;
+
+	f32 vectorFieldMinLength = 0.0f;
+	f32 vectorFieldMaxLength = 1.0f;
+	//Vec3 vectorFieldSample(Vec3 pos, Vec2 uvPos, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const;
 
 	Surface surfaceMesh;
 	std::vector<i32> sortedTriangles;
