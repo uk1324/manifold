@@ -84,3 +84,34 @@ std::optional<RayTriIntersection> rayTriIntersection(Vec3 rayOrigin, Vec3 rayDir
 std::optional<RayTriIntersection> rayTriIntersection(Vec3 rayOrigin, Vec3 rayDirection, const Vec3* v) {
     return rayTriIntersection(rayOrigin, rayDirection, v[0], v[1], v[2]);
 }
+
+f32 triArea(Vec3 v0, Vec3 v1, Vec3 v2) {
+    return cross(v1 - v0, v2 - v0).length();
+}
+
+f32 triArea(const Vec3* v) {
+    return triArea(v[0], v[1], v[2]);
+}
+
+Vec3 uniformRandomPointOnTri(Vec3 v0, Vec3 v1, Vec3 v2, f32 r0, f32 r1) {
+    // https://stackoverflow.com/questions/19654251/random-point-inside-triangle-inside-java
+    return
+        (1.0f - sqrt(r0)) * v0 +
+        (sqrt(r0) * (1.0f - r1)) * v1 +
+        (r1 * sqrt(r0)) * v2;
+}
+
+Vec3 uniformRandomPointOnTri(const Vec3* v, f32 r0, f32 r1) {
+    return uniformRandomPointOnTri(v[0], v[1], v[2], r0, r1);
+}
+
+Vec2 uniformRandomPointOnTri(Vec2 v0, Vec2 v1, Vec2 v2, f32 r0, f32 r1) {
+    return
+        (1.0f - sqrt(r0)) * v0 +
+        (sqrt(r0) * (1.0f - r1)) * v1 +
+        (r1 * sqrt(r0)) * v2;
+}
+
+Vec2 uniformRandomPointOnTri(const Vec2* v, f32 r0, f32 r1) {
+    return uniformRandomPointOnTri(v[0], v[1], v[2], r0, r1);
+}

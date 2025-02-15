@@ -1,17 +1,16 @@
-import "basicShading.data"
+import "basicShading.data";
 
 shader FlowParticle {
 	vertexStruct = Vertex3Pnt;
 	vertInstance = {
-		Vec3 position;
-		Vec3 forward;
+		Mat4 transform;
 	};
 	vertUniforms = {
 		Mat4 transform;
 	};
 	fragInstance = {
-		Vec3 color;
-	}
+		Vec4 color;
+	};
 	fragUniforms = {
 		float opacity;
 	};

@@ -1,14 +1,9 @@
 #include "MainLoop.hpp"
 #include <glad/glad.h>
-#include <Dbg.hpp>
 #include <engine/Math/Color.hpp>
-#include <Timer.hpp>
 #include <engine/Math/OdeIntegration/RungeKutta4.hpp>
 #include <engine/Math/Interpolation.hpp>
 #include <game/PlotUtils.hpp>
-#include <engine/Math/Mat2.hpp>
-#include <engine/Math/Angles.hpp>
-#include <engine/Math/Constants.hpp>
 #include <engine/Window.hpp>
 #include <engine/Input/Input.hpp>
 #include <game/Surfaces/Helicoid.hpp>
@@ -22,6 +17,7 @@
 #include <gfx/ShaderManager.hpp>
 #include <game/Tri3d.hpp>
 #include <game/RayIntersection.hpp>
+#include <random>
 
 template<typename T>
 void getTriangle(const std::vector<T>& values, const std::vector<i32>& indices, T* triangle, i32 triangleIndex) {
@@ -76,7 +72,7 @@ void generateParametrizationOfRectangle(
 	}
 }
 
-Torus surface{ .r = 0.4f, .R = 2.0f };
+//Torus surface{ .r = 0.4f, .R = 2.0f };
 //Trefoil surface{ .r = 0.4f, .R = 2.0f };
 //Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
 //MobiusStrip surface;
@@ -87,10 +83,11 @@ Torus surface{ .r = 0.4f, .R = 2.0f };
 //	.uMin = -2.0f,
 //	.uMax = 2.0f,
 //};
-//Sphere surface{ .r = 1.0f };
+Sphere surface{ .r = 1.0f };
 
 MainLoop::MainLoop()
-	: renderer(Renderer::make()) {
+	: renderer(Renderer::make())
+	, noise(0) {
 
 	generateParametrizationOfRectangle(
 		surfaceMesh,
@@ -101,6 +98,22 @@ MainLoop::MainLoop()
 	);
 	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
 		sortedTriangles.push_back(i);
+	}
+	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+		Vec3 vs[3];
+		getTriangle(surfaceMesh.positions, surfaceMesh.indices, vs, i);
+		surfaceMesh.triangleAreas.push_back(triArea(vs));
+	}
+	f32 totalArea = 0.0f;
+	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+		totalArea += surfaceMesh.triangleAreas[i];
+	}
+	surfaceMesh.totalArea = totalArea;
+
+	const auto particleCount = 1000;
+	flowParticles.initialize(particleCount);
+	for (i32 i = 0; i < particleCount; i++) {
+		randomInitializeParticle(i);
 	}
 
 	Window::disableCursor();
@@ -239,18 +252,77 @@ void MainLoop::update() {
 	ImGui::End();
 
 	// Disabling depth writes was mentioned in real-time rendering. Not sure what it actually does.
-	glDepthMask(GL_FALSE);
+	//glDepthMask(GL_FALSE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	renderer.renderTriangles(0.5f);
+	//renderer.renderTriangles(0.5f);
+	renderer.renderTriangles(1.0f);
 	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
+	//glDepthMask(GL_TRUE);
 
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	renderer.gfx2d.disk(Vec2(0.0f), 0.015f, Color3::WHITE);
 	renderer.gfx2d.drawDisks();
 	glDisable(GL_BLEND);
+
+	static std::vector<Vec3> points;
+	
+	auto particle = [this](Vec3 v, f32 a, f32 size) {
+		renderer.flowParticle(fpsCamera.cameraForwardRotation(), size, v, Vec4(Color3::WHITE, a));
+	};
+	auto vectorField = [this](Vec3 v) -> Vec3 {
+		return Vec3(
+			noise.value3d(v),
+			noise.value3d(v + Vec3(214.0f, 0.0f, 0.0f)),
+			noise.value3d(v + Vec3(0.0f, 24.456f, 0.0f))
+		);
+	};
+	// Updating every other frame makes it look laggy.
+	const auto disappearTime = 5;
+	for (i32 i = 0; i < flowParticles.particleCount(); i++) {
+		const auto lifetime = flowParticles.lifetime[i];
+		auto& elapsed = flowParticles.elapsed[i];
+		elapsed++;
+		const auto disapperElapsed = std::max(0, elapsed - lifetime);
+		if (elapsed < lifetime) {
+			const auto p = flowParticles.position(i, elapsed - 1);
+			const auto position = surface.position(p.x, p.y);
+			const auto tangentU = surface.tangentU(p.x, p.y);
+			const auto tangentV = surface.tangentV(p.x, p.y);
+
+			const auto normal = flowParticles.normal(i, elapsed - 1);
+			const auto vector = vectorField(position);
+			const auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+			const auto newPosition = p + vectorUv * dt * 5.0f;
+			flowParticles.position(i, elapsed) = newPosition;
+			flowParticles.normal(i, elapsed) = surface.normal(newPosition.x, newPosition.y);
+		} else if (disapperElapsed >= disappearTime) {
+			randomInitializeParticle(i);
+		}
+
+
+		for (i32 positionI = 0; positionI < std::min(elapsed, FlowParticles::maxLifetime); positionI++) {
+			const auto disappearT = f32(disapperElapsed) / f32(disappearTime);
+			const auto p = flowParticles.position(i, positionI);
+			f32 a = 0.5f;
+			f32 t = 1.0f;
+			t *= f32(positionI) / f32(elapsed + 1);
+			t *= 1.0f - disappearT;
+			const auto maxSize = 0.03f;
+			const auto size = (t + 1.0f) / 2.0f * maxSize;
+			particle(surface.position(p.x, p.y) + flowParticles.normal(i, positionI) * maxSize, a * t, size);
+		}
+	}
+	
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	renderer.renderFlowParticles();
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+
 }
 
 void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
@@ -300,25 +372,16 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 		const auto intersectionT = rayPlaneIntersection(cameraPosition, forward, initialPositionPos, tangentPlaneNormal);
 		if (intersectionT.has_value()) {
 			const auto intersection = cameraPosition + *intersectionT * forward;
-			Vec3 orthonormalTangentPlaneBasis[2]{
-				initialPositionTangentU,
-				cross(initialPositionTangentU, tangentPlaneNormal)
-			};
-			auto toOrthonormalBasis = [&orthonormalTangentPlaneBasis](Vec3 v) {
-				return Vec2(
-					dot(orthonormalTangentPlaneBasis[0], v),
-					dot(orthonormalTangentPlaneBasis[1], v)
-				);
-			};
 			// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
-			const auto tU = toOrthonormalBasis(initialPositionTangentU);
-			const auto tV = toOrthonormalBasis(initialPositionTangentV);
-			const auto i = toOrthonormalBasis(intersection - initialPositionPos);
-			const auto inUvCoordinates = Mat2(tU, tV).inversed() * i;
 			// TODO: Could allow snapping to the grid.
 			tangentPlaneIntersection = TangentPlanePosition{
 				.inSpace = intersection,
-				.inUvCoordinates = inUvCoordinates
+				.inUvCoordinates = vectorInTangentSpaceBasis(
+					intersection - initialPositionPos,
+					initialPositionTangentU,
+					initialPositionTangentV,
+					tangentPlaneNormal
+				)
 			};
 		}
 	}
@@ -424,7 +487,46 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 			velocity = tangent;
 		}
 	}
+}
 
+Vec2 MainLoop::randomPointOnSurface() {
+	const auto value = uniform01(rng) * surfaceMesh.totalArea;
+	f32 cursor = 0.0f;
+	i32 randomTriangleIndex = 0;
+	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+		cursor += surfaceMesh.triangleAreas[i];
+		if (cursor >= value) {
+			randomTriangleIndex = i;
+			break;
+		}
+	}
+	Vec2 uvs[3];
+	getTriangle(surfaceMesh.uvs, surfaceMesh.indices, uvs, randomTriangleIndex);
+	const auto r0 = uniform01(rng);
+	const auto r1 = uniform01(rng);
+	return uniformRandomPointOnTri(uvs, r0, r1);
+}
+
+Vec2 MainLoop::vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const {
+	const auto v0 = tangentU.normalized();
+	const auto v1 = cross(tangentU, normal).normalized();
+	auto toOrthonormalBasis = [&](Vec3 v) -> Vec2 {
+		return Vec2(dot(v, v0), dot(v, v1));
+	};
+	// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
+	const auto tU = toOrthonormalBasis(tangentU);
+	const auto tV = toOrthonormalBasis(tangentV);
+	const auto i = toOrthonormalBasis(v);
+	const auto inUvCoordinates = Mat2(tU, tV).inversed() * i;
+	return inUvCoordinates;
+}
+
+void MainLoop::randomInitializeParticle(i32 i) {
+	const auto position = randomPointOnSurface();
+	const auto lifetime = std::uniform_int_distribution<i32>(
+		i32(FlowParticles::maxLifetime * f32(0.7f)),
+		FlowParticles::maxLifetime)(rng);
+	flowParticles.initializeParticle(i, position, surface.normal(position.x, position.y), lifetime);
 }
 
 i32 MainLoop::Surface::vertexCount() const {
@@ -440,4 +542,42 @@ void MainLoop::Surface::addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt) {
 	normals.push_back(n);
 	uvs.push_back(uv);
 	uvts.push_back(uvt);
+}
+
+Vec2& MainLoop::FlowParticles::position(i32 particleIndex, i32 frame) {
+	return positionsData[maxLifetime * particleIndex + frame];
+}
+
+Vec3& MainLoop::FlowParticles::normal(i32 particleIndex, i32 frame) {
+	return normalsData[maxLifetime * particleIndex + frame];
+}
+
+void MainLoop::FlowParticles::initialize(i32 particleCount) {
+	positionsData.resize(particleCount * maxLifetime);
+	normalsData.resize(particleCount * maxLifetime);
+	lifetime.resize(particleCount);
+	elapsed.resize(particleCount);
+	isFree.resize(particleCount, false);
+}
+
+i32 MainLoop::FlowParticles::particleCount() const {
+	return lifetime.size();
+}
+
+void MainLoop::FlowParticles::tryAllocate(Vec2 position, Vec3 normal, i32 lifetime) {
+	for (i32 i = 0; i < isFree.size(); i++) {
+		if (isFree[i]) {
+			initializeParticle(i, position, normal, lifetime);
+		}
+	}
+}
+
+void MainLoop::FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime) {
+	this->position(i, 0) = position;
+	this->lifetime[i] = lifetime;
+	this->elapsed[i] = 0;
+}
+
+void MainLoop::FlowParticles::free(i32 i) {
+	isFree[i] = true;
 }

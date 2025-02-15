@@ -3,6 +3,8 @@
 #include <game/Renderer.hpp>
 #include <game/FpsCamera3d.hpp>
 #include <game/SurfaceCamera.hpp>
+#include <Array2d.hpp>
+#include <game/PerlinNoise.hpp>
 
 struct MainLoop {
 	MainLoop();
@@ -23,10 +25,21 @@ struct MainLoop {
 		std::vector<i32> indices;
 
 		std::vector<Vec3> triangleCenters;
+		std::vector<f32> triangleAreas;
+		f32 totalArea;
+
+		Vec2 randomPosition();
+
 		i32 vertexCount() const;
 		i32 triangleCount() const;
 		void addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt);
 	};
+	//std::vector<Vec2> randomPoints;
+
+	std::random_device dev;
+	std::default_random_engine rng;
+	std::uniform_real_distribution<f32> uniform01;
+	Vec2 randomPointOnSurface();
 
 	Vec2 initialPositionUv = Vec2(0.1f);
 	Vec2 initialVelocityUv = Vec2(0.0f, 1.0f);
@@ -37,8 +50,30 @@ struct MainLoop {
 	};
 	Grabbed grabbed = Grabbed::NONE;
 
+	Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const;
+
+	struct FlowParticles {
+		std::vector<Vec2> positionsData;
+		std::vector<Vec3> normalsData;
+		Vec2& position(i32 particleIndex, i32 frame);
+		Vec3& normal(i32 particleIndex, i32 frame);
+		std::vector<i32> lifetime;
+		std::vector<i32> elapsed;
+		std::vector<bool> isFree;
+		void initialize(i32 particleCount);
+		i32 particleCount() const;
+		void tryAllocate(Vec2 position, Vec3 normal, i32 lifetime);
+		void initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime);
+		void free(i32 i);
+		static constexpr auto maxLifetime = 20;
+	} flowParticles;
+	void randomInitializeParticle(i32 i);
+
+	PerlinNoise noise;
+
 	Surface surfaceMesh;
 	std::vector<i32> sortedTriangles;
+
 
 	enum class CameraMode {
 		ON_SURFACE,

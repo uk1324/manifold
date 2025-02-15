@@ -6,6 +6,8 @@
 #include <game/Shaders/basicShadingData.hpp>
 #include <gfx2d/Gfx2d.hpp>
 #include <game/Shaders/coloredShadingData.hpp>
+#include <engine/Math/Quat.hpp>
+#include <game/Shaders/flowParticleData.hpp>
 
 void indicesAddTri(std::vector<i32>& indicies, i32 i0, i32 i1, i32 i2);
 void indicesAddQuad(std::vector<i32>& indicies, i32 i00, i32 i01, i32 i11, i32 i10);
@@ -37,6 +39,13 @@ struct Renderer {
 		Vao vao;
 		i32 indexCount;
 	};
+	Mesh flowParticleRectMesh;
+	static void drawRectMeshInstances(usize count);
+
+	ShaderProgram& flowParticleShader;
+	std::vector<FlowParticleInstance> flowParticles;
+	void flowParticle(Quat cameraRoatation, f32 size, Vec3 position, Vec4 color);
+	void renderFlowParticles();
 
 	Mesh cyllinderMesh;
 	std::vector<ColoredShadingInstance> cyllinders;

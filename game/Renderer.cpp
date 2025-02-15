@@ -32,8 +32,8 @@ void indicesAddQuad(std::vector<i32>& indicies, i32 i00, i32 i01, i32 i11, i32 i
 }
 
 template<typename Shader, typename Vertex>
-Renderer::Mesh makeMesh(const std::vector<Vertex>& vertices, const std::vector<i32> indices, Vbo& instancesVbo) {
-	auto vbo = Vbo(vertices.data(), vertices.size() * sizeof(Vertex3Pn));
+Renderer::Mesh makeMesh(View<const Vertex> vertices, View<const i32> indices, Vbo& instancesVbo) {
+	auto vbo = Vbo(vertices.data(), vertices.size() * sizeof(Vertex));
 	auto ibo = Ibo(indices.data(), indices.size() * sizeof(i32));
 	auto vao = createInstancingVao<Shader>(vbo, ibo, instancesVbo);
 	return Renderer::Mesh{
@@ -42,6 +42,11 @@ Renderer::Mesh makeMesh(const std::vector<Vertex>& vertices, const std::vector<i
 		MOVE(vao),
 		.indexCount = i32(indices.size())
 	};
+}
+
+template<typename Shader, typename Vertex>
+Renderer::Mesh makeMesh(const std::vector<Vertex>& vertices, const std::vector<i32> indices, Vbo& instancesVbo) {
+	return makeMesh<Shader>(constView(vertices), constView(indices), instancesVbo);
 }
 
 template<typename Instance>
@@ -58,13 +63,26 @@ Renderer Renderer::make() {
 	auto trianglesIbo = Ibo::generate();
 	auto trianglesVao = createInstancingVao<BasicShadingShader>(trianglesVbo, trianglesIbo, instancesVbo);
 
+
+	auto makeRectVertex = [&](f32 x, f32 y) {
+		return Vertex3Pnt{ Vec3(x, y, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec2(x, y) };
+	};
+	Vertex3Pnt rectVertices[]{
+		makeRectVertex(0.0f, 0.0f),
+		makeRectVertex(1.0f, 0.0f),
+		makeRectVertex(1.0f, 1.0f),
+		makeRectVertex(0.0f, 1.0f)
+	};
+	i32 rectIndices[]{ 0, 1, 2, 3 };
+	auto rectMesh = makeMesh<FlowParticleShader>(constView(rectVertices), constView(rectIndices), instancesVbo);
+
 	const i32 circleVertexCount = 50;
 
 	std::vector<Vertex3Pn> vertices;
 	std::vector<i32> indices;
 	auto coloredShaderMesh = [&vertices, &indices, &instancesVbo]() -> Mesh {
 		return makeMesh<ColoredShadingShader>(vertices, indices, instancesVbo);
-		};
+	};
 
 	for (i32 i = 0; i < circleVertexCount; i++) {
 		const auto t = f32(i) / f32(circleVertexCount);
@@ -184,6 +202,8 @@ Renderer Renderer::make() {
 		MOVE(trianglesIbo),
 		MOVE(trianglesVao),
 		.coloredShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
+		.flowParticleRectMesh = std::move(rectMesh),
+		.flowParticleShader = MAKE_GENERATED_SHADER(FLOW_PARTICLE),
 		MOVE(cyllinderMesh),
 		MOVE(hemisphere),
 		MOVE(coneMesh),
@@ -254,6 +274,31 @@ Mat4 transformMesh(Vec3 a, Vec3 b) {
 	const auto v2 = cross(v0, v1).normalized();
 	const auto rotateTranslate = Mat4::translation(a) * Mat4(Mat3(v1, v2, v0));
 	return rotateTranslate;
+}
+
+void Renderer::drawRectMeshInstances(usize count) {
+	glDrawElementsInstanced(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, nullptr, count);
+}
+
+void Renderer::flowParticle(Quat cameraRoatation, f32 size, Vec3 position, Vec4 color) {
+	const auto model =
+		Mat4::translation(position) *
+		Mat4(cameraRoatation.inverseIfNormalized().toMatrix()) *
+		Mat4(Mat3::scale(Vec3(size))) *
+		Mat4::translation(-Vec3(0.5f, 0.5f, 0.0f));
+	flowParticles.push_back(FlowParticleInstance{
+		.transform = model,
+		.color = color,
+	});
+}
+
+void Renderer::renderFlowParticles() {
+	flowParticleShader.use();
+	shaderSetUniforms(flowParticleShader, FlowParticleVertUniforms{
+		.transform = transform
+	});
+	drawInstances(flowParticleRectMesh.vao, instancesVbo, constView(flowParticles), drawRectMeshInstances);
+	flowParticles.clear();
 }
 
 void Renderer::initColoredShading() {
