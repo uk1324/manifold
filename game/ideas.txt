@@ -33,3 +33,17 @@ Could then further projective the sphere onto the cube to get a coordinate syste
 https://math.stackexchange.com/questions/389196/prove-that-gauss-map-on-m-is-surjective
 
 Add some cool looking skybox
+
+Editor for vector fields on the manifold to visualize the poincare hopf theorem.
+
+A vector field on a manifold can be consotructed by projecting the vector field in space onto the manifold.
+
+By the Helmholtz decomposition any field can be made from irrotational and solenoidal fields so could try constructing the fields from these fields.
+
+Could use billboards to indicate sources and sinks.
+
+The vector field can also be visualized using a particle system.
+
+Random vector fields can be generated using procedural noise.
+
+Fluid flows can also be used to generate flows in 3d.

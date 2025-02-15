@@ -78,7 +78,7 @@ void generateParametrizationOfRectangle(
 
 Torus surface{ .r = 0.4f, .R = 2.0f };
 //Trefoil surface{ .r = 0.4f, .R = 2.0f };
-/*Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };*/
+//Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
 //MobiusStrip surface;
 //Pseudosphere surface{ .r = 2.0f };
 //Cone surface{
@@ -224,7 +224,7 @@ void MainLoop::update() {
 		}
 	}
 
-	uvPositions.push_back(surfaceCamera.uvPosition);
+	//uvPositions.push_back(surfaceCamera.uvPosition);
 	ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
 	ImGui::Begin("plot");
 	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
@@ -269,18 +269,9 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 		if (!intersection.has_value()) {
 			continue;
 		}
-		/*renderer.line(vs[0], vs[1], 0.01f, Color3::WHITE);
-		renderer.line(vs[1], vs[2], 0.01f, Color3::WHITE);
-		renderer.line(vs[2], vs[0], 0.01f, Color3::WHITE);*/
 		Vec2 uvs[3];
 		getTriangle(surfaceMesh.uvs, surfaceMesh.indices, uvs, i);
 		const auto uv = barycentricInterpolate(intersection->barycentricCoordinates, uvs);
-		///*renderer.sphere(intersection->position, 0.03f, Color3::RED);*/
-		//renderer.sphere(surface.position(uv.x, uv.y), 0.03f, Color3::RED);
-
-		//const auto pos = barycentricInterpolate(intersection->barycentricCoordinates, vs);
-		/*renderer.sphere(intersection->position, 0.03f, Color3::RED);*/
-		//renderer.sphere(pos, 0.03f, Color3::RED);
 		intersections.push_back({ *intersection, i, uv });
 	}
 	std::ranges::sort(
@@ -319,28 +310,19 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 					dot(orthonormalTangentPlaneBasis[1], v)
 				);
 			};
+			// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
 			const auto tU = toOrthonormalBasis(initialPositionTangentU);
 			const auto tV = toOrthonormalBasis(initialPositionTangentV);
 			const auto i = toOrthonormalBasis(intersection - initialPositionPos);
 			const auto inUvCoordinates = Mat2(tU, tV).inversed() * i;
+			// TODO: Could allow snapping to the grid.
 			tangentPlaneIntersection = TangentPlanePosition{
 				.inSpace = intersection,
 				.inUvCoordinates = inUvCoordinates
 			};
-			//renderer.sphere(tangentPlaneIntersection->inSpace, 0.03f, Color3::BLUE);
-			//renderer.sphere(
-			//	initialPositionPos +
-			//	tangentPlaneIntersection->inUvCoordinates.x * initialPositionTangentU +
-			//	tangentPlaneIntersection->inUvCoordinates.y * initialPositionTangentV,
-			//	0.03f, Color3::RED);
 		}
 	}
 
-
-	/*renderer.sphere(initialVelocityVectorEndPosition, 0.03f, Color3::BLUE);
-	if (tangentPlaneIntersection.has_value()) {
-		renderer.sphere(tangentPlaneIntersection->inSpace, 0.03f, Color3::GREEN);
-	}*/
 	if (Input::isMouseButtonDown(MouseButton::LEFT)) {
 		const auto grabDistance = 0.06f;
 		// Counting all intersections so the user can grab things on the other side of the transparent surface.
@@ -405,6 +387,44 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 			Color3::RED
 		);
 	}
+
+	{
+		auto movementRhs = [&](Vec4 state, f32 _) {
+		const auto symbols = surface.christoffelSymbols(state.x, state.y);
+			Vec2 velocity(state.z, state.w);
+
+			return Vec4(
+				velocity.x,
+				velocity.y,
+				-dot(velocity, symbols.x * velocity),
+				-dot(velocity, symbols.y * velocity)
+			);
+		};
+
+		const auto geodesicLength = 15.0f;
+		const auto steps = 200;
+		const auto dl = geodesicLength / steps;
+
+		Vec2 position = initialPositionUv;
+		Vec2 velocity = Vec2::oriented(initialVelocityUv.angle());
+		for (i32 i = 0; i < steps; i++) {
+			const auto uTangent = surface.tangentU(position.x, position.y);
+			const auto vTangent = surface.tangentV(position.x, position.y);
+			const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
+			velocity /= v;
+			i32 n = 5;
+			Vec4 state(position.x, position.y, velocity.x, velocity.y);
+			for (i32 j = 0; j < n; j++) {
+				state = rungeKutta4Step(movementRhs, state, 0.0f, dl / n);
+			}
+			const auto newPosition = Vec2(state.x, state.y);
+			renderer.line(surface.position(position.x, position.y), surface.position(newPosition.x, newPosition.y), 0.01f, Color3::RED);
+			const auto tangent = Vec2(state.z, state.w);
+			position = newPosition;
+			velocity = tangent;
+		}
+	}
+
 }
 
 i32 MainLoop::Surface::vertexCount() const {

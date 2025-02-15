@@ -1,6 +1,6 @@
 #include "Helicoid.hpp"
 
-Vec3 Helicoid::position(f32 u, f32 v) {
+Vec3 Helicoid::position(f32 u, f32 v) const {
 	return Vec3(
 		u * cos(v),
 		u * sin(v),
@@ -8,7 +8,7 @@ Vec3 Helicoid::position(f32 u, f32 v) {
 	);
 }
 
-Vec3 Helicoid::tangentU(f32 u, f32 v) {
+Vec3 Helicoid::tangentU(f32 u, f32 v) const {
 	return Vec3(
 		cos(v),
 		sin(v),
@@ -16,7 +16,7 @@ Vec3 Helicoid::tangentU(f32 u, f32 v) {
 	);
 }
 
-Vec3 Helicoid::tangentV(f32 u, f32 v) {
+Vec3 Helicoid::tangentV(f32 u, f32 v) const {
 	return Vec3(
 		-u * sin(v),
 		u * cos(v),
@@ -24,7 +24,7 @@ Vec3 Helicoid::tangentV(f32 u, f32 v) {
 	);
 }
 
-Vec3 Helicoid::normal(f32 u, f32 v) {
+Vec3 Helicoid::normal(f32 u, f32 v) const {
 	return Vec3(
 		sin(v),
 		-cos(v),
@@ -32,7 +32,7 @@ Vec3 Helicoid::normal(f32 u, f32 v) {
 	).normalized();
 }
 
-ChristoffelSymbols Helicoid::christoffelSymbols(f32 u, f32 v) {
+ChristoffelSymbols Helicoid::christoffelSymbols(f32 u, f32 v) const {
 	const auto a = u / (1 + u * u);
 	return {
 		.x = Mat2(
