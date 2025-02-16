@@ -280,22 +280,23 @@ void Renderer::drawRectMeshInstances(usize count) {
 	glDrawElementsInstanced(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, nullptr, count);
 }
 
-void Renderer::flowParticle(Quat cameraRoatation, f32 size, Vec3 position, Vec4 color) {
-	const auto model =
+void Renderer::flowParticle(f32 size, Vec3 position, Vec4 color) {
+	/*const auto model =
 		Mat4::translation(position) *
 		Mat4(cameraRoatation.inverseIfNormalized().toMatrix()) *
 		Mat4(Mat3::scale(Vec3(size))) *
-		Mat4::translation(-Vec3(0.5f, 0.5f, 0.0f));
+		Mat4::translation(-Vec3(0.5f, 0.5f, 0.0f));*/
 	flowParticles.push_back(FlowParticleInstance{
-		.transform = model,
+		.positionScale = Vec4(position.x, position.y, position.z, size),
 		.color = color,
 	});
 }
 
-void Renderer::renderFlowParticles() {
+void Renderer::renderFlowParticles(const Mat4& rotateMatrix) {
 	flowParticleShader.use();
 	shaderSetUniforms(flowParticleShader, FlowParticleVertUniforms{
-		.transform = transform
+		.transform = transform,
+		.rotate = rotateMatrix
 	});
 	drawInstances(flowParticleRectMesh.vao, instancesVbo, constView(flowParticles), drawRectMeshInstances);
 	flowParticles.clear();

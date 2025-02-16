@@ -65,7 +65,7 @@ struct MainLoop {
 		void tryAllocate(Vec2 position, Vec3 normal, i32 lifetime);
 		void initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime);
 		void free(i32 i);
-		static constexpr auto maxLifetime = 20;
+		static constexpr auto maxLifetime = 30;
 	} flowParticles;
 	void randomInitializeParticle(i32 i);
 

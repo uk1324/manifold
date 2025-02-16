@@ -3,10 +3,11 @@ import "basicShading.data";
 shader FlowParticle {
 	vertexStruct = Vertex3Pnt;
 	vertInstance = {
-		Mat4 transform;
+		Vec4 positionScale;
 	};
 	vertUniforms = {
 		Mat4 transform;
+		Mat4 rotate;
 	};
 	fragInstance = {
 		Vec4 color;

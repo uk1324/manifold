@@ -46,8 +46,8 @@ struct Renderer {
 
 	ShaderProgram& flowParticleShader;
 	std::vector<FlowParticleInstance> flowParticles;
-	void flowParticle(Quat cameraRoatation, f32 size, Vec3 position, Vec4 color);
-	void renderFlowParticles();
+	void flowParticle(f32 size, Vec3 position, Vec4 color);
+	void renderFlowParticles(const Mat4& rotateMatrix);
 
 	Mesh cyllinderMesh;
 	std::vector<ColoredShadingInstance> cyllinders;

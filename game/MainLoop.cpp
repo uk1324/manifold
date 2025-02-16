@@ -283,7 +283,7 @@ void MainLoop::update() {
 	static std::vector<Vec3> points;
 	
 	auto particle = [this](Vec3 v, f32 a, f32 size, Vec3 color) {
-		renderer.flowParticle(fpsCamera.cameraForwardRotation(), size, v, Vec4(color, a));
+		renderer.flowParticle(size, v, Vec4(color, a));
 	};
 	static bool stopped = false;
 	ImGui::Checkbox("stopped", &stopped);
@@ -312,7 +312,7 @@ void MainLoop::update() {
 				const auto normal = flowParticles.normal(i, elapsed - 1);
 				const auto vector = vectorFieldSample(position);
 				 auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-				const auto newPosition = p + vectorUv * dt * 5.0f;
+				const auto newPosition = p + vectorUv * dt * 3.0f;
 				//const auto newPosition = p;
 				/*flowParticles.position(i, elapsed) = newPosition;*/
 				flowParticles.position(i, elapsed) = newPosition;
@@ -349,6 +349,7 @@ void MainLoop::update() {
 			const auto vector = vectorFieldSample(position);
 			const auto normal = flowParticles.normal(i, positionI);
 			auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+			// For non time varying vector fields this can be precomputed. Currently this is the most inefficient part of this.
 			const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
 
 			const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
@@ -362,7 +363,7 @@ void MainLoop::update() {
 	glDepthMask(GL_FALSE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	renderer.renderFlowParticles();
+	renderer.renderFlowParticles(Mat4(fpsCamera.cameraForwardRotation().inverseIfNormalized().toMatrix()));
 	glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
 
@@ -551,6 +552,7 @@ Vec2 MainLoop::randomPointOnSurface() {
 }
 
 Vec2 MainLoop::vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const {
+	// Untimatelly this requires solving the system of equations a0 tV + a1 tU = v so I don't think there is any better way of doing this.
 	const auto v0 = tangentU.normalized();
 	const auto v1 = cross(tangentU, normal).normalized();
 	auto toOrthonormalBasis = [&](Vec3 v) -> Vec2 {
