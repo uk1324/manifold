@@ -55,17 +55,18 @@ struct MainLoop {
 	struct FlowParticles {
 		std::vector<Vec2> positionsData;
 		std::vector<Vec3> normalsData;
+		std::vector<Vec3> colorsData;
+		std::vector<Vec2> velocitiesData;
 		Vec2& position(i32 particleIndex, i32 frame);
 		Vec3& normal(i32 particleIndex, i32 frame);
+		Vec3& color(i32 particleIndex, i32 frame);
+		Vec2& velocity(i32 particleIndex, i32 frame);
 		std::vector<i32> lifetime;
 		std::vector<i32> elapsed;
-		std::vector<bool> isFree;
 		void initialize(i32 particleCount);
 		i32 particleCount() const;
-		void tryAllocate(Vec2 position, Vec3 normal, i32 lifetime);
-		void initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime);
-		void free(i32 i);
-		static constexpr auto maxLifetime = 30;
+		void initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime, Vec3 color, Vec2 velocity);
+		static constexpr auto maxLifetime = 50;
 	} flowParticles;
 	void randomInitializeParticle(i32 i);
 

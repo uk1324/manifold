@@ -14,8 +14,14 @@ Vec3 trefoilCurve(f32 t) {
 	);*/
 }
 
+// Theoretically it might be possible to optimize this further by calcuating sin using cos
 Vec3 trefoilCurveTangent(f32 t) {
-	return derivativeMidpoint([](f32 t) { return trefoilCurve(t); }, t, step).normalized();
+	//return derivativeMidpoint([](f32 t) { return trefoilCurve(t); }, t, step).normalized();
+	return Vec3(
+		sin(t) + 4.0f * cos(2.0f * t),
+		(8.0f * cos(t) - 1.0f) * sin(t),
+		-3.0f * cos(3.0f * t)
+	).normalized();
 }
 
 Vec3 trefoilCurveNormal(f32 t) {

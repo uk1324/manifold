@@ -74,7 +74,7 @@ void generateParametrizationOfRectangle(
 
 //Torus surface{ .r = 0.4f, .R = 2.0f };
 //Torus surface{ .r = 0.4f, .R = 1.0f };
-//Trefoil surface{ .r = 0.4f, .R = 2.0f };
+Trefoil surface{ .r = 0.4f, .R = 2.0f };
 //Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
 //MobiusStrip surface;
 //Pseudosphere surface{ .r = 2.0f };
@@ -84,7 +84,7 @@ void generateParametrizationOfRectangle(
 //	.uMin = -2.0f,
 //	.uMax = 2.0f,
 //};
-Sphere surface{ .r = 1.0f };
+//Sphere surface{ .r = 1.0f };
 
 MainLoop::MainLoop()
 	: renderer(Renderer::make())
@@ -111,7 +111,7 @@ MainLoop::MainLoop()
 	}
 	surfaceMesh.totalArea = totalArea;
 
-	const auto particleCount = 1000;
+	const auto particleCount = 7000;
 	flowParticles.initialize(particleCount);
 	for (i32 i = 0; i < particleCount; i++) {
 		randomInitializeParticle(i);
@@ -305,18 +305,32 @@ void MainLoop::update() {
 			const auto disapperElapsed = std::max(0, elapsed - lifetime);
 			if (elapsed < lifetime) {
 				const auto p = flowParticles.position(i, elapsed - 1);
-				const auto position = surface.position(p.x, p.y);
+				const auto velocity = flowParticles.velocity(i, elapsed - 1);
+				const auto newPosition = p + velocity * dt * 3.0f;
+				/*const auto position = surface.position(p.x, p.y);
 				const auto tangentU = surface.tangentU(p.x, p.y);
 				const auto tangentV = surface.tangentV(p.x, p.y);
 
 				const auto normal = flowParticles.normal(i, elapsed - 1);
-				const auto vector = vectorFieldSample(position);
-				 auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-				const auto newPosition = p + vectorUv * dt * 3.0f;
+				const auto vector = vectorFieldSample(position);*/
+				 //auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
 				//const auto newPosition = p;
 				/*flowParticles.position(i, elapsed) = newPosition;*/
 				flowParticles.position(i, elapsed) = newPosition;
 				flowParticles.normal(i, elapsed) = surface.normal(newPosition.x, newPosition.y);
+				{
+					const auto newPosition3 = surface.position(newPosition.x, newPosition.y);
+					const auto tangentU = surface.tangentU(newPosition.x, newPosition.y);
+					const auto tangentV = surface.tangentV(newPosition.x, newPosition.y);
+
+					const auto normal = flowParticles.normal(i, elapsed - 1);
+					const auto vector = vectorFieldSample(newPosition3);
+					auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+					const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
+					const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
+					flowParticles.color(i, elapsed) = color;
+					flowParticles.velocity(i, elapsed) = vectorUv;
+				}
 			} else if (disapperElapsed >= disappearTime - 1) {
 				randomInitializeParticle(i);
 			}
@@ -344,15 +358,16 @@ void MainLoop::update() {
 			//const auto color = Color3::WHITE;
 
 			const auto position = surface.position(p.x, p.y);
-			const auto tangentU = surface.tangentU(p.x, p.y);
-			const auto tangentV = surface.tangentV(p.x, p.y);
-			const auto vector = vectorFieldSample(position);
+			//const auto tangentU = surface.tangentU(p.x, p.y);
+			//const auto tangentV = surface.tangentV(p.x, p.y);
+			//const auto vector = vectorFieldSample(position);
 			const auto normal = flowParticles.normal(i, positionI);
-			auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+			const auto color = flowParticles.color(i, positionI);
+			//auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
 			// For non time varying vector fields this can be precomputed. Currently this is the most inefficient part of this.
-			const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
+			//const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
 
-			const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
+			//const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
 
 			particle(position + flowParticles.normal(i, positionI) * maxSize, a * t, size, color);
 		}
@@ -567,12 +582,22 @@ Vec2 MainLoop::vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, V
 }
 
 void MainLoop::randomInitializeParticle(i32 i) {
-	const auto position = randomPointOnSurface();
+	const auto p = randomPointOnSurface();
 	const auto lifetime = std::uniform_int_distribution<i32>(
 		i32(FlowParticles::maxLifetime * f32(0.7f)),
 		FlowParticles::maxLifetime)(rng);
+
+	const auto position = surface.position(p.x, p.y);
+	const auto tangentU = surface.tangentU(p.x, p.y);
+	const auto tangentV = surface.tangentV(p.x, p.y);
+	const auto normal = cross(tangentU, tangentV).normalized();
+	const auto vector = vectorFieldSample(position);
+	auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+	const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
+	const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
+
 	//const auto lifetime = FlowParticles::maxLifetime;
-	flowParticles.initializeParticle(i, position, surface.normal(position.x, position.y), lifetime);
+	flowParticles.initializeParticle(i, p, normal, lifetime, color, vectorUv);
 }
 
 void MainLoop::randomizeVectorField(usize seed) {
@@ -641,33 +666,32 @@ Vec3& MainLoop::FlowParticles::normal(i32 particleIndex, i32 frame) {
 	return normalsData[maxLifetime * particleIndex + frame];
 }
 
+Vec3& MainLoop::FlowParticles::color(i32 particleIndex, i32 frame) {
+	return colorsData[maxLifetime * particleIndex + frame];
+}
+
+Vec2& MainLoop::FlowParticles::velocity(i32 particleIndex, i32 frame) {
+	return velocitiesData[maxLifetime * particleIndex + frame];
+}
+
 void MainLoop::FlowParticles::initialize(i32 particleCount) {
 	positionsData.resize(particleCount * maxLifetime);
 	normalsData.resize(particleCount * maxLifetime);
+	velocitiesData.resize(particleCount * maxLifetime);
+	colorsData.resize(particleCount * maxLifetime);
 	lifetime.resize(particleCount);
 	elapsed.resize(particleCount);
-	isFree.resize(particleCount, false);
 }
 
 i32 MainLoop::FlowParticles::particleCount() const {
 	return lifetime.size();
 }
 
-void MainLoop::FlowParticles::tryAllocate(Vec2 position, Vec3 normal, i32 lifetime) {
-	for (i32 i = 0; i < isFree.size(); i++) {
-		if (isFree[i]) {
-			initializeParticle(i, position, normal, lifetime);
-		}
-	}
-}
-
-void MainLoop::FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime) {
+void MainLoop::FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime, Vec3 color, Vec2 velocity) {
 	this->position(i, 0) = position;
 	this->normal(i, 0) = normal;
+	this->velocity(i, 0) = velocity;
+	this->color(i, 0) = color;
 	this->lifetime[i] = lifetime;
 	this->elapsed[i] = 0;
-}
-
-void MainLoop::FlowParticles::free(i32 i) {
-	isFree[i] = true;
 }
