@@ -6,13 +6,6 @@
 #include <game/PlotUtils.hpp>
 #include <engine/Window.hpp>
 #include <engine/Input/Input.hpp>
-#include <game/Surfaces/Helicoid.hpp>
-#include <game/Surfaces/Pseudosphere.hpp>
-#include <game/Surfaces/Cone.hpp>
-#include <game/Surfaces/Torus.hpp>
-#include <game/Surfaces/Trefoil.hpp>
-#include <game/Surfaces/MobiusStrip.hpp>
-#include <game/Surfaces/Sphere.hpp>
 #include <imgui/implot.h>
 #include <gfx/ShaderManager.hpp>
 #include <game/Tri3d.hpp>
@@ -29,25 +22,27 @@ void getTriangle(const std::vector<T>& values, const std::vector<i32>& indices, 
 
 const auto dt = 1.0f / 60.0f;
 
-void generateParametrizationOfRectangle(
-	MainLoop::Surface& surface,
-	auto position,
-	auto normal,
-	f32 uMin, f32 uMax, f32 vMin, f32 vMax) {
+void initializeSurface(
+	const RectParametrization auto& parametrization,
+	MainLoop::Surface& surface) {
 	//const auto size = 100;
 	const auto size = 50;
+	surface.indices.clear();
+	surface.positions.clear();
+	surface.uvs.clear();
+	surface.uvts.clear();
+	surface.normals.clear();
 	for (i32 vi = 0; vi <= size; vi++) {
 		for (i32 ui = 0; ui <= size; ui++) {
 			const auto ut = f32(ui) / size;
 			const auto vt = f32(vi) / size;
-			const auto u = lerp(uMin, uMax, ut);
-			const auto v = lerp(vMin, vMax, vt);
-			const auto p = position(u, v);
-			const auto n = normal(u, v);
+			const auto u = lerp(parametrization.uMin, parametrization.uMax, ut);
+			const auto v = lerp(parametrization.vMin, parametrization.vMax, vt);
+			const auto p = parametrization.position(u, v);
+			const auto n = parametrization.normal(u, v);
 			surface.addVertex(p, n, Vec2(u, v), Vec2(ut, vt));
 		}
 	}
-
 	auto index = [&size](i32 ui, i32 vi) {
 		//// Wrap aroud
 		//if (ui == size) { ui = 0; }
@@ -65,64 +60,135 @@ void generateParametrizationOfRectangle(
 		}
 	}
 
+	surface.triangleCenters.clear();
 	for (i32 i = 0; i < surface.triangleCount(); i++) {
 		Vec3 triangle[3];
 		getTriangle(surface.positions, surface.indices, triangle, i);
 		surface.triangleCenters.push_back(triCenter(triangle));
 	}
+
+	surface.sortedTriangles.clear();
+	for (i32 i = 0; i < surface.triangleCount(); i++) {
+		surface.sortedTriangles.push_back(i);
+	}
+
+	surface.triangleAreas.clear();
+	for (i32 i = 0; i < surface.triangleCount(); i++) {
+		Vec3 vs[3];
+		getTriangle(surface.positions, surface.indices, vs, i);
+		surface.triangleAreas.push_back(triArea(vs));
+	}
+	f32 totalArea = 0.0f;
+	for (i32 i = 0; i < surface.triangleCount(); i++) {
+		totalArea += surface.triangleAreas[i];
+	}
+	surface.totalArea = totalArea;
 }
 
-//Torus surface{ .r = 0.4f, .R = 2.0f };
-//Torus surface{ .r = 0.4f, .R = 1.0f };
-Trefoil surface{ .r = 0.4f, .R = 2.0f };
-//Helicoid surface{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
-//MobiusStrip surface;
-//Pseudosphere surface{ .r = 2.0f };
-//Cone surface{
-//	.a = 1.0f,
-//	.b = 1.0f,
-//	.uMin = -2.0f,
-//	.uMax = 2.0f,
+void MainLoop::initializeParticles(
+	FlowParticles& particles,
+	i32 particleCount,
+	const RectParametrization auto& surface,
+	const VectorField auto& vectorField) {
+
+	particles.initialize(particleCount);
+	for (i32 i = 0; i < particleCount; i++) {
+		randomInitializeParticle(surface, i);
+	}
+	for (i32 i = 0; i < particleCount; i++) {
+		const auto elapsed = std::uniform_int_distribution<i32>(0, particles.lifetime[i] - 1)(rng);
+		for (i32 j = 1; j <= elapsed; j++) {
+			particles.position(i, j) = particles.position(i, 0);
+		}
+		particles.elapsed[i] = elapsed;
+	}
+
+}
+
+void MainLoop::updateParticles(const RectParametrization auto& surface, const VectorField auto& vectorField) {
+//	auto particle = [this](Vec3 v, f32 a, f32 size, Vec3 color) {
+//	renderer.flowParticle(size, v, Vec4(color, a));
 //};
-//Sphere surface{ .r = 1.0f };
+	static bool stopped = false;
+	ImGui::Checkbox("stopped", &stopped);
+	bool step = !stopped;
+	if (ImGui::Button("step")) {
+		step = true;
+	}
+	// Updating every other frame makes it look laggy.
+	// creation frame = 0
+	// normally updates for lifetime frames. On frame = lifetime - 1 is the last update.
+	// When frame >= lifetime then the it starts disappearing. 
+	// On frame lifetime + disappearTime it would fully disappear so instead it's respawned.
+	const auto disappearTime = 10;
+	for (i32 i = 0; i < flowParticles.particleCount(); i++) {
+		const auto& lifetime = flowParticles.lifetime[i];
+		auto& elapsed = flowParticles.elapsed[i];
+		if (step) {
+			elapsed++;
+			const auto disapperElapsed = std::max(0, elapsed - lifetime);
+			if (elapsed < lifetime) {
+				const auto p = flowParticles.position(i, elapsed - 1);
+				const auto velocity = flowParticles.velocity(i, elapsed - 1);
+				const auto newPosition = p + velocity * dt * 3.0f;
+				flowParticles.position(i, elapsed) = newPosition;
+				flowParticles.normal(i, elapsed) = surface.normal(newPosition.x, newPosition.y);
+				{
+					const auto newPosition3 = surface.position(newPosition.x, newPosition.y);
+					const auto tangentU = surface.tangentU(newPosition.x, newPosition.y);
+					const auto tangentV = surface.tangentV(newPosition.x, newPosition.y);
+
+					const auto normal = flowParticles.normal(i, elapsed - 1);
+					const auto vector = vectorFieldSample(newPosition3);
+					auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
+					const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
+					const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
+					flowParticles.color(i, elapsed) = color;
+					flowParticles.velocity(i, elapsed) = vectorUv;
+				}
+			} else if (disapperElapsed >= disappearTime - 1) {
+				randomInitializeParticle(surface, i);
+			}
+		}
+		const auto disapperElapsed = std::max(0, elapsed - lifetime);
+
+
+		const auto frameCount = elapsed + 1;
+		for (i32 positionI = 0; positionI < std::min(frameCount, lifetime); positionI++) {
+			const auto disappearT = f32(disapperElapsed) / f32(disappearTime);
+			const auto p = flowParticles.position(i, positionI);
+			f32 a = 0.5f;
+			f32 t = 1.0f;
+			t *= f32(positionI + 1) / f32(frameCount);
+			t *= 1.0f - disappearT;
+			const auto maxSize = 0.03f;
+			const auto size = (t + 1.0f) / 2.0f * maxSize;
+			auto position = surface.position(p.x, p.y);
+			const auto normal = flowParticles.normal(i, positionI);
+			const auto color = flowParticles.color(i, positionI);
+			position += flowParticles.normal(i, positionI) * maxSize;
+
+			renderer.flowParticle(size, position, Vec4(color, a));
+		}
+
+	}
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	renderer.renderFlowParticles(Mat4(fpsCamera.cameraForwardRotation().inverseIfNormalized().toMatrix()));
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+}
+
 
 MainLoop::MainLoop()
 	: renderer(Renderer::make())
 	, noise(5) {
 
-	generateParametrizationOfRectangle(
-		surfaceMesh,
-		[&](f32 u, f32 v) { return surface.position(u, v); },
-		[&](f32 u, f32 v) { return surface.normal(u, v); },
-		surface.uMin, surface.uMax,
-		surface.vMin, surface.vMax
-	);
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
-		sortedTriangles.push_back(i);
-	}
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
-		Vec3 vs[3];
-		getTriangle(surfaceMesh.positions, surfaceMesh.indices, vs, i);
-		surfaceMesh.triangleAreas.push_back(triArea(vs));
-	}
-	f32 totalArea = 0.0f;
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
-		totalArea += surfaceMesh.triangleAreas[i];
-	}
-	surfaceMesh.totalArea = totalArea;
-
-	const auto particleCount = 7000;
-	flowParticles.initialize(particleCount);
-	for (i32 i = 0; i < particleCount; i++) {
-		randomInitializeParticle(i);
-	}
-	for (i32 i = 0; i < particleCount; i++) {
-		const auto elapsed = std::uniform_int_distribution<i32>(0, flowParticles.lifetime[i] - 1)(rng);
-		for (i32 j = 1; j <= elapsed; j++) {
-			flowParticles.position(i, j) = flowParticles.position(i, 0);
-		}
-		flowParticles.elapsed[i] = elapsed;
-	}
+	initializeSelectedSurface();
+	initializeParticles(5000);
 
 	randomizeVectorField(5);
 
@@ -143,6 +209,32 @@ void MainLoop::update() {
 	if (ImGui::Button("randomize")) {
 		randomizeVectorField(rng());
 	}
+
+	#define S(ENUM_NAME, name) {\
+		const auto index = i32(ENUM_NAME); \
+		const auto isSelected = index == selectedIndex; \
+		if (ImGui::Selectable(surfaceNameStr(ENUM_NAME), isSelected)) { \
+			selectedIndex = index; \
+			surfaces.selected = Surfaces::Type(selectedIndex); \
+			initializeSelectedSurface(); \
+			initializeParticles(5000); \
+		} \
+		if (isSelected) { ImGui::SetItemDefaultFocus(); } \
+	}
+
+	const auto selectedName = surfaceNameStr(surfaces.selected);
+	i32 selectedIndex = i32(surfaces.selected);
+	if (ImGui::BeginCombo("surface type", selectedName)) {
+		using enum Surfaces::Type;
+		S(TORUS, torus);
+		S(TREFOIL, trefoil);
+		S(HELICOID, helicoid);
+		S(MOBIUS_STRIP, mobiusStrip);
+		S(PSEUDOSPHERE, pseudosphere);
+		S(CONE, cone);
+		S(SPHERE, sphere);
+	}
+	#undef S
 
 	//auto renderLine = [this](Vec3 a, Vec3 b) {
 	//	i32 circleVertexCount = 50;
@@ -168,8 +260,9 @@ void MainLoop::update() {
 	switch (cameraMode) {
 		using enum CameraMode;
 	case ON_SURFACE: {
-		view = surfaceCamera.update(surface, dt);
-		cameraPosition = surfaceCamera.cameraPosition(surface);
+		const auto r = updateSurfaceCamera(dt);
+		view = r.view;
+		cameraPosition = r.cameraPosition;
 		break;
 	}
 
@@ -205,33 +298,25 @@ void MainLoop::update() {
 	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
 
+	surfaceData.sortTriangles(cameraPosition);
 	const auto indicesOffset = i32(renderer.trianglesIndices.size());
-	for (i32 i = 0; i < surfaceMesh.vertexCount(); i++) {
+	for (i32 i = 0; i < surfaceData.vertexCount(); i++) {
 		renderer.addVertex(Vertex3Pnt{ 
-			.position = surfaceMesh.positions[i], 
-			.normal = surfaceMesh.normals[i], 
-			.uv = surfaceMesh.uvts[i] 
+			.position = surfaceData.positions[i],
+			.normal = surfaceData.normals[i],
+			.uv = surfaceData.uvts[i]
 		});
 	}
 
-	std::vector<f32> distances;
-	for (i32 i = 0; i < surfaceMesh.triangleCenters.size(); i++) {
-		distances.push_back(surfaceMesh.triangleCenters[i].distanceSquaredTo(cameraPosition));
-	}
-	const auto lessThan = [&](i32 a, i32 b) {
-		return distances[a] > distances[b];
-	};
-	std::sort(sortedTriangles.begin(), sortedTriangles.end(), lessThan);
 
-
-	/*for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
-		const auto index = indicesOffset + sortedTriangles[i] * 3;
+	for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
+		const auto index = indicesOffset + surfaceData.sortedTriangles[i] * 3;
 		renderer.addTriangle(
-			surfaceMesh.indices[index],
-			surfaceMesh.indices[index + 1],
-			surfaceMesh.indices[index + 2]
+			surfaceData.indices[index],
+			surfaceData.indices[index + 1],
+			surfaceData.indices[index + 2]
 		);
-	}*/
+	}
 
 	//renderer.sphere(Vec3(0.0f, 0.0f, 5.0f), 0.1f, Color3::GREEN);
 
@@ -240,37 +325,37 @@ void MainLoop::update() {
 	renderer.renderCones();
 	renderer.renderCircles();
 
-	if (uvPositions.size() >= 2) {
-		for (i32 i = 0; i < uvPositions.size() - 1; i++) {
-			renderer.line(
-				surface.position(uvPositions[i].x, uvPositions[i].y), 
-				surface.position(uvPositions[i + 1].x, uvPositions[i + 1].y), 
-				0.02f, 
-				Color3::RED
-			);
-		}
-	}
+	//if (uvPositions.size() >= 2) {
+	//	for (i32 i = 0; i < uvPositions.size() - 1; i++) {
+	//		renderer.line(
+	//			surface.position(uvPositions[i].x, uvPositions[i].y), 
+	//			surface.position(uvPositions[i + 1].x, uvPositions[i + 1].y), 
+	//			0.02f, 
+	//			Color3::RED
+	//		);
+	//	}
+	//}
 
-	//uvPositions.push_back(surfaceCamera.uvPosition);
-	ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
-	ImGui::Begin("plot");
-	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
-		ImPlot::SetupAxesLimits(surface.uMin, surface.uMax, surface.vMin, surface.vMax, ImPlotCond_Always);
-		Vec2 forward = surfaceCamera.uvPosition + Vec2::oriented(surfaceCamera.uvForwardAngle) * 0.3f;
-		f32 xs[] = { surfaceCamera.uvPosition.x, forward.x };
-		f32 ys[] = { surfaceCamera.uvPosition.y, forward.y };
-		ImPlot::PlotLine("arrow", xs, ys, 2);
-		plotVec2Scatter("points", uvPositions);
-		ImPlot::EndPlot();
-	}
-	ImGui::End();
+	////uvPositions.push_back(surfaceCamera.uvPosition);
+	//ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
+	//ImGui::Begin("plot");
+	//if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
+	//	ImPlot::SetupAxesLimits(surface.uMin, surface.uMax, surface.vMin, surface.vMax, ImPlotCond_Always);
+	//	Vec2 forward = surfaceCamera.uvPosition + Vec2::oriented(surfaceCamera.uvForwardAngle) * 0.3f;
+	//	f32 xs[] = { surfaceCamera.uvPosition.x, forward.x };
+	//	f32 ys[] = { surfaceCamera.uvPosition.y, forward.y };
+	//	ImPlot::PlotLine("arrow", xs, ys, 2);
+	//	plotVec2Scatter("points", uvPositions);
+	//	ImPlot::EndPlot();
+	//}
+	//ImGui::End();
 
 	// Disabling depth writes was mentioned in real-time rendering. Not sure what it actually does.
 	//glDepthMask(GL_FALSE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	//renderer.renderTriangles(0.5f);
-	renderer.renderTriangles(1.0f);
+	renderer.renderTriangles(0.5f);
+	//renderer.renderTriangles(1.0f);
 	glDisable(GL_BLEND);
 	//glDepthMask(GL_TRUE);
 
@@ -280,108 +365,72 @@ void MainLoop::update() {
 	renderer.gfx2d.drawDisks();
 	glDisable(GL_BLEND);
 
-	static std::vector<Vec3> points;
-	
-	auto particle = [this](Vec3 v, f32 a, f32 size, Vec3 color) {
-		renderer.flowParticle(size, v, Vec4(color, a));
-	};
-	static bool stopped = false;
-	ImGui::Checkbox("stopped", &stopped);
-	bool step = !stopped;
-	if (ImGui::Button("step")) {
-		step = true;
+	//#define I(name, vectorField) updateParticles(surfaces.name, vectorField)
+	//#define S(vectorField) \
+	//switch (surfaces.selected) { \
+	//	using enum Surfaces::Type; \
+	//case TORUS: I(torus, vectorField); break; \
+	//case TREFOIL: I(trefoil, vectorField); break; \
+	//case HELICOID: I(helicoid, vectorField); break; \
+	//case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
+	//case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
+	//case CONE: I(cone, vectorField); break; \
+	//case SPHERE: I(sphere, vectorField); break; \
+	//}
+	//switch (selectedVectorField) {
+	//	using enum VectorFieldType;
+	//case RANDOM: S([this](Vec3 pos) { return vectorFieldSample(pos); });
+	//}
+	//#undef I
+	//#undef S
+}
+
+void MainLoop::initializeSelectedSurface() {
+	#define I(name) initializeSurface(surfaces.name, surfaceData); break;
+	switch (surfaces.selected) {
+		using enum Surfaces::Type;
+	case TORUS: I(torus);
+	case TREFOIL: I(trefoil);
+	case HELICOID: I(helicoid);
+	case MOBIUS_STRIP: I(mobiusStrip);
+	case PSEUDOSPHERE: I(pseudosphere);
+	case CONE: I(cone);
+	case SPHERE: I(sphere);
 	}
-	// Updating every other frame makes it look laggy.
-	// creation frame = 0
-	// normally updates for lifetime frames. On frame = lifetime - 1 is the last update.
-	// When frame >= lifetime then the it starts disappearing. 
-	// On frame lifetime + disappearTime it would fully disappear so instead it's respawned.
-	const auto disappearTime = 10;
-	for (i32 i = 0; i < flowParticles.particleCount(); i++) {
-		const auto& lifetime = flowParticles.lifetime[i];
-		auto& elapsed = flowParticles.elapsed[i];
-		if (step) {
-			elapsed++;
-			const auto disapperElapsed = std::max(0, elapsed - lifetime);
-			if (elapsed < lifetime) {
-				const auto p = flowParticles.position(i, elapsed - 1);
-				const auto velocity = flowParticles.velocity(i, elapsed - 1);
-				const auto newPosition = p + velocity * dt * 3.0f;
-				/*const auto position = surface.position(p.x, p.y);
-				const auto tangentU = surface.tangentU(p.x, p.y);
-				const auto tangentV = surface.tangentV(p.x, p.y);
+	#undef I
+}
 
-				const auto normal = flowParticles.normal(i, elapsed - 1);
-				const auto vector = vectorFieldSample(position);*/
-				 //auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-				//const auto newPosition = p;
-				/*flowParticles.position(i, elapsed) = newPosition;*/
-				flowParticles.position(i, elapsed) = newPosition;
-				flowParticles.normal(i, elapsed) = surface.normal(newPosition.x, newPosition.y);
-				{
-					const auto newPosition3 = surface.position(newPosition.x, newPosition.y);
-					const auto tangentU = surface.tangentU(newPosition.x, newPosition.y);
-					const auto tangentV = surface.tangentV(newPosition.x, newPosition.y);
+//#define SWITCH_ON_SURFACE(surfaceType, F, ...) \
+//switch (surfaceType) { \
+//	case TORUS: F(torus, __VA_ARGS__); break; \
+//	case TREFOIL: F(trefoil, __VA_ARGS__); break; \
+//	case HELICOID: F(helicoid, __VA_ARGS__); break; \
+//	case MOBIUS_STRIP: F(mobiusStrip, __VA_ARGS__); break; \
+//	case PSEUDOSPHERE: F(pseudosphere, __VA_ARGS__); break; \
+//	case CONE: F(cone, __VA_ARGS__); break; \
+//	case SPHERE: F(sphere, __VA_ARGS__); break; \
+//}
+// If the order doesn't match use another macro.
 
-					const auto normal = flowParticles.normal(i, elapsed - 1);
-					const auto vector = vectorFieldSample(newPosition3);
-					auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-					const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
-					const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
-					flowParticles.color(i, elapsed) = color;
-					flowParticles.velocity(i, elapsed) = vectorUv;
-				}
-			} else if (disapperElapsed >= disappearTime - 1) {
-				randomInitializeParticle(i);
-			}
-		}
- 		const auto disapperElapsed = std::max(0, elapsed - lifetime);
-
-
-		const auto frameCount = elapsed + 1;
-		/*for (i32 positionI = 0; positionI < std::min(frameCount, lifetime) - 1; positionI++) {
-			const auto a = flowParticles.position(i, positionI);
-			const auto b = flowParticles.position(i, positionI + 1);
-			renderer.line(surface.position(a.x, a.y), surface.position(b.x, b.y), 0.01f, Color3::BLUE);
-		}*/
- 		for (i32 positionI = 0; positionI < std::min(frameCount, lifetime); positionI++) {
-			const auto disappearT = f32(disapperElapsed) / f32(disappearTime);
-			const auto p = flowParticles.position(i, positionI);
-			f32 a = 0.5f;
-			f32 t = 1.0f;
-			t *= f32(positionI + 1) / f32(frameCount);
-			t *= 1.0f - disappearT;
-			const auto maxSize = 0.03f;
-			const auto size = (t + 1.0f) / 2.0f * maxSize;
-			//const auto color = Color3::fromHsv(f32(positionI + 1) / f32(frameCount), 1.0f, 1.0f);
-			/*const auto color = Color3::scientificColoring(f32(positionI + 1) / f32(frameCount), 0.0f, 1.0f);*/
-			//const auto color = Color3::WHITE;
-
-			const auto position = surface.position(p.x, p.y);
-			//const auto tangentU = surface.tangentU(p.x, p.y);
-			//const auto tangentV = surface.tangentV(p.x, p.y);
-			//const auto vector = vectorFieldSample(position);
-			const auto normal = flowParticles.normal(i, positionI);
-			const auto color = flowParticles.color(i, positionI);
-			//auto vectorUv = vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-			// For non time varying vector fields this can be precomputed. Currently this is the most inefficient part of this.
-			//const auto l = (vectorUv.x * tangentU + vectorUv.y * tangentV).length();
-
-			//const auto color = Color3::scientificColoring(l, vectorFieldMinLength, vectorFieldMaxLength);
-
-			particle(position + flowParticles.normal(i, positionI) * maxSize, a * t, size, color);
-		}
-
+void MainLoop::initializeParticles(i32 particleCount) {
+	#define I(surface, vectorField) initializeParticles(flowParticles, particleCount, surface, vectorField)
+	#define S(vectorField) \
+	switch (surfaces.selected) { \
+		using enum Surfaces::Type; \
+	case TORUS: I(surfaces.torus, vectorField); break; \
+	case TREFOIL: I(surfaces.trefoil, vectorField); break; \
+	case HELICOID: I(surfaces.helicoid, vectorField); break; \
+	case MOBIUS_STRIP: I(surfaces.mobiusStrip, vectorField); break; \
+	case PSEUDOSPHERE: I(surfaces.pseudosphere, vectorField); break; \
+	case CONE: I(surfaces.cone, vectorField); break; \
+	case SPHERE: I(surfaces.sphere, vectorField); break; \
 	}
-	
-	glEnable(GL_DEPTH_TEST);
-	glDepthMask(GL_FALSE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	renderer.renderFlowParticles(Mat4(fpsCamera.cameraForwardRotation().inverseIfNormalized().toMatrix()));
-	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
-
+	switch (selectedVectorField) {
+		using enum VectorFieldType;
+	case RANDOM: S([this](Vec3 pos) { return vectorFieldSample(pos); });
+	}
+	#undef I
+	#undef S
 }
 
 void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
@@ -393,15 +442,15 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 		Vec2 uv;
 	};
 	std::vector<Intersection> intersections;
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+	for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
 		Vec3 vs[3];
-		getTriangle(surfaceMesh.positions, surfaceMesh.indices, vs, i);
+		getTriangle(surfaceData.positions, surfaceData.indices, vs, i);
 		const auto intersection = rayTriIntersection(cameraPosition, forward, vs);
 		if (!intersection.has_value()) {
 			continue;
 		}
 		Vec2 uvs[3];
-		getTriangle(surfaceMesh.uvs, surfaceMesh.indices, uvs, i);
+		getTriangle(surfaceData.uvs, surfaceData.indices, uvs, i);
 		const auto uv = barycentricInterpolate(intersection->barycentricCoordinates, uvs);
 		intersections.push_back({ *intersection, i, uv });
 	}
@@ -412,9 +461,9 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 		}
 	);
 	const auto initialVelocityVectorLength = 0.25f;
-	const auto initialPositionPos = surface.position(initialPositionUv.x, initialPositionUv.y);
-	const auto initialPositionTangentU = surface.tangentU(initialPositionUv.x, initialPositionUv.y);
-	const auto initialPositionTangentV = surface.tangentV(initialPositionUv.x, initialPositionUv.y);
+	const auto initialPositionPos = surfaces.position(initialPositionUv);
+	const auto initialPositionTangentU = surfaces.tangentU(initialPositionUv);
+	const auto initialPositionTangentV = surfaces.tangentV(initialPositionUv);
 	const auto initialVelocityVectorEndPosition =
 		initialPositionPos + 
 		initialVelocityVectorLength * 
@@ -449,7 +498,7 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 		const auto grabDistance = 0.06f;
 		// Counting all intersections so the user can grab things on the other side of the transparent surface.
 		for (const auto& intersection : intersections) {
-			const auto pos = surface.position(intersection.uv.x, intersection.uv.y);
+			const auto pos = surfaces.position(intersection.uv);
 			if (pos.distanceTo(initialPositionPos) < grabDistance) {
 				grabbed = Grabbed::POSITION;
 				break;
@@ -491,10 +540,10 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 
 	}
 	if (false) {
-		const auto initialPosition = surface.position(initialPositionUv.x, initialPositionUv.y);
+		const auto initialPosition = surfaces.position(initialPositionUv);
 		const auto initialVelocity =
-			(surface.tangentU(initialPositionUv.x, initialPositionUv.y) * initialVelocityUv.x +
-			surface.tangentV(initialPositionUv.x, initialPositionUv.y) * initialVelocityUv.y).normalized();
+			(surfaces.tangentU(initialPositionUv) * initialVelocityUv.x +
+			surfaces.tangentV(initialPositionUv) * initialVelocityUv.y).normalized();
 		renderer.sphere(initialPosition, 0.015f, Color3::RED);
 		const auto radius = 0.01f;
 		const auto coneRadius = radius * 2.5f;
@@ -509,58 +558,53 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 			Color3::RED
 		);
 	}
+	#define U(name) \
+		geodesicToolUpdate(surfaces.name); break;
 
-	if (false) {
-		auto movementRhs = [&](Vec4 state, f32 _) {
-		const auto symbols = surface.christoffelSymbols(state.x, state.y);
-			Vec2 velocity(state.z, state.w);
-
-			return Vec4(
-				velocity.x,
-				velocity.y,
-				-dot(velocity, symbols.x * velocity),
-				-dot(velocity, symbols.y * velocity)
-			);
-		};
-
-		const auto geodesicLength = 15.0f;
-		const auto steps = 200;
-		const auto dl = geodesicLength / steps;
-
-		Vec2 position = initialPositionUv;
-		Vec2 velocity = Vec2::oriented(initialVelocityUv.angle());
-		for (i32 i = 0; i < steps; i++) {
-			const auto uTangent = surface.tangentU(position.x, position.y);
-			const auto vTangent = surface.tangentV(position.x, position.y);
-			const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
-			velocity /= v;
-			i32 n = 5;
-			Vec4 state(position.x, position.y, velocity.x, velocity.y);
-			for (i32 j = 0; j < n; j++) {
-				state = rungeKutta4Step(movementRhs, state, 0.0f, dl / n);
-			}
-			const auto newPosition = Vec2(state.x, state.y);
-			renderer.line(surface.position(position.x, position.y), surface.position(newPosition.x, newPosition.y), 0.01f, Color3::RED);
-			const auto tangent = Vec2(state.z, state.w);
-			position = newPosition;
-			velocity = tangent;
-		}
+	switch (surfaces.selected) {
+		using enum Surfaces::Type;
+	case TORUS: U(torus);
+	case TREFOIL: U(trefoil);
+	case HELICOID: U(helicoid);
+	case MOBIUS_STRIP: U(mobiusStrip);
+	case PSEUDOSPHERE: U(pseudosphere);
+	case CONE: U(cone);
+	case SPHERE: U(sphere);
 	}
+	
+}
+
+MainLoop::SurfaceCameraUpdateResult MainLoop::updateSurfaceCamera(f32 dt) {
+	#define U(surface) { \
+		const auto view = surfaceCamera.update(surfaces.surface, dt); \
+		return SurfaceCameraUpdateResult{ view, surfaceCamera.cameraPosition(surfaces.surface) }; \
+	}
+	switch (surfaces.selected) {
+		using enum Surfaces::Type;
+	case TORUS: U(torus);
+	case TREFOIL: U(trefoil);
+	case HELICOID: U(helicoid);
+	case MOBIUS_STRIP: U(mobiusStrip);
+	case PSEUDOSPHERE: U(pseudosphere);
+	case CONE: U(cone);
+	case SPHERE: U(sphere);
+	}
+	#undef U
 }
 
 Vec2 MainLoop::randomPointOnSurface() {
-	const auto value = uniform01(rng) * surfaceMesh.totalArea;
+	const auto value = uniform01(rng) * surfaceData.totalArea;
 	f32 cursor = 0.0f;
 	i32 randomTriangleIndex = 0;
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
-		cursor += surfaceMesh.triangleAreas[i];
+	for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
+		cursor += surfaceData.triangleAreas[i];
 		if (cursor >= value) {
 			randomTriangleIndex = i;
 			break;
 		}
 	}
 	Vec2 uvs[3];
-	getTriangle(surfaceMesh.uvs, surfaceMesh.indices, uvs, randomTriangleIndex);
+	getTriangle(surfaceData.uvs, surfaceData.indices, uvs, randomTriangleIndex);
 	const auto r0 = uniform01(rng);
 	const auto r1 = uniform01(rng);
 	return uniformRandomPointOnTri(uvs, r0, r1);
@@ -581,7 +625,7 @@ Vec2 MainLoop::vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, V
 	return inUvCoordinates;
 }
 
-void MainLoop::randomInitializeParticle(i32 i) {
+void MainLoop::randomInitializeParticle(const RectParametrization auto& surface, i32 i) {
 	const auto p = randomPointOnSurface();
 	const auto lifetime = std::uniform_int_distribution<i32>(
 		i32(FlowParticles::maxLifetime * f32(0.7f)),
@@ -604,9 +648,9 @@ void MainLoop::randomizeVectorField(usize seed) {
 	noise = PerlinNoise(seed);
 	vectorFieldMinLength = std::numeric_limits<f32>::infinity();
 	vectorFieldMaxLength = -std::numeric_limits<f32>::infinity();
-	for (i32 i = 0; i < surfaceMesh.triangleCount(); i++) {
+	for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
 		Vec3 v[3];
-		getTriangle(surfaceMesh.positions, surfaceMesh.indices, v, i);
+		getTriangle(surfaceData.positions, surfaceData.indices, v, i);
 		const auto normal = cross(v[1] - v[0], v[2] - v[0]).normalized();
 		const auto centroid = (v[0] + v[1] + v[2]) / 3.0f;
 		const auto vector = vectorFieldSample(centroid);
@@ -632,19 +676,62 @@ Vec3 MainLoop::vectorFieldSample(Vec3 v) const {
 	);
 }
 
-//Vec3 MainLoop::vectorFieldSample(Vec3 pos, Vec2 uvPos, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const {
-//	const auto tangentU = surface.tangentU(uvPos.x, uvPos.y);
-//	const auto tangentV = surface.tangentV(uvPos.x, uvPos.y);
-//	const auto vector = vectorFieldSample(pos);
-//	return vectorInTangentSpaceBasis(vector, tangentU, tangentV, normal);
-//}
+void MainLoop::geodesicToolUpdate(const RectParametrization auto& surface) {
+	return;
+	auto movementRhs = [&](Vec4 state, f32 _) {
+	const auto symbols = surface.christoffelSymbols(state.x, state.y);
+		Vec2 velocity(state.z, state.w);
+
+		return Vec4(
+			velocity.x,
+			velocity.y,
+			-dot(velocity, symbols.x * velocity),
+			-dot(velocity, symbols.y * velocity)
+		);
+	};
+
+	const auto geodesicLength = 15.0f;
+	const auto steps = 200;
+	const auto dl = geodesicLength / steps;
+
+	Vec2 position = initialPositionUv;
+	Vec2 velocity = Vec2::oriented(initialVelocityUv.angle());
+	for (i32 i = 0; i < steps; i++) {
+		const auto uTangent = surface.tangentU(position.x, position.y);
+		const auto vTangent = surface.tangentV(position.x, position.y);
+		const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
+		velocity /= v;
+		i32 n = 5;
+		Vec4 state(position.x, position.y, velocity.x, velocity.y);
+		for (i32 j = 0; j < n; j++) {
+			state = rungeKutta4Step(movementRhs, state, 0.0f, dl / n);
+		}
+		const auto newPosition = Vec2(state.x, state.y);
+		renderer.line(surface.position(position.x, position.y), surface.position(newPosition.x, newPosition.y), 0.01f, Color3::RED);
+		const auto tangent = Vec2(state.z, state.w);
+		position = newPosition;
+		velocity = tangent;
+	}
+}
+
+void MainLoop::Surface::sortTriangles(Vec3 cameraPosition) {
+	// @Performance: Could discard triangles behind the camera.
+	std::vector<f32> distances;
+	for (i32 i = 0; i < triangleCenters.size(); i++) {
+		distances.push_back(triangleCenters[i].distanceSquaredTo(cameraPosition));
+	}
+	const auto lessThan = [&](i32 a, i32 b) {
+		return distances[a] > distances[b];
+	};
+	std::sort(sortedTriangles.begin(), sortedTriangles.end(), lessThan);
+}
 
 i32 MainLoop::Surface::vertexCount() const {
-	return positions.size();
+	return i32(positions.size());
 }
 
 i32 MainLoop::Surface::triangleCount() const {
-	return indices.size() / 3;
+	return i32(indices.size() / 3);
 }
 
 void MainLoop::Surface::addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt) {
@@ -654,7 +741,7 @@ void MainLoop::Surface::addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt) {
 	uvts.push_back(uvt);
 }
 
-Vec2& MainLoop::FlowParticles::position(i32 particleIndex, i32 frame) {
+Vec2& FlowParticles::position(i32 particleIndex, i32 frame) {
 	ASSERT(particleIndex < particleCount());
 	if (lifetime[particleIndex] > 0) {
 		ASSERT(frame < lifetime[particleIndex]);
@@ -662,19 +749,19 @@ Vec2& MainLoop::FlowParticles::position(i32 particleIndex, i32 frame) {
 	return positionsData[maxLifetime * particleIndex + frame];
 }
 
-Vec3& MainLoop::FlowParticles::normal(i32 particleIndex, i32 frame) {
+Vec3& FlowParticles::normal(i32 particleIndex, i32 frame) {
 	return normalsData[maxLifetime * particleIndex + frame];
 }
 
-Vec3& MainLoop::FlowParticles::color(i32 particleIndex, i32 frame) {
+Vec3& FlowParticles::color(i32 particleIndex, i32 frame) {
 	return colorsData[maxLifetime * particleIndex + frame];
 }
 
-Vec2& MainLoop::FlowParticles::velocity(i32 particleIndex, i32 frame) {
+Vec2& FlowParticles::velocity(i32 particleIndex, i32 frame) {
 	return velocitiesData[maxLifetime * particleIndex + frame];
 }
 
-void MainLoop::FlowParticles::initialize(i32 particleCount) {
+void FlowParticles::initialize(i32 particleCount) {
 	positionsData.resize(particleCount * maxLifetime);
 	normalsData.resize(particleCount * maxLifetime);
 	velocitiesData.resize(particleCount * maxLifetime);
@@ -683,11 +770,11 @@ void MainLoop::FlowParticles::initialize(i32 particleCount) {
 	elapsed.resize(particleCount);
 }
 
-i32 MainLoop::FlowParticles::particleCount() const {
-	return lifetime.size();
+i32 FlowParticles::particleCount() const {
+	return i32(lifetime.size());
 }
 
-void MainLoop::FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime, Vec3 color, Vec2 velocity) {
+void FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 normal, i32 lifetime, Vec3 color, Vec2 velocity) {
 	this->position(i, 0) = position;
 	this->normal(i, 0) = normal;
 	this->velocity(i, 0) = velocity;
@@ -695,3 +782,4 @@ void MainLoop::FlowParticles::initializeParticle(i32 i, Vec2 position, Vec3 norm
 	this->lifetime[i] = lifetime;
 	this->elapsed[i] = 0;
 }
+

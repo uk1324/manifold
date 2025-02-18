@@ -1,0 +1,11 @@
+I have a particle system that needs access to a surface and a vector field.
+To update a particle I need both the surface to get a position from a uv coordinate and the vector field to calculate the velocity of the particle.
+
+If these were implemented using dynamic polymorphism I could have functions 
+VectorField& selectedVectorField()
+Surface& selectedSurface()
+and then pass these objects to the function. The disadvantage of this is that every call to these objects would require dynamic dispatch.
+One way to improve this would be do add a function on each of these types the directly computes the value. So for example there would a function Surface::updateParticles(const VectorField& v). This would elimnate the pointless dynamic dispatch for surface, but it would still happen for vector field. Basically this would just be doing dynamic dispatch instead of switching on the surface type. 
+
+Instead there could be function generated for each pair of surface, vectorField then the dynamic part would happen once at the start. One issue is more code generation, but also the need to explicity choose the selected objects to put into the function each time. So here there would need to be a 2d switch statement. The switch statements are similar so a macro could be used.
+Another thing that could be done is making the functions dynamic again by using something like std::function

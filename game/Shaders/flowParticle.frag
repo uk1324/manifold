@@ -16,6 +16,7 @@ void main() {
 	
 	float d = length(p);
 	float smoothing = fwidth(d) * 2.0;
+	//smoothing += 0.5;
 	d -= 1.0 - smoothing;
 	d = smoothstep(smoothing, 0.0 , d);
 	fragColor = vec4(color.rgb, d * color.a);
