@@ -168,7 +168,7 @@ void MainLoop::updateParticles(const RectParametrization auto& surface, const Ve
 			const auto color = flowParticles.color(i, positionI);
 			position += flowParticles.normal(i, positionI) * maxSize;
 
-			renderer.flowParticle(size, position, Vec4(color, a));
+			renderer.flowParticle(size, position, Vec4(color, a * t));
 		}
 
 	}
@@ -182,6 +182,11 @@ void MainLoop::updateParticles(const RectParametrization auto& surface, const Ve
 	glDepthMask(GL_TRUE);
 }
 
+void sliderF32(const char* label, f32& value, f32 min, f32 max) {
+	if (ImGui::SliderFloat(label, &value, min, max)) {
+		value = std::clamp(value, min, max);
+	}
+}
 
 MainLoop::MainLoop()
 	: renderer(Renderer::make())
@@ -191,6 +196,8 @@ MainLoop::MainLoop()
 	initializeParticles(5000);
 
 	randomizeVectorField(5);
+
+	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 	Window::disableCursor();
 }
@@ -202,20 +209,73 @@ void MainLoop::update() {
 		Window::toggleCursor();
 	}
 
+	auto id = ImGui::DockSpaceOverViewport(
+		ImGui::GetMainViewport(),
+		ImGuiDockNodeFlags_NoDockingOverCentralNode | ImGuiDockNodeFlags_PassthruCentralNode);
+
+	{
+		const auto cursorEnabled = Window::isCursorEnabled();
+
+		const auto flags =
+			ImGuiConfigFlags_NavNoCaptureKeyboard |
+			ImGuiConfigFlags_NoMouse |
+			ImGuiConfigFlags_NoMouseCursorChange;
+
+		if (cursorEnabled) {
+			ImGui::GetIO().ConfigFlags &= ~flags;
+		} else {
+			ImGui::GetIO().ConfigFlags |= flags;
+		}
+	}
+
+	/*Input::ignoreImGuiWantCapture = Window::isCursorEnabled();*/
+
 	if (Input::isKeyDown(KeyCode::X)) {
 		Window::close();
 	}
-
+	ImGui::Begin("settings");
 	if (ImGui::Button("randomize")) {
 		randomizeVectorField(rng());
 	}
 
+	CameraMode cameraModes[]{ CameraMode::IN_SPACE, CameraMode::ON_SURFACE };
+	auto cameraModeStr = [](CameraMode mode) -> const char* {
+		switch (mode) {
+			using enum CameraMode;
+		case IN_SPACE: return "in space";
+		case ON_SURFACE: return "on surface";
+		}
+		return "";
+	};
+
+	if (ImGui::BeginCombo("camera mode", cameraModeStr(cameraMode))) {
+		for (auto& mode : cameraModes) {
+			const auto isSelected = mode == cameraMode;
+			if (ImGui::Selectable(cameraModeStr(mode), isSelected)) {
+				cameraMode = mode;
+			}
+			if (isSelected) { ImGui::SetItemDefaultFocus(); }
+		}
+		ImGui::EndCombo();
+	}
+
+	switch (cameraMode) {
+		using enum CameraMode;
+	case ON_SURFACE: {
+		if (ImGui::Button("walk on other side")) {
+			surfaceCamera.normalFlipped = !surfaceCamera.normalFlipped;
+		}
+		break;
+	}
+	case IN_SPACE:
+		break;
+	}
+	ImGui::Separator();
+
 	#define S(ENUM_NAME, name) {\
-		const auto index = i32(ENUM_NAME); \
-		const auto isSelected = index == selectedIndex; \
+		const auto isSelected = surfaces.selected == ENUM_NAME; \
 		if (ImGui::Selectable(surfaceNameStr(ENUM_NAME), isSelected)) { \
-			selectedIndex = index; \
-			surfaces.selected = Surfaces::Type(selectedIndex); \
+			surfaces.selected = ENUM_NAME; \
 			initializeSelectedSurface(); \
 			initializeParticles(5000); \
 		} \
@@ -223,8 +283,7 @@ void MainLoop::update() {
 	}
 
 	const auto selectedName = surfaceNameStr(surfaces.selected);
-	i32 selectedIndex = i32(surfaces.selected);
-	if (ImGui::BeginCombo("surface type", selectedName)) {
+	if (ImGui::BeginCombo("surface", selectedName)) {
 		using enum Surfaces::Type;
 		S(TORUS, torus);
 		S(TREFOIL, trefoil);
@@ -233,8 +292,42 @@ void MainLoop::update() {
 		S(PSEUDOSPHERE, pseudosphere);
 		S(CONE, cone);
 		S(SPHERE, sphere);
+		ImGui::EndCombo();
 	}
 	#undef S
+
+	sliderF32("opacity", meshOpacity, 0.0f, 1.0f);
+
+	struct ToolInfo {
+		ToolType type;
+		//const char* tooltip;
+	};
+	auto toolName = [](ToolType tool) -> const char* {
+		switch (tool) {
+			using enum ToolType;
+		case NONE: return "none";
+		case GEODESICS: return "geodesics";
+		case FLOW: return "flow";
+		}
+		return "";
+	};
+	ToolInfo tools[]{
+		{ ToolType::NONE },
+		{ ToolType::GEODESICS },
+		{ ToolType::FLOW },
+	};
+	ImGui::Separator();
+	if (ImGui::BeginCombo("tool", toolName(selectedTool))) {
+		for (auto& tool : tools) {
+			const auto isSelected = tool.type == selectedTool;
+			if (ImGui::Selectable(toolName(tool.type), isSelected)) {
+				selectedTool = tool.type;
+			}
+			if (isSelected) { ImGui::SetItemDefaultFocus(); }
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::End();
 
 	//auto renderLine = [this](Vec3 a, Vec3 b) {
 	//	i32 circleVertexCount = 50;
@@ -298,26 +391,6 @@ void MainLoop::update() {
 	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
 
-	surfaceData.sortTriangles(cameraPosition);
-	const auto indicesOffset = i32(renderer.trianglesIndices.size());
-	for (i32 i = 0; i < surfaceData.vertexCount(); i++) {
-		renderer.addVertex(Vertex3Pnt{ 
-			.position = surfaceData.positions[i],
-			.normal = surfaceData.normals[i],
-			.uv = surfaceData.uvts[i]
-		});
-	}
-
-
-	for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
-		const auto index = indicesOffset + surfaceData.sortedTriangles[i] * 3;
-		renderer.addTriangle(
-			surfaceData.indices[index],
-			surfaceData.indices[index + 1],
-			surfaceData.indices[index + 2]
-		);
-	}
-
 	//renderer.sphere(Vec3(0.0f, 0.0f, 5.0f), 0.1f, Color3::GREEN);
 
 	renderer.renderCyllinders();
@@ -352,37 +425,82 @@ void MainLoop::update() {
 
 	// Disabling depth writes was mentioned in real-time rendering. Not sure what it actually does.
 	//glDepthMask(GL_FALSE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	renderer.renderTriangles(0.5f);
-	//renderer.renderTriangles(1.0f);
-	glDisable(GL_BLEND);
-	//glDepthMask(GL_TRUE);
+
+	auto flowToolUpdate = [this] {
+		#define I(name, vectorField) updateParticles(surfaces.name, vectorField)
+		#define S(vectorField) \
+		switch (surfaces.selected) { \
+			using enum Surfaces::Type; \
+		case TORUS: I(torus, vectorField); break; \
+		case TREFOIL: I(trefoil, vectorField); break; \
+		case HELICOID: I(helicoid, vectorField); break; \
+		case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
+		case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
+		case CONE: I(cone, vectorField); break; \
+		case SPHERE: I(sphere, vectorField); break; \
+		}
+		switch (selectedVectorField) {
+			using enum VectorFieldType;
+		case RANDOM: S([this](Vec3 pos) { return vectorFieldSample(pos); });
+		}
+		#undef I
+		#undef S
+	};
+
+	const auto isVisible = meshOpacity > 0.0f;
+	if (isVisible && selectedTool != ToolType::FLOW) {
+		const auto isTransparent = meshOpacity < 1.0f;
+		if (isTransparent) {
+			surfaceData.sortTriangles(cameraPosition);
+		}
+		const auto indicesOffset = i32(renderer.trianglesIndices.size());
+		for (i32 i = 0; i < surfaceData.vertexCount(); i++) {
+			renderer.addVertex(Vertex3Pnt{
+				.position = surfaceData.positions[i],
+				.normal = surfaceData.normals[i],
+				.uv = surfaceData.uvts[i]
+			});
+		}
+		for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
+			const auto index = indicesOffset + surfaceData.sortedTriangles[i] * 3;
+			renderer.addTriangle(
+				surfaceData.indices[index],
+				surfaceData.indices[index + 1],
+				surfaceData.indices[index + 2]
+			);
+		}
+
+		if (isTransparent) {
+			glEnable(GL_BLEND);
+			glDepthMask(GL_FALSE);
+		}
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		renderer.renderTriangles(meshOpacity);
+		//renderer.renderTriangles(1.0f);
+		if (isTransparent) {
+			glDisable(GL_BLEND);
+			glDepthMask(GL_TRUE);
+		}
+	}
+	
+	switch (selectedTool) {
+	using enum ToolType;
+	case NONE: {
+		break;
+	}
+	case GEODESICS: {
+		break;
+	}
+	case FLOW: {
+		flowToolUpdate();
+	}
+	}
 
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	renderer.gfx2d.disk(Vec2(0.0f), 0.015f, Color3::WHITE);
 	renderer.gfx2d.drawDisks();
 	glDisable(GL_BLEND);
-
-	//#define I(name, vectorField) updateParticles(surfaces.name, vectorField)
-	//#define S(vectorField) \
-	//switch (surfaces.selected) { \
-	//	using enum Surfaces::Type; \
-	//case TORUS: I(torus, vectorField); break; \
-	//case TREFOIL: I(trefoil, vectorField); break; \
-	//case HELICOID: I(helicoid, vectorField); break; \
-	//case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
-	//case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
-	//case CONE: I(cone, vectorField); break; \
-	//case SPHERE: I(sphere, vectorField); break; \
-	//}
-	//switch (selectedVectorField) {
-	//	using enum VectorFieldType;
-	//case RANDOM: S([this](Vec3 pos) { return vectorFieldSample(pos); });
-	//}
-	//#undef I
-	//#undef S
 }
 
 void MainLoop::initializeSelectedSurface() {
@@ -539,39 +657,29 @@ void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
 	}
 
 	}
-	if (false) {
-		const auto initialPosition = surfaces.position(initialPositionUv);
-		const auto initialVelocity =
-			(surfaces.tangentU(initialPositionUv) * initialVelocityUv.x +
-			surfaces.tangentV(initialPositionUv) * initialVelocityUv.y).normalized();
-		renderer.sphere(initialPosition, 0.015f, Color3::RED);
-		const auto radius = 0.01f;
-		const auto coneRadius = radius * 2.5f;
-		const auto coneLength = coneRadius * 2.0f;
-		renderer.arrowStartEnd(
-			initialPosition,
-			initialPosition + initialVelocity * initialVelocityVectorLength,
-			radius,
-			coneRadius,
-			coneLength,
-			Color3::WHITE,
-			Color3::RED
-		);
-	}
-	#define U(name) \
-		geodesicToolUpdate(surfaces.name); break;
 
-	switch (surfaces.selected) {
-		using enum Surfaces::Type;
-	case TORUS: U(torus);
-	case TREFOIL: U(trefoil);
-	case HELICOID: U(helicoid);
-	case MOBIUS_STRIP: U(mobiusStrip);
-	case PSEUDOSPHERE: U(pseudosphere);
-	case CONE: U(cone);
-	case SPHERE: U(sphere);
+	if (selectedTool == ToolType::GEODESICS) {
+		{
+			const auto initialPosition = surfaces.position(initialPositionUv);
+			const auto initialVelocity =
+				(surfaces.tangentU(initialPositionUv) * initialVelocityUv.x +
+					surfaces.tangentV(initialPositionUv) * initialVelocityUv.y).normalized();
+			renderer.sphere(initialPosition, 0.015f, Color3::RED);
+			const auto radius = 0.01f;
+			const auto coneRadius = radius * 2.5f;
+			const auto coneLength = coneRadius * 2.0f;
+			renderer.arrowStartEnd(
+				initialPosition,
+				initialPosition + initialVelocity * initialVelocityVectorLength,
+				radius,
+				coneRadius,
+				coneLength,
+				Color3::WHITE,
+				Color3::RED
+			);
+		}
+		geodesicToolUpdate();
 	}
-	
 }
 
 MainLoop::SurfaceCameraUpdateResult MainLoop::updateSurfaceCamera(f32 dt) {
@@ -677,7 +785,6 @@ Vec3 MainLoop::vectorFieldSample(Vec3 v) const {
 }
 
 void MainLoop::geodesicToolUpdate(const RectParametrization auto& surface) {
-	return;
 	auto movementRhs = [&](Vec4 state, f32 _) {
 	const auto symbols = surface.christoffelSymbols(state.x, state.y);
 		Vec2 velocity(state.z, state.w);
@@ -712,6 +819,21 @@ void MainLoop::geodesicToolUpdate(const RectParametrization auto& surface) {
 		position = newPosition;
 		velocity = tangent;
 	}
+}
+
+void MainLoop::geodesicToolUpdate() {
+	#define U(name) geodesicToolUpdate(surfaces.name); break;
+	switch (surfaces.selected) {
+		using enum Surfaces::Type;
+	case TORUS: U(torus);
+	case TREFOIL: U(trefoil);
+	case HELICOID: U(helicoid);
+	case MOBIUS_STRIP: U(mobiusStrip);
+	case PSEUDOSPHERE: U(pseudosphere);
+	case CONE: U(cone);
+	case SPHERE: U(sphere);
+	}
+	#undef U
 }
 
 void MainLoop::Surface::sortTriangles(Vec3 cameraPosition) {

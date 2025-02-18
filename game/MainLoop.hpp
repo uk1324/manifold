@@ -69,6 +69,11 @@ struct MainLoop {
 		void addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt);
 	};
 
+	f32 meshOpacity = 0.5f;
+	enum class MeshRenderMode {
+		GRID
+	} meshRenderMode = MeshRenderMode::GRID;
+
 	void initializeParticles(
 		FlowParticles& particles,
 		i32 particleCount,
@@ -107,6 +112,7 @@ struct MainLoop {
 	Surface surfaceData;
 
 	void geodesicToolUpdate(const RectParametrization auto& surface);
+	void geodesicToolUpdate();
 
 	enum class CameraMode {
 		ON_SURFACE,
@@ -122,4 +128,10 @@ struct MainLoop {
 		RANDOM
 	};
 	VectorFieldType selectedVectorField = VectorFieldType::RANDOM;
+
+	enum class ToolType {
+		NONE,
+		GEODESICS,
+		FLOW,
+	} selectedTool = ToolType::NONE;
 };

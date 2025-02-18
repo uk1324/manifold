@@ -190,6 +190,8 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 			// TODO:
 			return value;
 		};
+
+		return value;
 	};
 
 	uvPosition.x = handleConnectivity(uvPosition.x, surface.uMin, surface.uMax, surface.uConnectivity);
