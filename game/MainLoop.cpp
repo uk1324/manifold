@@ -32,6 +32,7 @@ void initializeSurface(
 	surface.uvs.clear();
 	surface.uvts.clear();
 	surface.normals.clear();
+	surface.curvatures.clear();
 	for (i32 vi = 0; vi <= size; vi++) {
 		for (i32 ui = 0; ui <= size; ui++) {
 			const auto ut = f32(ui) / size;
@@ -40,9 +41,17 @@ void initializeSurface(
 			const auto v = lerp(parametrization.vMin, parametrization.vMax, vt);
 			const auto p = parametrization.position(u, v);
 			const auto n = parametrization.normal(u, v);
+			surface.curvatures.push_back(parametrization.curvature(u, v));
 			surface.addVertex(p, n, Vec2(u, v), Vec2(ut, vt));
 		}
 	}
+	{
+		const auto r = std::ranges::minmax(surface.curvatures);
+		surface.minCurvature = r.min;
+		surface.maxCurvature = r.max;
+	}
+
+
 	auto index = [&size](i32 ui, i32 vi) {
 		//// Wrap aroud
 		//if (ui == size) { ui = 0; }
@@ -296,6 +305,29 @@ void MainLoop::update() {
 	}
 	#undef S
 
+	auto meshRenderModeName = [](MeshRenderMode mode) -> const char* {
+		switch (mode) {
+			using enum MeshRenderMode;
+		case GRID: return "grid";
+		case CURVATURE: return "gaussian curvature";
+		}
+		return "";
+	};
+	MeshRenderMode renderModes[]{
+		MeshRenderMode::GRID,
+		MeshRenderMode::CURVATURE,
+	};
+	if (ImGui::BeginCombo("mesh coloring", meshRenderModeName(meshRenderMode))) {
+		for (auto& mode : renderModes) {
+			const auto isSelected = mode == meshRenderMode;
+			if (ImGui::Selectable(meshRenderModeName(mode), isSelected)) {
+				meshRenderMode = mode;
+			}
+			if (isSelected) { ImGui::SetItemDefaultFocus(); }
+		}
+		ImGui::EndCombo();
+	}
+
 	sliderF32("opacity", meshOpacity, 0.0f, 1.0f);
 
 	struct ToolInfo {
@@ -447,36 +479,123 @@ void MainLoop::update() {
 		#undef S
 	};
 
+	auto spectralSample = [](f32 v) {
+		// https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/_cm.py
+		// _Spectral_data 
+		const Vec3 colors[] = {
+			Vec3(0.61960784313725492f, 0.003921568627450980f, 0.25882352941176473f),
+			Vec3(0.83529411764705885f, 0.24313725490196078f, 0.30980392156862746f),
+			Vec3(0.95686274509803926f, 0.42745098039215684f, 0.2627450980392157f),
+			Vec3(0.99215686274509807f, 0.68235294117647061f, 0.38039215686274508f),
+			Vec3(0.99607843137254903f, 0.8784313725490196f, 0.54509803921568623f),
+			Vec3(1.0f, 1.0f, 0.74901960784313726f),
+			Vec3(0.90196078431372551f, 0.96078431372549022f, 0.59607843137254901f),
+			Vec3(0.6705882352941176f, 0.8666666666666667f, 0.64313725490196083f),
+			Vec3(0.4f, 0.76078431372549016f, 0.6470588235294118f),
+			Vec3(0.19607843137254902f, 0.53333333333333333f, 0.74117647058823533f),
+			Vec3(0.36862745098039218f, 0.30980392156862746f, 0.63529411764705879f)
+		};
+		const auto colorCount = std::size(colors);
+		const auto indexFloat = v * colorCount;
+		const auto index = i32(std::floor(indexFloat));
+		if (index <= 0) {
+			return colors[0];
+		}
+		if (index >= colorCount - 1) {
+			return colors[colorCount - 1];
+		}
+		const auto t = indexFloat - index;
+		return lerp(colors[index], colors[index + 1], t);
+	};
+
 	const auto isVisible = meshOpacity > 0.0f;
 	if (isVisible && selectedTool != ToolType::FLOW) {
 		const auto isTransparent = meshOpacity < 1.0f;
 		if (isTransparent) {
 			surfaceData.sortTriangles(cameraPosition);
 		}
-		const auto indicesOffset = i32(renderer.trianglesIndices.size());
+
+		const auto indicesOffset = i32(renderer.coloredTriangles.currentIndex());
 		for (i32 i = 0; i < surfaceData.vertexCount(); i++) {
-			renderer.addVertex(Vertex3Pnt{
-				.position = surfaceData.positions[i],
-				.normal = surfaceData.normals[i],
-				.uv = surfaceData.uvts[i]
-			});
+			/*const auto min = surfaceData.minCurvature;
+			const auto max = surfaceData.maxCurvature;*/
+			/*const auto min = -1.0f;
+			const auto max = 1.0f;
+			Vec2 curve[]{
+				Vec2(min, 0.0f),
+				Vec2(0.0f, 0.5f),
+				Vec2(max, 1.0f)
+			};
+			const auto t = piecewiseLinearSample(constView(curve), surfaceData.curvatures[i]);
+			Vec3 color = Color3::WHITE;
+			const auto c0 = Color3::RED;
+			const auto c1 = Color3::WHITE;
+			const auto c2 = Color3::GREEN;
+			if (t < 0.5f) {
+				color = lerp(c0, c1, t / 0.5f);
+			} else {
+				color = lerp(c1, c2, (t - 0.5f) / 0.5f);
+			}
+			color = spectralSample(t);*/
+			//color = Color3::scientificColoring(t, 0.0f, 1.0f);
+			//color = Color3::scientificColoring(surfaceData.curvatures[i], -1.0f, 1.0f);
+			switch (meshRenderMode) {
+				using enum MeshRenderMode;
+			case GRID: {
+				renderer.triangles.addVertex(Vertex3Pnt{
+					.position = surfaceData.positions[i],
+					.normal = surfaceData.normals[i],
+					.uv = surfaceData.uvts[i]
+				});
+				break;
+			}
+			case CURVATURE: {
+				const auto biggest = std::max(
+					std::abs(surfaceData.minCurvature), 
+					std::abs(surfaceData.maxCurvature));
+				auto t = surfaceData.curvatures[i];
+				t /= biggest;
+				t += 1.0f;
+				t /= 2.0f;
+				Vec3 color = spectralSample(1.0f - t);
+				renderer.coloredTriangles.addVertex(Vertex3Pnc{
+					.position = surfaceData.positions[i],
+					.normal = surfaceData.normals[i],
+					.color = color
+				});
+				break;
+			}
+
+			}
 		}
 		for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
 			const auto index = indicesOffset + surfaceData.sortedTriangles[i] * 3;
-			renderer.addTriangle(
-				surfaceData.indices[index],
-				surfaceData.indices[index + 1],
-				surfaceData.indices[index + 2]
-			);
+			const auto i0 = surfaceData.indices[index];
+			const auto i1 = surfaceData.indices[index + 1];
+			const auto i2 = surfaceData.indices[index + 2];
+			switch (meshRenderMode) {
+				using enum MeshRenderMode;
+			case GRID: 
+				renderer.triangles.addTri(i0, i1, i2);
+				break;
+
+			case CURVATURE: 
+				renderer.coloredTriangles.addTri(i0, i1, i2);
+				break;
+			}
+			
 		}
 
 		if (isTransparent) {
 			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glDepthMask(GL_FALSE);
 		}
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		renderer.renderTriangles(meshOpacity);
-		//renderer.renderTriangles(1.0f);
+		switch (meshRenderMode) {
+			using enum MeshRenderMode;
+		case GRID: renderer.renderTriangles(meshOpacity); break;
+		case CURVATURE: renderer.renderColoredTriangles(meshOpacity); break;
+		}
 		if (isTransparent) {
 			glDisable(GL_BLEND);
 			glDepthMask(GL_TRUE);

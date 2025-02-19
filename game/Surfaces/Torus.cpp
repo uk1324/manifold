@@ -62,3 +62,7 @@ Vec3 Torus::normal(f32 u, f32 v) const {
 ChristoffelSymbols Torus::christoffelSymbols(f32 u, f32 v) const {
 	return torusChristoffelSymbols(u, v, r, R);
 }
+
+f32 Torus::curvature(f32 u, f32 v) const {
+	return cos(v) / (r * (R + r * cos(v)));
+}

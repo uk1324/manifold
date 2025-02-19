@@ -6,6 +6,22 @@
 #include <gfx/Instancing.hpp>
 #include <engine/Window.hpp>
 
+template<typename Vertex>
+void renderTriangles(ShaderProgram& shader, TriangleRenderer<Vertex>& r) {
+	if (r.vertices.size() == 0 || r.indices.size() == 0) {
+		return;
+	}
+	r.vbo.allocateData(r.vertices.data(), r.vertices.size() * sizeof(Vertex));
+	r.ibo.allocateData(r.indices.data(), r.indices.size() * sizeof(u32));
+
+	shader.use();
+	r.vao.bind();
+	glDrawElements(GL_TRIANGLES, i32(r.indices.size()), GL_UNSIGNED_INT, nullptr);
+
+	r.vertices.clear();
+	r.indices.clear();
+}
+
 Vec3 anyPerpendicularVector(Vec3 v) {
 	v = v.normalized();
 	const auto attempt = cross(v, Vec3(1.0f, 0.0f, 0.0f));
@@ -22,6 +38,11 @@ void indicesAddTri(std::vector<i32>& indicies, i32 i0, i32 i1, i32 i2) {
 }
 
 void indicesAddQuad(std::vector<i32>& indicies, i32 i00, i32 i01, i32 i11, i32 i10) {
+	/*
+	i01-i11
+	|  /  |
+	i00-i10
+	*/
 	indicies.push_back(i00);
 	indicies.push_back(i10);
 	indicies.push_back(i11);
@@ -58,11 +79,6 @@ void drawMeshInstances(Renderer::Mesh& mesh, View<const Instance> instances, Vbo
 
 Renderer Renderer::make() {
 	auto instancesVbo = Vbo(1024ull * 10);
-
-	auto trianglesVbo = Vbo::generate();
-	auto trianglesIbo = Ibo::generate();
-	auto trianglesVao = createInstancingVao<BasicShadingShader>(trianglesVbo, trianglesIbo, instancesVbo);
-
 
 	auto makeRectVertex = [&](f32 x, f32 y) {
 		return Vertex3Pnt{ Vec3(x, y, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec2(x, y) };
@@ -119,7 +135,7 @@ Renderer Renderer::make() {
 
 	auto toIndex = [](i32 ui, i32 vi) {
 		return ui * circleVertexCount + vi;
-		};
+	};
 	i32 previousUi = circleVertexCount - 1;
 	for (i32 ui = 0; ui < circleVertexCount; ui++) {
 		i32 previousVi = circleVertexCount - 1;
@@ -180,7 +196,7 @@ Renderer Renderer::make() {
 				.normal = normal
 			});
 		}
-		const auto centerIndex = vertices.size();
+		const auto centerIndex = i32(vertices.size());
 		vertices.push_back(Vertex3Pn{
 			.position = Vec3(0.0f),
 			.normal = normal
@@ -197,13 +213,13 @@ Renderer Renderer::make() {
 	return Renderer{
 		.transform = Mat4::identity,
 		.view = Mat4::identity,
+		.triangles = TriangleRenderer<Vertex3Pnt>::make<BasicShadingShader>(instancesVbo),
 		.trianglesShader = MAKE_GENERATED_SHADER(BASIC_SHADING),
-		MOVE(trianglesVbo),
-		MOVE(trianglesIbo),
-		MOVE(trianglesVao),
-		.coloredShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
+		.coloredTriangles = TriangleRenderer<Vertex3Pnc>::make<ColoredShader>(instancesVbo),
+		.coloredShader = MAKE_GENERATED_SHADER(COLORED),
 		.flowParticleRectMesh = std::move(rectMesh),
 		.flowParticleShader = MAKE_GENERATED_SHADER(FLOW_PARTICLE),
+		.coloredShadingShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
 		MOVE(cyllinderMesh),
 		MOVE(hemisphere),
 		MOVE(coneMesh),
@@ -213,56 +229,25 @@ Renderer Renderer::make() {
 	};
 }
 
-void Renderer::addTriangle(i32 i0, i32 i1, i32 i2) {
-	trianglesIndices.push_back(i0);
-	trianglesIndices.push_back(i1);
-	trianglesIndices.push_back(i2);
-}
-
-void Renderer::addQuad(i32 i0, i32 i1, i32 i2, i32 i3) {
-	/*
-	i3-i2
-	| / |
-	i0-i1
-	*/
-	trianglesIndices.push_back(i0);
-	trianglesIndices.push_back(i1);
-	trianglesIndices.push_back(i2);
-
-	trianglesIndices.push_back(i0);
-	trianglesIndices.push_back(i2);
-	trianglesIndices.push_back(i3);
-}
-
-i32 Renderer::addVertex(Vertex3Pnt vertex) {
-	const auto index = trianglesVertices.size();
-	trianglesVertices.push_back(vertex);
-	return i32(index);
-}
-
-void Renderer::triangle(Vertex3Pnt v0, Vertex3Pnt v1, Vertex3Pnt v2) {
-	const auto i0 = addVertex(v0);
-	const auto i1 = addVertex(v1);
-	const auto i2 = addVertex(v2);
-	addTriangle(i0, i1, i2);
-}
-
 void Renderer::renderTriangles(f32 opacity) {
-	trianglesVbo.allocateData(trianglesVertices.data(), trianglesVertices.size() * sizeof(Vertex3Pnt));
-	trianglesIbo.allocateData(trianglesIndices.data(), trianglesIndices.size() * sizeof(u32));
-
 	shaderSetUniforms(trianglesShader, BasicShadingFragUniforms{
 		.opacity = opacity
 	});
 	shaderSetUniforms(trianglesShader, BasicShadingVertUniforms{
 		.transform = transform
 	});
-	trianglesShader.use();
-	trianglesVao.bind();
-	glDrawElements(GL_TRIANGLES, i32(trianglesIndices.size()), GL_UNSIGNED_INT, nullptr);
+	::renderTriangles(trianglesShader, triangles);
+}
 
-	trianglesVertices.clear();
-	trianglesIndices.clear();
+void Renderer::renderColoredTriangles(f32 opacity) {
+	shaderSetUniforms(coloredShader, ColoredFragUniforms{
+		.opacity = opacity
+	});
+	shaderSetUniforms(coloredShader, ColoredVertUniforms{
+		.transform = transform,
+		.view = view,
+	});
+	::renderTriangles(coloredShader, coloredTriangles);
 }
 
 // Transforms a radially symmetric mesh such that (0, 0, 0) is mapped to a and (0, 0, 1) is mapped to (b - a).normalized().
@@ -277,7 +262,7 @@ Mat4 transformMesh(Vec3 a, Vec3 b) {
 }
 
 void Renderer::drawRectMeshInstances(usize count) {
-	glDrawElementsInstanced(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, nullptr, count);
+	glDrawElementsInstanced(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, nullptr, GLsizei(count));
 }
 
 void Renderer::flowParticle(f32 size, Vec3 position, Vec4 color) {
@@ -303,8 +288,8 @@ void Renderer::renderFlowParticles(const Mat4& rotateMatrix) {
 }
 
 void Renderer::initColoredShading() {
-	coloredShader.use();
-	shaderSetUniforms(coloredShader, ColoredShadingVertUniforms{
+	coloredShadingShader.use();
+	shaderSetUniforms(coloredShadingShader, ColoredShadingVertUniforms{
 		.transform = transform,
 		.view = view
 	});

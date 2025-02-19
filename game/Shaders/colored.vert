@@ -8,9 +8,12 @@ uniform mat4 transform;
 uniform mat4 view; 
 
 out vec3 interpolatedNormal; 
+out vec3 interpolatedColor; 
 
 /*generated end*/
 
 void main() {
-
+	interpolatedNormal = vertexNormal;
+	interpolatedColor = vertexColor;
+	gl_Position = transform * vec4(vertexPosition, 1.0);
 }

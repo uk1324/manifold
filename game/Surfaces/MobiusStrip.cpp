@@ -1,4 +1,5 @@
 #include "MobiusStrip.hpp"
+#include "RectParametrization.hpp"
 
 // https://trecs.se/M%C3%B6biusStrip.php
 
@@ -76,5 +77,53 @@ ChristoffelSymbols MobiusStrip::christoffelSymbols(f32 u, f32 v) const {
 	out[2] = 0;
 	out[3] = 0;
 	return { .x = x, .y = y };
+}
+
+Vec3 MobiusStrip::xUu(f32 u, f32 v) const {
+	Vec3 m(0.0f);
+	f32* out = m.data();
+	f32 x0 = cos(u);
+	f32 x1 = sin(u);
+	f32 x2 = (1.0 / 2.0) * u;
+	f32 x3 = sin(x2);
+	f32 x4 = (5.0 / 8.0) * v * cos(x2);
+	f32 x5 = v * x3;
+	out[0] = (1.0 / 2.0) * v * x1 * x3 - x0 * x4 - x0;
+	out[1] = -1.0 / 2.0 * x0 * x5 - x1 * x4 - x1;
+	out[2] = -1.0 / 8.0 * x5;
+	return m;
+}
+
+Vec3 MobiusStrip::xVv(f32 u, f32 v) const {
+	Vec3 m(0.0f);
+	f32* out = m.data();
+	out[0] = 0;
+	out[1] = 0;
+	out[2] = 0;
+	return m;
+}
+
+Vec3 MobiusStrip::xUv(f32 u, f32 v) const {
+	Vec3 m(0.0f);
+	f32* out = m.data();
+	f32 x0 = (1.0 / 2.0) * u;
+	f32 x1 = sin(x0);
+	f32 x2 = cos(x0);
+	out[0] = -1.0 / 8.0 * x1 - 3.0 / 8.0 * sin((3.0 / 2.0) * u);
+	out[1] = -1.0 / 4.0 * x1 * sin(u) + (1.0 / 2.0) * x2 * cos(u);
+	out[2] = (1.0 / 4.0) * x2;
+	return m;
+}
+
+f32 MobiusStrip::curvature(f32 u, f32 v) const {
+	return gaussianCurvature(firstFundamentalForm(u, v), secondFundamentalForm(u, v));
+}
+
+Mat2 MobiusStrip::firstFundamentalForm(f32 u, f32 v) const {
+	return ::firstFundamentalForm(tangentU(u, v), tangentV(u, v));
+}
+
+Mat2 MobiusStrip::secondFundamentalForm(f32 u, f32 v) const {
+	return ::secondFundamentalForm(xUu(u, v), xUv(u, v), xVv(u, v), normal(u, v));
 }
 

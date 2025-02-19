@@ -1,5 +1,6 @@
 #include "Trefoil.hpp"
 #include <engine/Math/Derivative.hpp>
+#include "RectParametrization.hpp"
 
 const auto step = 0.05f;
 
@@ -48,45 +49,41 @@ Vec3 Trefoil::tangentV(f32 u, f32 v) const {
 	return derivativeMidpoint([&u, this](f32 v) { return position(u, v); }, v, step);
 }
 
-Vec3 Trefoil::normal(f32 u, f32 v) const {
-	return cross(tangentU(u, v), tangentV(u, v)).normalized();
+Vec3 Trefoil::xUu(f32 u, f32 v) const {
+	return secondDerivativeMidpoint([this, &v](f32 u) { return position(u, v); }, u, step);
 }
 
-template<typename Matrix1, typename Matrix2, typename MatrixOutput>
-void matrixMultiply(Matrix1 a, i32 aSizeX, i32 aSizeY, Matrix2 b, i32 bSizeX, i32 bSizeY, MatrixOutput& output) {
-	// Matrix multiplicaiton just multiplies each column of rhs by lhs, because of this the output column count is the same as rhs column count.
-	// The output dimension of the matrix is it's height so the height of the output is the height of the lhs.
-	ASSERT(aSizeX == bSizeY);
-	const auto sumIndexMax = aSizeX;
-	const auto outputSizeY = aSizeY;
-	const auto outputSizeX = bSizeX;
+Vec3 Trefoil::xVv(f32 u, f32 v) const {
+	return secondDerivativeMidpoint([this, &u](f32 v) { return position(u, v); }, v, step);
+}
 
-	for (i64 row = 0; row < outputSizeY; row++) {
-		for (i64 column = 0; column < outputSizeX; column++) {
-			output(column, row) = 0;
-			for (i64 i = 0; i < sumIndexMax; i++) {
-				output(column, row) += a(i, row) * b(column, i);
-			}
-		}
-	}
+Vec3 Trefoil::xUv(f32 u, f32 v) const {
+	return mixedDerivativeMidpoint([this](f32 u, f32 v) { return position(u, v); }, u, v, step, step);
+}
+
+Mat2 Trefoil::firstFundamentalForm(f32 u, f32 v) const {
+	return ::firstFundamentalForm(tangentU(u, v), tangentV(u, v));
+}
+
+Mat2 Trefoil::secondFundamentalForm(f32 u, f32 v) const {
+	return ::secondFundamentalForm(xUu(u, v), xUv(u, v), xVv(u, v), normal(u, v));
+}
+
+Vec3 Trefoil::normal(f32 u, f32 v) const {
+	return cross(tangentU(u, v), tangentV(u, v)).normalized();
 }
 
 ChristoffelSymbols Trefoil::christoffelSymbols(f32 u, f32 v) const {
 	Vec3 p_xi[] { tangentU(u, v), tangentV(u, v) };
 
-	Vec3 p_x01 = mixedDerivativeMidpoint([this](f32 u, f32 v) { return position(u, v); }, u, v, step, step);
-	Vec3 p_x00 = secondDerivativeMidpoint([this, &v](f32 u) { return position(u, v); }, u, step);
-	Vec3 p_x11 = secondDerivativeMidpoint([this, &u](f32 v) { return position(u, v); }, v, step);
+	Vec3 p_x01 = xUv(u, v);
+	Vec3 p_x00 = xUu(u, v);
+	Vec3 p_x11 = xVv(u, v);
 	Vec3 p_xij[2][2]{
 		{ p_x00, p_x01 },
 		{ p_x01, p_x11 }
 	};
-	Mat2 metricTensor = Mat2::zero;
-	matrixMultiply(
-		[&p_xi](i32 i, i32 j) { return p_xi[j].data()[i]; }, 3, 2,
-		[&p_xi](i32 i, i32 j) { return p_xi[i].data()[j]; }, 2, 3,
-		metricTensor
-	);
+	const auto metricTensor = ::firstFundamentalForm(p_xi[0], p_xi[1]);
 	const auto metricTensorInverse = metricTensor.inversed();
 
 	Mat2 result[2]{ Mat2::zero, Mat2::zero };
@@ -103,4 +100,8 @@ ChristoffelSymbols Trefoil::christoffelSymbols(f32 u, f32 v) const {
 		.x = result[0],
 		.y = result[1]
 	};
+}
+
+f32 Trefoil::curvature(f32 u, f32 v) const {
+	return gaussianCurvature(firstFundamentalForm(u, v), secondFundamentalForm(u, v));
 }

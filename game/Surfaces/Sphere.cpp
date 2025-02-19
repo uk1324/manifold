@@ -54,3 +54,7 @@ ChristoffelSymbols Sphere::christoffelSymbols(f32 u, f32 v) const {
 		.y = Mat2(Vec2(0.0f, 1.0f / tan(u)), Vec2(1.0f / tan(u), 0.0f))
 	};
 }
+
+f32 Sphere::curvature(f32 u, f32 v) const {
+	return 1.0f / r;
+}

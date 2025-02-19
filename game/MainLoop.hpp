@@ -55,6 +55,9 @@ struct MainLoop {
 		// These always go from 0 to 1, could compute then on the fly instead of precomputing.
 		std::vector<Vec2> uvts;
 		std::vector<i32> indices;
+		std::vector<f32> curvatures;
+		f32 minCurvature;
+		f32 maxCurvature;
 
 		std::vector<Vec3> triangleCenters;
 		std::vector<f32> triangleAreas;
@@ -71,7 +74,8 @@ struct MainLoop {
 
 	f32 meshOpacity = 0.5f;
 	enum class MeshRenderMode {
-		GRID
+		GRID,
+		CURVATURE
 	} meshRenderMode = MeshRenderMode::GRID;
 
 	void initializeParticles(

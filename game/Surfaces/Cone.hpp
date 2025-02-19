@@ -10,6 +10,7 @@ struct Cone {
 	Vec3 tangentV(f32 u, f32 v) const;
 	Vec3 normal(f32 u, f32 v) const;
 	ChristoffelSymbols christoffelSymbols(f32 u, f32 v) const;
+	f32 curvature(f32 u, f32 v) const;
 
 	static constexpr auto uConnectivity = SquareSideConnectivity::NONE;
 	static constexpr auto vConnectivity = SquareSideConnectivity::NORMAL;

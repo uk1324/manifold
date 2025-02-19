@@ -6,6 +6,7 @@
 #include <game/Shaders/basicShadingData.hpp>
 #include <gfx2d/Gfx2d.hpp>
 #include <game/Shaders/coloredShadingData.hpp>
+#include <game/Shaders/coloredData.hpp>
 #include <engine/Math/Quat.hpp>
 #include <game/Shaders/flowParticleData.hpp>
 
@@ -14,8 +15,10 @@ void indicesAddQuad(std::vector<i32>& indicies, i32 i00, i32 i01, i32 i11, i32 i
 
 template<typename Vertex>
 struct TriangleRenderer {
-	static TriangleRenderer make();
+	template<typename Shader>
+	static TriangleRenderer make(Vbo& instancesVbo);
 
+	i32 currentIndex() const;
 	std::vector<i32> indices;
 	std::vector<Vertex> vertices;
 	Vbo vbo;
@@ -31,23 +34,17 @@ struct TriangleRenderer {
 struct Renderer {
 	static Renderer make();
 
-	void addTriangle(i32 i0, i32 i1, i32 i2);
-	void addQuad(i32 i0, i32 i1, i32 i2, i32 i3);
-	i32 addVertex(Vertex3Pnt vertex);
-	void triangle(Vertex3Pnt v0, Vertex3Pnt v1, Vertex3Pnt v2);
-	void renderTriangles(f32 opacity);
 
 	Mat4 transform;
 	Mat4 view;
 
-	std::vector<i32> trianglesIndices;
-	std::vector<Vertex3Pnt> trianglesVertices;
+	TriangleRenderer<Vertex3Pnt> triangles;
 	ShaderProgram& trianglesShader;
-	Vbo trianglesVbo;
-	Ibo trianglesIbo;
-	Vao trianglesVao;
+	void renderTriangles(f32 opacity);
 
+	TriangleRenderer<Vertex3Pnc> coloredTriangles;
 	ShaderProgram& coloredShader;
+	void renderColoredTriangles(f32 opacity);
 
 	struct Mesh {
 		Vbo vbo;
@@ -63,6 +60,7 @@ struct Renderer {
 	void flowParticle(f32 size, Vec3 position, Vec4 color);
 	void renderFlowParticles(const Mat4& rotateMatrix);
 
+	ShaderProgram& coloredShadingShader;
 	Mesh cyllinderMesh;
 	std::vector<ColoredShadingInstance> cyllinders;
 	void initColoredShading();
@@ -96,8 +94,21 @@ struct Renderer {
 };
 
 template<typename Vertex>
-TriangleRenderer<Vertex> TriangleRenderer<Vertex>::make() {
-	return TriangleRenderer();
+template<typename Shader>
+TriangleRenderer<Vertex> TriangleRenderer<Vertex>::make(Vbo& instancesVbo) {
+	auto vbo = Vbo::generate();
+	auto ibo = Ibo::generate();
+	auto vao = createInstancingVao<Shader>(vbo, ibo, instancesVbo);
+	return TriangleRenderer<Vertex>{
+		.vbo = std::move(vbo),
+		.ibo = std::move(ibo),
+		.vao = std::move(vao),
+	};
+}
+
+template<typename Vertex>
+i32 TriangleRenderer<Vertex>::currentIndex() const {
+	return i32(indices.size());
 }
 
 template<typename Vertex>

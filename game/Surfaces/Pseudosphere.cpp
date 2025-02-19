@@ -58,3 +58,7 @@ ChristoffelSymbols Pseudosphere::christoffelSymbols(f32 u, f32 v) const {
 	return { .x = x, .y = y };
 }
 
+f32 Pseudosphere::curvature(f32 u, f32 v) const {
+	return -1.0f / (r * r);
+}
+

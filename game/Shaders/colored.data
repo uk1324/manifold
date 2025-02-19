@@ -10,7 +10,11 @@ shader Colored {
 		Mat4 transform;
 		Mat4 view;
 	};
+	fragUniforms = {
+		float opacity;
+	};
 	vertOut = {
 		Vec3 interpolatedNormal;
+		Vec3 interpolatedColor;
 	};
 }

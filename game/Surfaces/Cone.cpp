@@ -45,3 +45,7 @@ ChristoffelSymbols Cone::christoffelSymbols(f32 u, f32 v) const {
 		)
 	};
 }
+
+f32 Cone::curvature(f32 u, f32 v) const {
+	return 0.0f;
+}

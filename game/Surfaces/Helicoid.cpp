@@ -45,3 +45,8 @@ ChristoffelSymbols Helicoid::christoffelSymbols(f32 u, f32 v) const {
 		)
 	};
 }
+
+f32 Helicoid::curvature(f32 u, f32 v) const {
+	const auto a = (1.0f + u * u);
+	return -1.0f / (a * a);
+}

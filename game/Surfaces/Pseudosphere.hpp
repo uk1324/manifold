@@ -11,6 +11,7 @@ struct Pseudosphere {
 	Vec3 tangentV(f32 u, f32 v) const;
 	Vec3 normal(f32 u, f32 v) const;
 	ChristoffelSymbols christoffelSymbols(f32 u, f32 v) const;
+	f32 curvature(f32 u, f32 v) const;
 
 	f32 r;
 
