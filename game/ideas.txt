@@ -178,3 +178,5 @@ In some cases the asymptotic lines also form an otrhogonal net.
 https://en.wikipedia.org/wiki/Orthogonal_coordinates
 
 Walking on 4D surfaces. Could be klein bottle or projective plane. Could use Q and E for moving in the 4th dimension.
+
+Make 2 vector field flows for the 2 principal directions.

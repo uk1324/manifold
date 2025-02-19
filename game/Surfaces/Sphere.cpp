@@ -58,3 +58,8 @@ ChristoffelSymbols Sphere::christoffelSymbols(f32 u, f32 v) const {
 f32 Sphere::curvature(f32 u, f32 v) const {
 	return 1.0f / r;
 }
+
+PrincipalCurvatures Sphere::principalCurvatures(f32 u, f32 v) const {
+	const auto c = -1.0f / (r * r);
+	return PrincipalCurvatures(c, Vec2(1.0f, 0.0f), c, Vec2(0.0f, 1.0f));
+}

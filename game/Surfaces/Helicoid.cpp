@@ -50,3 +50,11 @@ f32 Helicoid::curvature(f32 u, f32 v) const {
 	const auto a = (1.0f + u * u);
 	return -1.0f / (a * a);
 }
+
+PrincipalCurvatures Helicoid::principalCurvatures(f32 u, f32 v) const {
+	const auto k = 1 / (1.0f + u * u);
+	return PrincipalCurvatures(
+		k, Vec2(1.0f, 0.0f),
+		-k, Vec2(0.0f, 1.0f)
+	);
+}

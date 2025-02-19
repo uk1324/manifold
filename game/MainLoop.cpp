@@ -450,10 +450,17 @@ void MainLoop::update() {
 		geodesicTool.update(cameraPosition, cameraForward, intersections, surfaces, renderer);
 		break;
 	}
+
 	case FLOW: {
 		flowToolUpdate();
 		break;
 	}
+
+	case CURVATURE: {
+		curvatureTool.update(intersections, surfaces, renderer);
+		break;
+	}
+
 	}
 	//renderer.sphere(cameraPosition + cameraForward, 0.02f, Color3::GREEN);
 
@@ -567,6 +574,7 @@ void MainLoop::gui() {
 		case NONE: return "none";
 		case GEODESICS: return "geodesics";
 		case FLOW: return "flow";
+		case CURVATURE: return "curvature";
 		}
 		return "";
 	};
@@ -574,6 +582,7 @@ void MainLoop::gui() {
 		{ ToolType::NONE },
 		{ ToolType::GEODESICS },
 		{ ToolType::FLOW },
+		{ ToolType::CURVATURE },
 	};
 	ImGui::Separator();
 	if (ImGui::BeginCombo("tool", toolName(selectedTool))) {

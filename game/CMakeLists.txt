@@ -1,4 +1,4 @@
-add_executable(game "main.cpp" "MainLoop.cpp" "FpsCamera3d.cpp" "Renderer.cpp" "PlotUtils.cpp" "Surfaces/Torus.cpp" "Surfaces/Sphere.cpp" "Surfaces/Helicoid.cpp" "Surfaces/Cone.cpp" "Surfaces/MobiusStrip.cpp" "Surfaces/Pseudosphere.cpp" "Surfaces/Trefoil.cpp" "SurfaceCamera.cpp" "Tri3d.cpp" "RayIntersection.cpp" "PerlinNoise.cpp" "Surfaces.cpp" "Surfaces/RectParametrization.cpp" "GeodesicTool.cpp" "Utils.cpp")
+add_executable(game "main.cpp" "MainLoop.cpp" "FpsCamera3d.cpp" "Renderer.cpp" "PlotUtils.cpp" "Surfaces/Torus.cpp" "Surfaces/Sphere.cpp" "Surfaces/Helicoid.cpp" "Surfaces/Cone.cpp" "Surfaces/MobiusStrip.cpp" "Surfaces/Pseudosphere.cpp" "Surfaces/Trefoil.cpp" "SurfaceCamera.cpp" "Tri3d.cpp" "RayIntersection.cpp" "PerlinNoise.cpp" "Surfaces.cpp" "Surfaces/RectParametrization.cpp" "GeodesicTool.cpp" "Utils.cpp" "CurvatureTool.cpp")
 
 target_link_libraries(game PUBLIC engine)
 

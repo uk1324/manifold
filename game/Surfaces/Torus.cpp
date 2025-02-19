@@ -66,3 +66,12 @@ ChristoffelSymbols Torus::christoffelSymbols(f32 u, f32 v) const {
 f32 Torus::curvature(f32 u, f32 v) const {
 	return cos(v) / (r * (R + r * cos(v)));
 }
+
+PrincipalCurvatures Torus::principalCurvatures(f32 u, f32 v) const {
+	return PrincipalCurvatures(
+		-cos(v) / (R + r * cos(v)),
+		Vec2(1.0f, 0.0f),
+		-1.0f / r,
+		Vec2(0.0f, 1.0f)
+	);
+}

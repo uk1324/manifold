@@ -1,9 +1,7 @@
 #pragma once
 
-#include "ChristoffelSymbols.hpp"
-#include "Connectivity.hpp"
-#include <engine/Math/Vec3.hpp>
-#include <engine/Math/Constants.hpp>
+#include "RectParametrization.hpp"
+#include <engine/Math/Angles.hpp>
 
 struct MobiusStrip {
 	Vec3 position(f32 u, f32 v) const;
@@ -17,6 +15,7 @@ struct MobiusStrip {
 	Mat2 firstFundamentalForm(f32 u, f32 v) const;
 	Mat2 secondFundamentalForm(f32 u, f32 v) const;
 	f32 curvature(f32 u, f32 v) const;
+	PrincipalCurvatures principalCurvatures(f32 u, f32 v) const;
 
 	static constexpr f32 uMin = 0;
 	static constexpr f32 uMax = TAU<f32>;

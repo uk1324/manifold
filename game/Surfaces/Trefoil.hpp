@@ -1,9 +1,7 @@
 #pragma once
 
-#include "ChristoffelSymbols.hpp"
-#include "Connectivity.hpp"
+#include "RectParametrization.hpp"
 #include <engine/Math/Angles.hpp>
-#include <engine/Math/Vec3.hpp>
 
 struct Trefoil {
 	f32 r, R;
@@ -18,6 +16,7 @@ struct Trefoil {
 	Vec3 normal(f32 u, f32 v) const;
 	ChristoffelSymbols christoffelSymbols(f32 u, f32 v) const;
 	f32 curvature(f32 u, f32 v) const;
+	PrincipalCurvatures principalCurvatures(f32 u, f32 v) const;
 
 	static constexpr auto uConnectivity = SquareSideConnectivity::NORMAL;
 	static constexpr auto vConnectivity = SquareSideConnectivity::NORMAL;

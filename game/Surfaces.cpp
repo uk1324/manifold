@@ -18,6 +18,12 @@ Vec3 Surfaces::position(Vec2 uv) const {
 	#undef R
 }
 
+Vec3 Surfaces::normal(Vec2 uv) const {
+	#define R(name) return name.normal(uv.x, uv.y)
+	SWITCH();
+	#undef R
+}
+
 Vec3 Surfaces::tangentU(Vec2 uv) const {
 	#define R(name) return name.tangentU(uv.x, uv.y)
 	SWITCH();
@@ -26,6 +32,12 @@ Vec3 Surfaces::tangentU(Vec2 uv) const {
 
 Vec3 Surfaces::tangentV(Vec2 uv) const {
 	#define R(name) return name.tangentV(uv.x, uv.y)
+	SWITCH();
+	#undef R
+}
+
+PrincipalCurvatures Surfaces::principalCurvatures(Vec2 uv) const {
+	#define R(name) return name.principalCurvatures(uv.x, uv.y)
 	SWITCH();
 	#undef R
 }

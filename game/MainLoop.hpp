@@ -7,6 +7,7 @@
 #include <game/PerlinNoise.hpp>
 #include <game/Surfaces.hpp>
 #include <game/GeodesicTool.hpp>
+#include <game/CurvatureTool.hpp>
 
 struct FlowParticles {
 	std::vector<Vec2> positionsData;
@@ -52,6 +53,8 @@ struct MainLoop {
 		Vec3 cameraPosition;
 	};
 	SurfaceCameraUpdateResult updateSurfaceCamera(f32 dt);
+
+	CurvatureTool curvatureTool;
 
 	std::vector<Vec2> uvPositions;
 
@@ -113,6 +116,7 @@ struct MainLoop {
 
 	Surface surfaceData;
 
+	
 
 	enum class CameraMode {
 		ON_SURFACE,
@@ -132,6 +136,7 @@ struct MainLoop {
 	enum class ToolType {
 		NONE,
 		GEODESICS,
+		CURVATURE,
 		FLOW,
 	} selectedTool = ToolType::NONE;
 };

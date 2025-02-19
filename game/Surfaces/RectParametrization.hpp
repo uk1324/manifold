@@ -29,6 +29,7 @@ Mat2 secondFundamentalForm(Vec3 xUu, Vec3 xUv, Vec3 xVv, Vec3 normalizedNormal);
 f32 gaussianCurvature(const Mat2& firstFundamentalForm, const Mat2& secondFundamentalForm);
 
 struct PrincipalCurvatures {
+	PrincipalCurvatures(f32 c0, Vec2 v0, f32 c1, Vec2 v1);
 	f32 curvature[2];
 	Vec2 direction[2];
 };

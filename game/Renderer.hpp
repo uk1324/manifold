@@ -46,6 +46,10 @@ struct Renderer {
 	ShaderProgram& coloredShader;
 	void renderColoredTriangles(f32 opacity);
 
+	TriangleRenderer<Vertex3Pn> coloredShadingTriangles;
+	void renderColoredShadingTriangles();
+	void circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius);
+
 	struct Mesh {
 		Vbo vbo;
 		Ibo ibo;

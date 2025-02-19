@@ -127,3 +127,7 @@ Mat2 MobiusStrip::secondFundamentalForm(f32 u, f32 v) const {
 	return ::secondFundamentalForm(xUu(u, v), xUv(u, v), xVv(u, v), normal(u, v));
 }
 
+PrincipalCurvatures MobiusStrip::principalCurvatures(f32 u, f32 v) const {
+	return principalCurvatues(firstFundamentalForm(u, v), secondFundamentalForm(u, v));
+}
+

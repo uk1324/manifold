@@ -35,9 +35,10 @@ struct Surfaces {
 	};
 
 	Vec3 position(Vec2 uv) const;
+	Vec3 normal(Vec2 uv) const;
 	Vec3 tangentU(Vec2 uv) const;
 	Vec3 tangentV(Vec2 uv) const;
-
+	PrincipalCurvatures principalCurvatures(Vec2 uv) const;
 
 	Type selected = Type::TORUS;
 };

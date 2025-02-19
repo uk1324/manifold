@@ -49,3 +49,12 @@ ChristoffelSymbols Cone::christoffelSymbols(f32 u, f32 v) const {
 f32 Cone::curvature(f32 u, f32 v) const {
 	return 0.0f;
 }
+
+PrincipalCurvatures Cone::principalCurvatures(f32 u, f32 v) const {
+	return PrincipalCurvatures(
+		0.0f, 
+		Vec2(1.0f, 0.0f),
+		1.0f / (a * abs(u) * sqrt(1.0f + a * a)), 
+		Vec2(0.0f, 1.0f)
+	);
+}

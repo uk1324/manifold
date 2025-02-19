@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 #include <StructUtils.hpp>
 #include <engine/Math/Constants.hpp>
+#include <engine/Math/Color.hpp>
 #include <engine/Math/Interpolation.hpp>
 #include <gfx/ShaderManager.hpp>
 #include <gfx/Instancing.hpp>
@@ -217,6 +218,7 @@ Renderer Renderer::make() {
 		.trianglesShader = MAKE_GENERATED_SHADER(BASIC_SHADING),
 		.coloredTriangles = TriangleRenderer<Vertex3Pnc>::make<ColoredShader>(instancesVbo),
 		.coloredShader = MAKE_GENERATED_SHADER(COLORED),
+		.coloredShadingTriangles = TriangleRenderer<Vertex3Pn>::make<ColoredShadingShader>(instancesVbo),
 		.flowParticleRectMesh = std::move(rectMesh),
 		.flowParticleShader = MAKE_GENERATED_SHADER(FLOW_PARTICLE),
 		.coloredShadingShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
@@ -248,6 +250,24 @@ void Renderer::renderColoredTriangles(f32 opacity) {
 		.view = view,
 	});
 	::renderTriangles(coloredShader, coloredTriangles);
+}
+
+void Renderer::renderColoredShadingTriangles() {
+	::renderTriangles(coloredShadingShader, coloredShadingTriangles);
+}
+
+void Renderer::circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius) {
+	const auto circleVertexCount = 100;
+	for (i32 i = 0; i < circleVertexCount; i++) {
+		const auto a0 = f32(i) / f32(circleVertexCount) * TAU<f32>;
+		const auto a1 = f32(i + 1) / f32(circleVertexCount) * TAU<f32>;
+		line(
+			center + (d0 * cos(a0) + d1 * sin(a0)) * radius,
+			center + (d0 * cos(a1) + d1 * sin(a1)) * radius,
+			0.01f,
+			Color3::WHITE
+		);
+	}
 }
 
 // Transforms a radially symmetric mesh such that (0, 0, 0) is mapped to a and (0, 0, 1) is mapped to (b - a).normalized().

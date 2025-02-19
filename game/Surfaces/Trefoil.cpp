@@ -105,3 +105,7 @@ ChristoffelSymbols Trefoil::christoffelSymbols(f32 u, f32 v) const {
 f32 Trefoil::curvature(f32 u, f32 v) const {
 	return gaussianCurvature(firstFundamentalForm(u, v), secondFundamentalForm(u, v));
 }
+
+PrincipalCurvatures Trefoil::principalCurvatures(f32 u, f32 v) const {
+	return principalCurvatues(firstFundamentalForm(u, v), secondFundamentalForm(u, v));
+}
