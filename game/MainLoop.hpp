@@ -6,6 +6,7 @@
 #include <Array2d.hpp>
 #include <game/PerlinNoise.hpp>
 #include <game/Surfaces.hpp>
+#include <game/GeodesicTool.hpp>
 
 struct FlowParticles {
 	std::vector<Vec2> positionsData;
@@ -33,10 +34,16 @@ struct MainLoop {
 	MainLoop();
 	void update();
 	
+	void gui();
+	bool showGui = true;
+
 	void initializeSelectedSurface();
 	void initializeParticles(i32 particleCount);
 
-	void inSpaceUpdate(Vec3 cameraPosition);
+	void calculateIntersections(Vec3 cameraPosition, Vec3 cameraForward);
+	std::vector<MeshIntersection> intersections;
+
+	GeodesicTool geodesicTool;
 
 	FpsCamera3d fpsCamera;
 	SufaceCamera surfaceCamera;
@@ -72,6 +79,8 @@ struct MainLoop {
 		void addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt);
 	};
 
+	f32 transitionT = 1.0f;
+
 	f32 meshOpacity = 0.5f;
 	enum class MeshRenderMode {
 		GRID,
@@ -90,17 +99,6 @@ struct MainLoop {
 	std::uniform_real_distribution<f32> uniform01;
 	Vec2 randomPointOnSurface();
 
-	Vec2 initialPositionUv = Vec2(0.1f);
-	Vec2 initialVelocityUv = Vec2(0.0f, 1.0f);
-	enum class Grabbed {
-		NONE,
-		POSITION,
-		VELOCITY
-	};
-	Grabbed grabbed = Grabbed::NONE;
-
-	Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const;
-
 	FlowParticles flowParticles;
 	void randomInitializeParticle(const RectParametrization auto& surface, i32 i);
 
@@ -115,8 +113,6 @@ struct MainLoop {
 
 	Surface surfaceData;
 
-	void geodesicToolUpdate(const RectParametrization auto& surface);
-	void geodesicToolUpdate();
 
 	enum class CameraMode {
 		ON_SURFACE,

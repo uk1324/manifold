@@ -9,7 +9,7 @@
 #include <imgui/implot.h>
 #include <gfx/ShaderManager.hpp>
 #include <game/Tri3d.hpp>
-#include <game/RayIntersection.hpp>
+#include <game/Utils.hpp>
 #include <random>
 
 template<typename T>
@@ -119,11 +119,11 @@ void MainLoop::updateParticles(const RectParametrization auto& surface, const Ve
 //	renderer.flowParticle(size, v, Vec4(color, a));
 //};
 	static bool stopped = false;
-	ImGui::Checkbox("stopped", &stopped);
+	//ImGui::Checkbox("stopped", &stopped);
 	bool step = !stopped;
-	if (ImGui::Button("step")) {
+	/*if (ImGui::Button("step")) {
 		step = true;
-	}
+	}*/
 	// Updating every other frame makes it look laggy.
 	// creation frame = 0
 	// normally updates for lifetime frames. On frame = lifetime - 1 is the last update.
@@ -242,6 +242,232 @@ void MainLoop::update() {
 	if (Input::isKeyDown(KeyCode::X)) {
 		Window::close();
 	}
+
+	if (Input::isKeyDown(KeyCode::F3)) {
+		showGui = !showGui;
+	}
+
+	if (showGui) {
+		gui();
+	}
+	
+
+	//auto renderLine = [this](Vec3 a, Vec3 b) {
+	//	i32 circleVertexCount = 50;
+	//	const auto beginIndex = renderer.trianglesVertices.size();
+	//	for (i32 i = 0; i < circleVertexCount; i++) {
+	//		const auto t = f32(i) / f32(circleVertexCount);
+	//		const auto a = lerp(0.0f, TAU<f32>, t);
+	//		const auto translation = normal * cos(a) + binormal * sin(a);
+	//		//const auto vertexBottom = 
+	//	}
+	//};
+
+	if (Input::isKeyDown(KeyCode::TAB)) {
+		if (cameraMode == CameraMode::ON_SURFACE) {
+			cameraMode = CameraMode::IN_SPACE;
+		} else if (cameraMode == CameraMode::IN_SPACE) {
+			cameraMode = CameraMode::ON_SURFACE;
+		}
+		ImGui::SetWindowFocus(nullptr);
+	}
+
+	auto view = Mat4::identity;
+	Vec3 cameraPosition(0.0f);
+	switch (cameraMode) {
+		using enum CameraMode;
+	case ON_SURFACE: {
+		const auto r = updateSurfaceCamera(dt);
+		view = r.view;
+		cameraPosition = r.cameraPosition;
+		break;
+	}
+
+	case IN_SPACE: {
+		fpsCamera.update(dt);
+		view = fpsCamera.viewMatrix();
+		cameraPosition = fpsCamera.position;
+		break;
+	}
+		
+	}
+	// Could convert to Mat3 and just do a transpose.
+	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz();
+
+  	const auto aspectRatio = Window::aspectRatio();
+	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
+	const auto swaxpYZ = Mat4(Mat3(Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec3(0.0f, 1.0f, 0.0f)));
+	renderer.transform = projection * view;
+	renderer.view = view;
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
+
+	renderer.renderCyllinders();
+	renderer.renderHemispheres();
+	renderer.renderCones();
+	renderer.renderCircles();
+
+	auto flowToolUpdate = [this] {
+		#define I(name, vectorField) updateParticles(surfaces.name, vectorField)
+		#define S(vectorField) \
+		switch (surfaces.selected) { \
+			using enum Surfaces::Type; \
+		case TORUS: I(torus, vectorField); break; \
+		case TREFOIL: I(trefoil, vectorField); break; \
+		case HELICOID: I(helicoid, vectorField); break; \
+		case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
+		case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
+		case CONE: I(cone, vectorField); break; \
+		case SPHERE: I(sphere, vectorField); break; \
+		}
+		switch (selectedVectorField) {
+			using enum VectorFieldType;
+		case RANDOM: S([this](Vec3 pos) { return vectorFieldSample(pos); });
+		}
+		#undef I
+		#undef S
+	};
+
+	auto spectralSample = [](f32 v) {
+		// https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/_cm.py
+		// _Spectral_data 
+		const Vec3 colors[] = {
+			Vec3(0.61960784313725492f, 0.003921568627450980f, 0.25882352941176473f),
+			Vec3(0.83529411764705885f, 0.24313725490196078f, 0.30980392156862746f),
+			Vec3(0.95686274509803926f, 0.42745098039215684f, 0.2627450980392157f),
+			Vec3(0.99215686274509807f, 0.68235294117647061f, 0.38039215686274508f),
+			Vec3(0.99607843137254903f, 0.8784313725490196f, 0.54509803921568623f),
+			Vec3(1.0f, 1.0f, 0.74901960784313726f),
+			Vec3(0.90196078431372551f, 0.96078431372549022f, 0.59607843137254901f),
+			Vec3(0.6705882352941176f, 0.8666666666666667f, 0.64313725490196083f),
+			Vec3(0.4f, 0.76078431372549016f, 0.6470588235294118f),
+			Vec3(0.19607843137254902f, 0.53333333333333333f, 0.74117647058823533f),
+			Vec3(0.36862745098039218f, 0.30980392156862746f, 0.63529411764705879f)
+		};
+		const auto colorCount = std::size(colors);
+		const auto indexFloat = v * colorCount;
+		const auto index = i32(std::floor(indexFloat));
+		if (index <= 0) {
+			return colors[0];
+		}
+		if (index >= colorCount - 1) {
+			return colors[colorCount - 1];
+		}
+		const auto t = indexFloat - index;
+		return lerp(colors[index], colors[index + 1], t);
+	};
+
+	const auto isVisible = meshOpacity > 0.0f;
+	if (isVisible && selectedTool != ToolType::FLOW) {
+		const auto isTransparent = meshOpacity < 1.0f;
+		if (isTransparent) {
+			surfaceData.sortTriangles(cameraPosition);
+		}
+
+		const auto indicesOffset = i32(renderer.coloredTriangles.currentIndex());
+		for (i32 i = 0; i < surfaceData.vertexCount(); i++) {
+			const auto position = surfaceData.positions[i];
+
+			const auto uvt = surfaceData.uvts[i];
+			//const auto initialPosition = Vec3(uvt.x, 0.0f, uvt.y) - Vec3(0.5f, 0.5f, 0.5f);
+			const auto initialPosition = Vec3(-uvt.x, 0.0f, -uvt.y) + Vec3(0.5f, 0.5f, 0.5f);
+			const auto p = lerp(initialPosition, position, transitionT);
+
+			switch (meshRenderMode) {
+				using enum MeshRenderMode;
+			case GRID: {
+				renderer.triangles.addVertex(Vertex3Pnt{
+					.position = p,
+					.normal = surfaceData.normals[i],
+					.uv = surfaceData.uvts[i]
+				});
+				break;
+			}
+			case CURVATURE: {
+				const auto biggest = std::max(
+					std::abs(surfaceData.minCurvature), 
+					std::abs(surfaceData.maxCurvature));
+				auto t = surfaceData.curvatures[i];
+				t /= biggest;
+				t += 1.0f;
+				t /= 2.0f;
+				Vec3 color = spectralSample(1.0f - t);
+				renderer.coloredTriangles.addVertex(Vertex3Pnc{
+					.position = p,
+					.normal = surfaceData.normals[i],
+					.color = color
+				});
+				break;
+			}
+
+			}
+		}
+		for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
+			const auto index = indicesOffset + surfaceData.sortedTriangles[i] * 3;
+			const auto i0 = surfaceData.indices[index];
+			const auto i1 = surfaceData.indices[index + 1];
+			const auto i2 = surfaceData.indices[index + 2];
+			switch (meshRenderMode) {
+				using enum MeshRenderMode;
+			case GRID: 
+				renderer.triangles.addTri(i0, i1, i2);
+				break;
+
+			case CURVATURE: 
+				renderer.coloredTriangles.addTri(i0, i1, i2);
+				break;
+			}
+			
+		}
+
+		if (isTransparent) {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glDepthMask(GL_FALSE);
+		}
+		switch (meshRenderMode) {
+			using enum MeshRenderMode;
+		case GRID: renderer.renderTriangles(meshOpacity); break;
+		case CURVATURE: renderer.renderColoredTriangles(meshOpacity); break;
+		}
+		if (isTransparent) {
+			glDisable(GL_BLEND);
+			glDepthMask(GL_TRUE);
+		}
+	}
+	
+
+	calculateIntersections(cameraPosition, cameraForward);
+
+	switch (selectedTool) {
+	using enum ToolType;
+	case NONE: {
+		break;
+	}
+	case GEODESICS: {
+		geodesicTool.update(cameraPosition, cameraForward, intersections, surfaces, renderer);
+		break;
+	}
+	case FLOW: {
+		flowToolUpdate();
+		break;
+	}
+	}
+	//renderer.sphere(cameraPosition + cameraForward, 0.02f, Color3::GREEN);
+
+	if (showGui) {
+		glDisable(GL_DEPTH_TEST);
+		glEnable(GL_BLEND);
+		renderer.gfx2d.disk(Vec2(0.0f), 0.015f, Color3::WHITE);
+		renderer.gfx2d.drawDisks();
+		glDisable(GL_BLEND);
+	}
+}
+
+void MainLoop::gui() {
+
 	ImGui::Begin("settings");
 	if (ImGui::Button("randomize")) {
 		randomizeVectorField(rng());
@@ -329,6 +555,7 @@ void MainLoop::update() {
 	}
 
 	sliderF32("opacity", meshOpacity, 0.0f, 1.0f);
+	sliderF32("transition", transitionT, 0.0f, 1.0f);
 
 	struct ToolInfo {
 		ToolType type;
@@ -360,266 +587,6 @@ void MainLoop::update() {
 		ImGui::EndCombo();
 	}
 	ImGui::End();
-
-	//auto renderLine = [this](Vec3 a, Vec3 b) {
-	//	i32 circleVertexCount = 50;
-	//	const auto beginIndex = renderer.trianglesVertices.size();
-	//	for (i32 i = 0; i < circleVertexCount; i++) {
-	//		const auto t = f32(i) / f32(circleVertexCount);
-	//		const auto a = lerp(0.0f, TAU<f32>, t);
-	//		const auto translation = normal * cos(a) + binormal * sin(a);
-	//		//const auto vertexBottom = 
-	//	}
-	//};
-
-	if (Input::isKeyDown(KeyCode::TAB)) {
-		if (cameraMode == CameraMode::ON_SURFACE) {
-			cameraMode = CameraMode::IN_SPACE;
-		} else if (cameraMode == CameraMode::IN_SPACE) {
-			cameraMode = CameraMode::ON_SURFACE;
-		}
-	}
-
-	auto view = Mat4::identity;
-	Vec3 cameraPosition(0.0f);
-	switch (cameraMode) {
-		using enum CameraMode;
-	case ON_SURFACE: {
-		const auto r = updateSurfaceCamera(dt);
-		view = r.view;
-		cameraPosition = r.cameraPosition;
-		break;
-	}
-
-	case IN_SPACE: {
-		fpsCamera.update(dt);
-		view = fpsCamera.viewMatrix();
-		cameraPosition = fpsCamera.position;
-		inSpaceUpdate(cameraPosition);
-		break;
-	}
-		
-	}
-
-  	const auto aspectRatio = Window::aspectRatio();
-	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
-	const auto swaxpYZ = Mat4(Mat3(Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec3(0.0f, 1.0f, 0.0f)));
-	renderer.transform = projection * view;
-	renderer.view = view;
-
-	//const auto n = 200;
-	//for (i32 i = 0; i < n; i++) {
-	//	auto t0 = f32(i) / f32(n) * TAU<f32>;
-	//	auto t1 = f32(i + 1) / f32(n) * TAU<f32>;
-	//	const auto v0 = trefoilCurve(t0);
-	//	const auto v1 = trefoilCurve(t1);
-	//	renderer.line(v0, v1, 0.02f, Color3::RED);
-	//}
-	/*static f32 t = 0.0f;
-	t += dt;
-	t = 0.0f;*/
-	//renderer.line(Vec3(0.0f, 0.0f, 0.0f), fpsCamera.position - Vec3(0.0f, 0.5f, 0.0f), 0.05f, Color3::RED);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
-
-	//renderer.sphere(Vec3(0.0f, 0.0f, 5.0f), 0.1f, Color3::GREEN);
-
-	renderer.renderCyllinders();
-	renderer.renderHemispheres();
-	renderer.renderCones();
-	renderer.renderCircles();
-
-	//if (uvPositions.size() >= 2) {
-	//	for (i32 i = 0; i < uvPositions.size() - 1; i++) {
-	//		renderer.line(
-	//			surface.position(uvPositions[i].x, uvPositions[i].y), 
-	//			surface.position(uvPositions[i + 1].x, uvPositions[i + 1].y), 
-	//			0.02f, 
-	//			Color3::RED
-	//		);
-	//	}
-	//}
-
-	////uvPositions.push_back(surfaceCamera.uvPosition);
-	//ImPlot::SetNextAxesLimits(-10, 80, -3, 20, ImGuiCond_Always);
-	//ImGui::Begin("plot");
-	//if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
-	//	ImPlot::SetupAxesLimits(surface.uMin, surface.uMax, surface.vMin, surface.vMax, ImPlotCond_Always);
-	//	Vec2 forward = surfaceCamera.uvPosition + Vec2::oriented(surfaceCamera.uvForwardAngle) * 0.3f;
-	//	f32 xs[] = { surfaceCamera.uvPosition.x, forward.x };
-	//	f32 ys[] = { surfaceCamera.uvPosition.y, forward.y };
-	//	ImPlot::PlotLine("arrow", xs, ys, 2);
-	//	plotVec2Scatter("points", uvPositions);
-	//	ImPlot::EndPlot();
-	//}
-	//ImGui::End();
-
-	// Disabling depth writes was mentioned in real-time rendering. Not sure what it actually does.
-	//glDepthMask(GL_FALSE);
-
-	auto flowToolUpdate = [this] {
-		#define I(name, vectorField) updateParticles(surfaces.name, vectorField)
-		#define S(vectorField) \
-		switch (surfaces.selected) { \
-			using enum Surfaces::Type; \
-		case TORUS: I(torus, vectorField); break; \
-		case TREFOIL: I(trefoil, vectorField); break; \
-		case HELICOID: I(helicoid, vectorField); break; \
-		case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
-		case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
-		case CONE: I(cone, vectorField); break; \
-		case SPHERE: I(sphere, vectorField); break; \
-		}
-		switch (selectedVectorField) {
-			using enum VectorFieldType;
-		case RANDOM: S([this](Vec3 pos) { return vectorFieldSample(pos); });
-		}
-		#undef I
-		#undef S
-	};
-
-	auto spectralSample = [](f32 v) {
-		// https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/_cm.py
-		// _Spectral_data 
-		const Vec3 colors[] = {
-			Vec3(0.61960784313725492f, 0.003921568627450980f, 0.25882352941176473f),
-			Vec3(0.83529411764705885f, 0.24313725490196078f, 0.30980392156862746f),
-			Vec3(0.95686274509803926f, 0.42745098039215684f, 0.2627450980392157f),
-			Vec3(0.99215686274509807f, 0.68235294117647061f, 0.38039215686274508f),
-			Vec3(0.99607843137254903f, 0.8784313725490196f, 0.54509803921568623f),
-			Vec3(1.0f, 1.0f, 0.74901960784313726f),
-			Vec3(0.90196078431372551f, 0.96078431372549022f, 0.59607843137254901f),
-			Vec3(0.6705882352941176f, 0.8666666666666667f, 0.64313725490196083f),
-			Vec3(0.4f, 0.76078431372549016f, 0.6470588235294118f),
-			Vec3(0.19607843137254902f, 0.53333333333333333f, 0.74117647058823533f),
-			Vec3(0.36862745098039218f, 0.30980392156862746f, 0.63529411764705879f)
-		};
-		const auto colorCount = std::size(colors);
-		const auto indexFloat = v * colorCount;
-		const auto index = i32(std::floor(indexFloat));
-		if (index <= 0) {
-			return colors[0];
-		}
-		if (index >= colorCount - 1) {
-			return colors[colorCount - 1];
-		}
-		const auto t = indexFloat - index;
-		return lerp(colors[index], colors[index + 1], t);
-	};
-
-	const auto isVisible = meshOpacity > 0.0f;
-	if (isVisible && selectedTool != ToolType::FLOW) {
-		const auto isTransparent = meshOpacity < 1.0f;
-		if (isTransparent) {
-			surfaceData.sortTriangles(cameraPosition);
-		}
-
-		const auto indicesOffset = i32(renderer.coloredTriangles.currentIndex());
-		for (i32 i = 0; i < surfaceData.vertexCount(); i++) {
-			/*const auto min = surfaceData.minCurvature;
-			const auto max = surfaceData.maxCurvature;*/
-			/*const auto min = -1.0f;
-			const auto max = 1.0f;
-			Vec2 curve[]{
-				Vec2(min, 0.0f),
-				Vec2(0.0f, 0.5f),
-				Vec2(max, 1.0f)
-			};
-			const auto t = piecewiseLinearSample(constView(curve), surfaceData.curvatures[i]);
-			Vec3 color = Color3::WHITE;
-			const auto c0 = Color3::RED;
-			const auto c1 = Color3::WHITE;
-			const auto c2 = Color3::GREEN;
-			if (t < 0.5f) {
-				color = lerp(c0, c1, t / 0.5f);
-			} else {
-				color = lerp(c1, c2, (t - 0.5f) / 0.5f);
-			}
-			color = spectralSample(t);*/
-			//color = Color3::scientificColoring(t, 0.0f, 1.0f);
-			//color = Color3::scientificColoring(surfaceData.curvatures[i], -1.0f, 1.0f);
-			switch (meshRenderMode) {
-				using enum MeshRenderMode;
-			case GRID: {
-				renderer.triangles.addVertex(Vertex3Pnt{
-					.position = surfaceData.positions[i],
-					.normal = surfaceData.normals[i],
-					.uv = surfaceData.uvts[i]
-				});
-				break;
-			}
-			case CURVATURE: {
-				const auto biggest = std::max(
-					std::abs(surfaceData.minCurvature), 
-					std::abs(surfaceData.maxCurvature));
-				auto t = surfaceData.curvatures[i];
-				t /= biggest;
-				t += 1.0f;
-				t /= 2.0f;
-				Vec3 color = spectralSample(1.0f - t);
-				renderer.coloredTriangles.addVertex(Vertex3Pnc{
-					.position = surfaceData.positions[i],
-					.normal = surfaceData.normals[i],
-					.color = color
-				});
-				break;
-			}
-
-			}
-		}
-		for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
-			const auto index = indicesOffset + surfaceData.sortedTriangles[i] * 3;
-			const auto i0 = surfaceData.indices[index];
-			const auto i1 = surfaceData.indices[index + 1];
-			const auto i2 = surfaceData.indices[index + 2];
-			switch (meshRenderMode) {
-				using enum MeshRenderMode;
-			case GRID: 
-				renderer.triangles.addTri(i0, i1, i2);
-				break;
-
-			case CURVATURE: 
-				renderer.coloredTriangles.addTri(i0, i1, i2);
-				break;
-			}
-			
-		}
-
-		if (isTransparent) {
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glDepthMask(GL_FALSE);
-		}
-		switch (meshRenderMode) {
-			using enum MeshRenderMode;
-		case GRID: renderer.renderTriangles(meshOpacity); break;
-		case CURVATURE: renderer.renderColoredTriangles(meshOpacity); break;
-		}
-		if (isTransparent) {
-			glDisable(GL_BLEND);
-			glDepthMask(GL_TRUE);
-		}
-	}
-	
-	switch (selectedTool) {
-	using enum ToolType;
-	case NONE: {
-		break;
-	}
-	case GEODESICS: {
-		break;
-	}
-	case FLOW: {
-		flowToolUpdate();
-	}
-	}
-
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	renderer.gfx2d.disk(Vec2(0.0f), 0.015f, Color3::WHITE);
-	renderer.gfx2d.drawDisks();
-	glDisable(GL_BLEND);
 }
 
 void MainLoop::initializeSelectedSurface() {
@@ -670,134 +637,21 @@ void MainLoop::initializeParticles(i32 particleCount) {
 	#undef S
 }
 
-void MainLoop::inSpaceUpdate(Vec3 cameraPosition) {
-	const auto forward = fpsCamera.forward();
+void MainLoop::calculateIntersections(Vec3 cameraPosition, Vec3 cameraForward) {
+	intersections.clear();
 
-	struct Intersection {
-		RayTriIntersection i;
-		i32 triangleIndex;
-		Vec2 uv;
-	};
-	std::vector<Intersection> intersections;
+	//std::vector<MeshIntersection> intersections;
 	for (i32 i = 0; i < surfaceData.triangleCount(); i++) {
 		Vec3 vs[3];
 		getTriangle(surfaceData.positions, surfaceData.indices, vs, i);
-		const auto intersection = rayTriIntersection(cameraPosition, forward, vs);
+		const auto intersection = rayTriIntersection(cameraPosition, cameraForward, vs);
 		if (!intersection.has_value()) {
 			continue;
 		}
 		Vec2 uvs[3];
 		getTriangle(surfaceData.uvs, surfaceData.indices, uvs, i);
 		const auto uv = barycentricInterpolate(intersection->barycentricCoordinates, uvs);
-		intersections.push_back({ *intersection, i, uv });
-	}
-	std::ranges::sort(
-		intersections,
-		[](const Intersection& a, const Intersection& b) {
-			return a.i.t < b.i.t;
-		}
-	);
-	const auto initialVelocityVectorLength = 0.25f;
-	const auto initialPositionPos = surfaces.position(initialPositionUv);
-	const auto initialPositionTangentU = surfaces.tangentU(initialPositionUv);
-	const auto initialPositionTangentV = surfaces.tangentV(initialPositionUv);
-	const auto initialVelocityVectorEndPosition =
-		initialPositionPos + 
-		initialVelocityVectorLength * 
-		(initialVelocityUv.x * initialPositionTangentU + initialVelocityUv.y * initialPositionTangentV).normalized();
-
-	struct TangentPlanePosition {
-		Vec3 inSpace;
-		Vec2 inUvCoordinates;
-	};
-	std::optional<TangentPlanePosition> tangentPlaneIntersection;
-
-	{
-		const auto tangentPlaneNormal = cross(initialPositionTangentU, initialPositionTangentV);
-		const auto intersectionT = rayPlaneIntersection(cameraPosition, forward, initialPositionPos, tangentPlaneNormal);
-		if (intersectionT.has_value()) {
-			const auto intersection = cameraPosition + *intersectionT * forward;
-			// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
-			// TODO: Could allow snapping to the grid.
-			tangentPlaneIntersection = TangentPlanePosition{
-				.inSpace = intersection,
-				.inUvCoordinates = vectorInTangentSpaceBasis(
-					intersection - initialPositionPos,
-					initialPositionTangentU,
-					initialPositionTangentV,
-					tangentPlaneNormal
-				)
-			};
-		}
-	}
-
-	if (Input::isMouseButtonDown(MouseButton::LEFT)) {
-		const auto grabDistance = 0.06f;
-		// Counting all intersections so the user can grab things on the other side of the transparent surface.
-		for (const auto& intersection : intersections) {
-			const auto pos = surfaces.position(intersection.uv);
-			if (pos.distanceTo(initialPositionPos) < grabDistance) {
-				grabbed = Grabbed::POSITION;
-				break;
-			}
-		}
-		if (grabbed == Grabbed::NONE && 
-			tangentPlaneIntersection &&
-			tangentPlaneIntersection->inSpace.distanceTo(initialVelocityVectorEndPosition) < grabDistance) {
-			grabbed = Grabbed::VELOCITY;
-		}
-	}
-	if (Input::isMouseButtonUp(MouseButton::LEFT)) {
-		grabbed = Grabbed::NONE;
-	}
-	switch (grabbed) {
-		using enum Grabbed;
-	case NONE:
-		break;
-	case POSITION: {
-		// Sorting by the distance to the current position so that if the user grabs the thing on the other side it stays on the other side.
-		std::ranges::sort(
-			intersections,
-			[&initialPositionPos](const Intersection& a, const Intersection& b) {
-				return a.i.position.distanceTo(initialPositionPos) < b.i.position.distanceTo(initialPositionPos);
-			}
-		);
-		if (intersections.size() >= 1) {
-			initialPositionUv = intersections[0].uv;
-		}
-		break;
-	}
-
-	case VELOCITY: {
-		if (tangentPlaneIntersection.has_value()) {
-			initialVelocityUv = tangentPlaneIntersection->inUvCoordinates.normalized();
-		}
-		break;
-	}
-
-	}
-
-	if (selectedTool == ToolType::GEODESICS) {
-		{
-			const auto initialPosition = surfaces.position(initialPositionUv);
-			const auto initialVelocity =
-				(surfaces.tangentU(initialPositionUv) * initialVelocityUv.x +
-					surfaces.tangentV(initialPositionUv) * initialVelocityUv.y).normalized();
-			renderer.sphere(initialPosition, 0.015f, Color3::RED);
-			const auto radius = 0.01f;
-			const auto coneRadius = radius * 2.5f;
-			const auto coneLength = coneRadius * 2.0f;
-			renderer.arrowStartEnd(
-				initialPosition,
-				initialPosition + initialVelocity * initialVelocityVectorLength,
-				radius,
-				coneRadius,
-				coneLength,
-				Color3::WHITE,
-				Color3::RED
-			);
-		}
-		geodesicToolUpdate();
+		intersections.push_back({ *intersection, i, uv, intersection->position });
 	}
 }
 
@@ -835,21 +689,6 @@ Vec2 MainLoop::randomPointOnSurface() {
 	const auto r0 = uniform01(rng);
 	const auto r1 = uniform01(rng);
 	return uniformRandomPointOnTri(uvs, r0, r1);
-}
-
-Vec2 MainLoop::vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) const {
-	// Untimatelly this requires solving the system of equations a0 tV + a1 tU = v so I don't think there is any better way of doing this.
-	const auto v0 = tangentU.normalized();
-	const auto v1 = cross(tangentU, normal).normalized();
-	auto toOrthonormalBasis = [&](Vec3 v) -> Vec2 {
-		return Vec2(dot(v, v0), dot(v, v1));
-	};
-	// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
-	const auto tU = toOrthonormalBasis(tangentU);
-	const auto tV = toOrthonormalBasis(tangentV);
-	const auto i = toOrthonormalBasis(v);
-	const auto inUvCoordinates = Mat2(tU, tV).inversed() * i;
-	return inUvCoordinates;
 }
 
 void MainLoop::randomInitializeParticle(const RectParametrization auto& surface, i32 i) {
@@ -901,58 +740,6 @@ Vec3 MainLoop::vectorFieldSample(Vec3 v) const {
 		noise.value3d(v + Vec3(214.0f, 0.0f, 0.0f)),
 		noise.value3d(v + Vec3(0.0f, 24.456f, 0.0f))
 	);
-}
-
-void MainLoop::geodesicToolUpdate(const RectParametrization auto& surface) {
-	auto movementRhs = [&](Vec4 state, f32 _) {
-	const auto symbols = surface.christoffelSymbols(state.x, state.y);
-		Vec2 velocity(state.z, state.w);
-
-		return Vec4(
-			velocity.x,
-			velocity.y,
-			-dot(velocity, symbols.x * velocity),
-			-dot(velocity, symbols.y * velocity)
-		);
-	};
-
-	const auto geodesicLength = 15.0f;
-	const auto steps = 200;
-	const auto dl = geodesicLength / steps;
-
-	Vec2 position = initialPositionUv;
-	Vec2 velocity = Vec2::oriented(initialVelocityUv.angle());
-	for (i32 i = 0; i < steps; i++) {
-		const auto uTangent = surface.tangentU(position.x, position.y);
-		const auto vTangent = surface.tangentV(position.x, position.y);
-		const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
-		velocity /= v;
-		i32 n = 5;
-		Vec4 state(position.x, position.y, velocity.x, velocity.y);
-		for (i32 j = 0; j < n; j++) {
-			state = rungeKutta4Step(movementRhs, state, 0.0f, dl / n);
-		}
-		const auto newPosition = Vec2(state.x, state.y);
-		renderer.line(surface.position(position.x, position.y), surface.position(newPosition.x, newPosition.y), 0.01f, Color3::RED);
-		const auto tangent = Vec2(state.z, state.w);
-		position = newPosition;
-		velocity = tangent;
-	}
-}
-
-void MainLoop::geodesicToolUpdate() {
-	#define U(name) geodesicToolUpdate(surfaces.name); break;
-	switch (surfaces.selected) {
-		using enum Surfaces::Type;
-	case TORUS: U(torus);
-	case TREFOIL: U(trefoil);
-	case HELICOID: U(helicoid);
-	case MOBIUS_STRIP: U(mobiusStrip);
-	case PSEUDOSPHERE: U(pseudosphere);
-	case CONE: U(cone);
-	case SPHERE: U(sphere);
-	}
-	#undef U
 }
 
 void MainLoop::Surface::sortTriangles(Vec3 cameraPosition) {

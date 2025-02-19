@@ -27,6 +27,13 @@ Vec3 normal(const RectParametrization auto& s, Vec2 uv) {
 Mat2 firstFundamentalForm(Vec3 xU, Vec3 xV);
 Mat2 secondFundamentalForm(Vec3 xUu, Vec3 xUv, Vec3 xVv, Vec3 normalizedNormal);
 f32 gaussianCurvature(const Mat2& firstFundamentalForm, const Mat2& secondFundamentalForm);
+
+struct PrincipalCurvatures {
+	f32 curvature[2];
+	Vec2 direction[2];
+};
+PrincipalCurvatures principalCurvatues(const Mat2& firstFundamentalForm, const Mat2& secondFundamentalForm);
+
 /*
 
 https://faculty.sites.iastate.edu/jia/files/inline-files/surface-curves.pdf

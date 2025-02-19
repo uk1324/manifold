@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/Math/Mat4.hpp>
+#include <engine/Math/Quat.hpp>
 #include <engine/Math/Vec2.hpp>
 #include <engine/Math/Angles.hpp>
 #include <optional>
@@ -8,6 +9,7 @@
 #include <engine/Input/Input.hpp>
 #include <engine/Window.hpp>
 #include <game/Surfaces/RectParametrization.hpp>
+#include <game/Utils.hpp>
 
 struct SufaceCamera {
 	// In uv space
@@ -145,8 +147,44 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 	// Unrelated, but this is a formulation that uses time instead of arclength. 
 	// https://en.wikipedia.org/wiki/Geodesics_in_general_relativity#Equivalent_mathematical_expression_using_coordinate_time_as_parameter
 	// This only makes sense in spacetime.
-	if (Input::isKeyHeld(KeyCode::W)) {
-		Vec2 velocity = Vec2::oriented(uvForwardAngle);
+
+	//Vec2 velocityDirection(0.0f);
+
+	//if (Input::isKeyHeld(KeyCode::W)) {
+	//	velocityDirection += Vec2::oriented(uvForwardAngle);
+	//}
+	//if (Input::isKeyHeld(KeyCode::S)) {
+	//	velocityDirection += -Vec2::oriented(uvForwardAngle);
+	//}
+	
+
+	Vec3 movementDirection(0.0f);
+	const auto forward = (cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent).normalized();
+	const auto right = cross(cameraUp, forward).normalized();
+	{
+		// Recomputing this, because uvForwardAngle changed.
+		if (Input::isKeyHeld(KeyCode::W)) {
+			movementDirection += forward;
+		}
+		if (Input::isKeyHeld(KeyCode::S)) {
+			movementDirection -= forward;
+		}
+		if (Input::isKeyHeld(KeyCode::D)) {
+			movementDirection += right;
+		}
+		if (Input::isKeyHeld(KeyCode::A)) {
+			movementDirection -= right;
+		}
+	}
+	
+	const auto angleBetweenForwardAndMovement = atan2(
+		dot(movementDirection, right),
+		dot(movementDirection, forward)
+	);
+
+	if (movementDirection != Vec3(0.0f)) {
+		Vec2 velocity = vectorInTangentSpaceBasis(movementDirection, uTangent, vTangent, cameraUp);
+		//Vec2 velocity = velocityDirection;
 		const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
 		// Unit speed initial condition.
 		velocity /= v;
@@ -159,11 +197,21 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		for (i32 i = 0; i < n; i++) {
 			state = rungeKutta4Step(movementRhs, state, 0.0f, dt / n);
 		}
-		const auto v2 = (state.z * uTangent + state.w * vTangent).length();
-		//ImGui::Text("%g", v2);
 
 		uvPosition = Vec2(state.x, state.y);
-		uvForwardAngle = Vec2(state.z, state.w).angle();
+		const auto uTangentNew = surface.tangentU(uvPosition.x, uvPosition.y);
+		const auto vTangentNew = surface.tangentV(uvPosition.x, uvPosition.y);
+		const Vec3 normalNew = surface.normal(uvPosition.x, uvPosition.y) * normalSign;
+
+		const auto newMovementDirection = state.z * uTangentNew + state.w * vTangentNew;
+		const auto newForwardDirection = Quat(-angleBetweenForwardAndMovement, normalNew) * newMovementDirection;
+		const Vec2 newForwardUv = vectorInTangentSpaceBasis(newForwardDirection, uTangentNew, vTangentNew, normalNew);
+
+		uvForwardAngle = newForwardUv.angle();
+		//const auto v2 = (state.z * uTangent + state.w * vTangent).length();
+		//ImGui::Text("%g", v2);
+
+		//uvForwardAngle = Vec2(state.z, state.w).angle();
 	}
 
 	auto wrapToRange = [](f32 value, f32 min, f32 max) {
@@ -202,5 +250,5 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 
 template<typename Surface>
 Vec3 SufaceCamera::cameraPosition(const Surface& surface) const {
-	return cameraPosition(surface.position(uvPosition.x, uvPosition.y), surface.normal(uvPosition.x, uvPosition.y));
+	return cameraPosition(surface.position(uvPosition.x, uvPosition.y), surface.normal(uvPosition.x, uvPosition.y) * normalSign());
 }

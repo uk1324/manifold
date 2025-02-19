@@ -9,8 +9,8 @@
 #include <game/Surfaces/Sphere.hpp>
 
 struct Surfaces {
-	//Torus torus{ .r = 0.4f, .R = 1.0f };
-	Torus torus{ .r = 0.4f, .R = 2.0f };
+	Torus torus{ .r = 0.4f, .R = 1.0f };
+	//Torus torus{ .r = 0.4f, .R = 2.0f };
 	Trefoil trefoil{ .r = 0.4f, .R = 2.0f };
 	Helicoid helicoid{ .uMin = -PI<f32>, .uMax = PI<f32>, .vMin = -5.0f, .vMax = 5.0f };
 	MobiusStrip mobiusStrip;
