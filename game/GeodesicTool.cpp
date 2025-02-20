@@ -27,12 +27,11 @@ void GeodesicTool::update(
 	};
 	std::optional<TangentPlanePosition> tangentPlaneIntersection;
 
+	const auto tangentPlaneNormal = cross(initialPositionTangentU, initialPositionTangentV);
 	{
-		const auto tangentPlaneNormal = cross(initialPositionTangentU, initialPositionTangentV);
 		const auto intersectionT = rayPlaneIntersection(cameraPosition, cameraForward, initialPositionPos, tangentPlaneNormal);
 		if (intersectionT.has_value()) {
 			const auto intersection = cameraPosition + *intersectionT * cameraForward;
-			// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
 			// TODO: Could allow snapping to the grid.
 			tangentPlaneIntersection = TangentPlanePosition{
 				.inSpace = intersection,
@@ -72,7 +71,33 @@ void GeodesicTool::update(
 
 	case VELOCITY: {
 		if (tangentPlaneIntersection.has_value()) {
+			// Using this, if the user points above the horizion of the tangent plane it no longer detects the direction. I want just the direction so to always find a direction I could theoretically create a parallel tangent plane above the user and also add points at infinity so that there is always an intersection.
+			// The issue is that this depends on both the angle the user makes with the tangent plane and the y position relative to the tangent plane so it would probably also change depending on the position of the parallel tangent plane.
+			// One alternative would be to choose the direction at inifinity if the user points above the tangent plane.
 			initialVelocityUv = tangentPlaneIntersection->inUvCoordinates.normalized();
+			/*initialVelocityUv = vectorInTangentSpaceBasis(
+				cameraForward,
+				initialPositionTangentU,
+				initialPositionTangentV,
+				tangentPlaneNormal
+			);*/
+		} else {
+			Vec2 intersectionWithTangentPlaneAtInfinity = vectorInTangentSpaceBasis(
+				cameraForward,
+				initialPositionTangentU,
+				initialPositionTangentV,
+				tangentPlaneNormal
+			);
+			// The third coorindate is zero.
+
+			/*
+			We have the initialPosition and the cameraPosition.
+			In this case the cameraDirection is parallel to the tangent plane so we can consider things as happening in the projective plane.
+			The guy at cameraPosition is pointing in cameraDirection so it intersects at infinity at (cameraDirection, 0).
+			Now we want to know the what direction does initialPosition need to point to also point at the point at infinity. 
+			The answer is that it also has to point in the direction cameraDirection, because 2 lines intersect at a point at infinity iff they point in the same direction.
+			*/
+			initialVelocityUv = intersectionWithTangentPlaneAtInfinity;
 		}
 		break;
 	}
@@ -107,6 +132,7 @@ void GeodesicTool::update(
 	case PSEUDOSPHERE: U(pseudosphere);
 	case CONE: U(cone);
 	case SPHERE: U(sphere);
+	case PROJECTIVE_PLANE: U(projectivePlane);
 	}
 	#undef U
 }

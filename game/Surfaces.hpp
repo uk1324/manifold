@@ -7,6 +7,7 @@
 #include <game/Surfaces/Trefoil.hpp>
 #include <game/Surfaces/MobiusStrip.hpp>
 #include <game/Surfaces/Sphere.hpp>
+#include <game/Surfaces/ProjectivePlane.hpp>
 
 struct Surfaces {
 	Torus torus{ .r = 0.4f, .R = 1.0f };
@@ -22,6 +23,7 @@ struct Surfaces {
 		.uMax = 2.0f,
 	};
 	Sphere sphere{ .r = 1.0f };
+	ProjectivePlane projectivePlane;
 
 	// Not using a sum type, because the settings should remain.
 	enum class Type {
@@ -32,6 +34,7 @@ struct Surfaces {
 		PSEUDOSPHERE,
 		CONE,
 		SPHERE,
+		PROJECTIVE_PLANE,
 	};
 
 	Vec3 position(Vec2 uv) const;

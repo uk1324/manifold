@@ -177,6 +177,39 @@ In some cases the asymptotic lines also form an otrhogonal net.
 
 https://en.wikipedia.org/wiki/Orthogonal_coordinates
 
-Walking on 4D surfaces. Could be klein bottle or projective plane. Could use Q and E for moving in the 4th dimension.
+{
+	Walking on 4D surfaces. Could be klein bottle or projective plane. Could use Q and E for moving in the 4th dimension. 
+	
+	Don't think these visualizations are going to be very instructive, because for visualization of a surface in 4d there are 2 options: projection and slices.
+	Slices don't make sense for walking, because a slice the user is on may disapper. 
+	For projection there needs to be a 4d embedding (if it's not an embedding then it doesn't really show anything new) of the shape. The issue is that the projections of the classic embeddings have a lot of self intersections and it's hard to tell what is going on. Another minor issue is that they have pinch singularities.
+}
 
 Make 2 vector field flows for the 2 principal directions.
+
+Visualization of various methods of construction of shapes like for example ruled surfaces.
+
+Morse theory.
+
+PDEs on manifolds.
+
+Visualizations from projective gometry
+
+Computing a minimal surface given some form of constraint.
+
+classification of surface singularities
+https://en.wikipedia.org/wiki/Du_Val_singularity
+http://www-sop.inria.fr/galaad/surfaces/classification/index.html
+https://en.wikipedia.org/wiki/Acnode
+https://en.wikipedia.org/wiki/Crunode
+https://en.wikipedia.org/wiki/Cusp_(singularity)
+https://en.wikipedia.org/wiki/Tacnode
+https://en.wikipedia.org/wiki/Catastrophe_theory
+
+https://en.wikipedia.org/wiki/Dupin_indicatrix
+
+https://en.wikipedia.org/wiki/Slice_knot#Cone_construction
+
+Elliptic space
+
+Some minimal surfaces are defined in terms of integrals. To evaluate them could precompute the values and interpolate them.

@@ -1,13 +1,17 @@
 #include "RectParametrization.hpp"
 #include "../MatrixMath.hpp"
 
+Vec3 surfaceNormal(Vec3 tangentU, Vec3 tangentV) {
+	return cross(tangentU, tangentV).normalized();
+}
+
 Mat2 firstFundamentalForm(Vec3 xU, Vec3 xV) {
 	const Vec3 p_xi[] = { xU, xV };
 
 	Mat2 metricTensor = Mat2::zero;
 	matrixMultiply(
-		[&p_xi](i32 i, i32 j) { return p_xi[j].data()[i]; }, 3, 2,
-		[&p_xi](i32 i, i32 j) { return p_xi[i].data()[j]; }, 2, 3,
+		[&p_xi](i64 i, i64 j) { return p_xi[j].data()[i]; }, 3, 2,
+		[&p_xi](i64 i, i64 j) { return p_xi[i].data()[j]; }, 2, 3,
 		metricTensor
 	);
 	return metricTensor;
@@ -22,6 +26,31 @@ Mat2 secondFundamentalForm(Vec3 xUu, Vec3 xUv, Vec3 xVv, Vec3 normalizedNormal) 
 
 f32 gaussianCurvature(const Mat2& firstFundamentalForm, const Mat2& secondFundamentalForm) {
 	return secondFundamentalForm.det() / firstFundamentalForm.det();
+}
+
+ChristoffelSymbols christoffelSymbols(Vec3 xU, Vec3 xV, Vec3 xUu, Vec3 xUv, Vec3 xVv) {
+	Vec3 p_xi[]{ xU, xV };
+	Vec3 p_xij[2][2]{
+		{ xUu, xUv },
+		{ xUv, xVv }
+	};
+	const auto metricTensor = firstFundamentalForm(p_xi[0], p_xi[1]);
+	const auto metricTensorInverse = metricTensor.inversed();
+
+	Mat2 result[2]{ Mat2::zero, Mat2::zero };
+	for (i32 i = 0; i < 2; i++) {
+		for (i32 j = 0; j < 2; j++) {
+			for (i32 k = 0; k < 2; k++) {
+				for (i32 m = 0; m < 2; m++) {
+					result[i](j, k) = metricTensorInverse(i, m) * dot(p_xij[j][k], p_xi[m]);
+				}
+			}
+		}
+	}
+	return {
+		.x = result[0],
+		.y = result[1]
+	};
 }
 
 #include <array>
@@ -60,7 +89,7 @@ std::array<Eigenvector, 2> computeEigenvectors(const Mat2& m) {
 
 PrincipalCurvatures principalCurvatues(const Mat2& firstFundamentalForm, const Mat2& secondFundamentalForm) {
 	// If x_u, x_v are linearly independent the the first fundamental form is invertible.
-	const auto shapeOperator = secondFundamentalForm * firstFundamentalForm.inversed();
+	const auto shapeOperator = firstFundamentalForm.inversed() * secondFundamentalForm;
 
 	const auto result = computeEigenvectors(shapeOperator);
 	return PrincipalCurvatures(

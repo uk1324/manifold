@@ -2,6 +2,7 @@
 
 #include "ChristoffelSymbols.hpp"
 #include "Connectivity.hpp"
+#include <engine/Math/Derivative.hpp>
 #include <engine/Math/Vec3.hpp>
 
 template<typename Parametrization>
@@ -18,15 +19,47 @@ concept RectParametrization = requires(Parametrization surface, f32 u, f32 v) {
 	{ surface.vMax } -> std::convertible_to<f32>;
 };
 
+// Using crtp could make a struct with all the functions based only on the position function.
 Vec3 normal(const RectParametrization auto& s, Vec2 uv);
 
 Vec3 normal(const RectParametrization auto& s, Vec2 uv) {
 	return s.normal(uv.x, uv.y);
 }
 
+Vec3 surfaceNormal(Vec3 tangentU, Vec3 tangentV);
+
+const auto step = 0.05f;
+
+// TODO: Make a function that calculates all the first and second order derivatives at once.
+template<typename Surface>
+Vec3 approximateTangentU(const Surface& s, f32 u, f32 v) {
+	return derivativeMidpoint([&v, &s](f32 u) { return s.position(u, v); }, u, step);
+}
+
+template<typename Surface>
+Vec3 approximateTangentV(const Surface& s, f32 u, f32 v) {
+	return derivativeMidpoint([&u, &s](f32 v) { return s.position(u, v); }, v, step);
+}
+
+template<typename Surface>
+Vec3 approximateXuu(const Surface& s, f32 u, f32 v) {
+	return secondDerivativeMidpoint([&s, &v](f32 u) { return s.position(u, v); }, u, step);
+}
+
+template<typename Surface>
+Vec3 approximateXvv(const Surface& s, f32 u, f32 v) {
+	return secondDerivativeMidpoint([&s, &u](f32 v) { return s.position(u, v); }, v, step);
+}
+
+template<typename Surface>
+Vec3 approximateXuv(const Surface& s, f32 u, f32 v) {
+	return mixedDerivativeMidpoint([&s](f32 u, f32 v) { return s.position(u, v); }, u, v, step, step);
+}
+
 Mat2 firstFundamentalForm(Vec3 xU, Vec3 xV);
 Mat2 secondFundamentalForm(Vec3 xUu, Vec3 xUv, Vec3 xVv, Vec3 normalizedNormal);
 f32 gaussianCurvature(const Mat2& firstFundamentalForm, const Mat2& secondFundamentalForm);
+ChristoffelSymbols christoffelSymbols(Vec3 xU, Vec3 xV, Vec3 xUu, Vec3 xUv, Vec3 xVv);
 
 struct PrincipalCurvatures {
 	PrincipalCurvatures(f32 c0, Vec2 v0, f32 c1, Vec2 v1);
