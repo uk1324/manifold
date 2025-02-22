@@ -213,3 +213,21 @@ https://en.wikipedia.org/wiki/Slice_knot#Cone_construction
 Elliptic space
 
 Some minimal surfaces are defined in terms of integrals. To evaluate them could precompute the values and interpolate them.
+
+Minimal number of colors to color a map.
+
+
+https://virtualmathmuseum.org/Surface/klein_bottle/klein_bottle.html
+
+Make a curve editor using differentiable splines and then allow walking on the surface.
+
+VR
+
+Parkour in (hyperbolic space) x R.
+
+Graph torsion and curvature as functions of t.
+
+
+
+https://en.wikipedia.org/wiki/Curvature#Curvature_comb
+https://en.wikipedia.org/wiki/Evolute

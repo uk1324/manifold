@@ -127,10 +127,32 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		angleToTangentPlane = std::clamp(angleToTangentPlane, -degToRad(89.0f), degToRad(89.0f));
 	}
 
+	auto wrapToRange = [](f32 value, f32 min, f32 max) {
+		value -= min;
+		const auto range = max - min;
+		value = fmod(value, range);
+		if (value < 0.0f) {
+			value += range;
+		}
+		value += min;
+		return value;
+	};
 
 	auto movementRhs = [&](Vec4 state, f32 _) {
 		const auto symbols = surface.christoffelSymbols(state.x, state.y);
 		Vec2 velocity(state.z, state.w);
+
+		//Vec2 uvPosition(state.x, state.y);
+		//if (surface.uConnectivity == SquareSideConnectivity::REVERSED) {
+		//	if (uvPosition.x < surface.uMin || uvPosition.x > surface.uMax) {
+		//		normalFlipped = !normalFlipped;
+		//		uvPosition.y = surface.vMax - uvPosition.y;
+		//		uvPosition.y += PI<f32>;
+		//		//uvForwardAngle = -uvForwardAngle;
+		//		velocity.y = -velocity.y;
+		//	}
+		//	uvPosition.x = wrapToRange(uvPosition.x, surface.uMin, surface.uMax);
+		//}
 
 		return Vec4(
 			velocity.x,
@@ -190,7 +212,7 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		velocity /= v;
 
 		const auto a = movementRhs(Vec4(uvPosition.x, uvPosition.y, velocity.x, velocity.y), 0.0f);
-		ImGui::Text("%g", Vec2(a.z, a.w).length());
+		//ImGui::Text("%g", Vec2(a.z, a.w).length());
 
 		i32 n = 5;
 		Vec4 state(uvPosition.x, uvPosition.y, velocity.x, velocity.y);
@@ -214,18 +236,7 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		//uvForwardAngle = Vec2(state.z, state.w).angle();
 	}
 
-	auto wrapToRange = [](f32 value, f32 min, f32 max) {
-		value -= min;
-		const auto range = max - min;
-		value = fmod(value, range);
-		if (value < 0.0f) {
-			value += range;
-		}
-		value += min;
-		return value;
-	};
-
-	auto handleConnectivity = [&wrapToRange](f32 value, f32 min, f32 max, SquareSideConnectivity connectivity) -> f32 {
+	auto handleConnectivity = [&wrapToRange, this](f32 value, f32 min, f32 max, SquareSideConnectivity connectivity) -> f32 {
 		switch (connectivity) {
 			using enum SquareSideConnectivity;
 		case NONE:
@@ -234,9 +245,14 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		case NORMAL:
 			return wrapToRange(value, min, max);
 
-		case REVERSED:
-			// TODO:
-			return value;
+		case REVERSED: {
+			//if (value < min || value > max) {
+			//	normalFlipped = !normalFlipped;
+			//}
+			//return wrapToRange(value, min, max);
+			break;
+		}
+
 		};
 
 		return value;
@@ -244,6 +260,29 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 
 	uvPosition.x = handleConnectivity(uvPosition.x, surface.uMin, surface.uMax, surface.uConnectivity);
 	uvPosition.y = handleConnectivity(uvPosition.y, surface.vMin, surface.vMax, surface.vConnectivity);
+	if (surface.uConnectivity == SquareSideConnectivity::REVERSED) {
+		if (uvPosition.x < surface.uMin || uvPosition.x > surface.uMax) {
+			normalFlipped = !normalFlipped;
+			uvPosition.y = surface.vMax - uvPosition.y;
+			uvPosition.y += PI<f32>;
+			//uvForwardAngle -= PI<f32> / 2.0f;
+			uvForwardAngle = -uvForwardAngle;
+			//uvForwardAngle += PI<f32> / 2.0f;
+
+			//const auto uTangent = surface.tangentU(uvPosition.x, uvPosition.y);
+			//const auto vTangent = surface.tangentV(uvPosition.x, uvPosition.y);
+			//const Vec3 normal = surface.normal(uvPosition.x, uvPosition.y) * normalSign;
+			//const auto dir = cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent;
+			//const auto firstDir = uTangent;
+			//const auto secondDir = cross(uTangent, normal).normalized();
+			//const auto reflectedV = Vec2(dot(dir, firstDir), -dot(dir, secondDir));
+			//const auto newDir = reflectedV.x * firstDir + reflectedV.y * secondDir;
+			//uvForwardAngle = -vectorInTangentSpaceBasis(newDir, uTangent, vTangent, normal).angle();
+		}
+		uvPosition.x = wrapToRange(uvPosition.x, surface.uMin, surface.uMax);
+
+	}
+	//ImGui::InputFloat2("positin", uvPosition.data()); 
 
 	return view;
 }

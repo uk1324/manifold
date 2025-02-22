@@ -256,7 +256,7 @@ void Renderer::renderColoredShadingTriangles() {
 	::renderTriangles(coloredShadingShader, coloredShadingTriangles);
 }
 
-void Renderer::circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius) {
+void Renderer::circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius, Vec3 color) {
 	const auto circleVertexCount = 100;
 	for (i32 i = 0; i < circleVertexCount; i++) {
 		const auto a0 = f32(i) / f32(circleVertexCount) * TAU<f32>;
@@ -265,7 +265,7 @@ void Renderer::circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius) {
 			center + (d0 * cos(a0) + d1 * sin(a0)) * radius,
 			center + (d0 * cos(a1) + d1 * sin(a1)) * radius,
 			0.01f,
-			Color3::WHITE
+			color
 		);
 	}
 }
@@ -410,6 +410,10 @@ void Renderer::arrowStartEnd(
 	} else {
 		addCone(rotateTranslate * coneScale);
 	}
+}
+
+void Renderer::arrowStartDirection(Vec3 start, Vec3 direction, f32 radius, f32 coneRadius, f32 coneLength, Vec3 lineColor, Vec3 coneColor) {
+	return arrowStartEnd(start, start + direction, radius, coneRadius, coneLength, lineColor, coneColor);
 }
 
 void Renderer::renderCones() {

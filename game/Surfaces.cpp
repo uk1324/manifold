@@ -1,49 +1,37 @@
 #include <game/Surfaces.hpp>
-
-#define SWITCH() \
-	switch (selected) { \
-	using enum Type; \
-		case TORUS: R(torus); \
-		case TREFOIL: R(trefoil); \
-		case HELICOID: R(helicoid); \
-		case MOBIUS_STRIP: R(mobiusStrip); \
-		case PSEUDOSPHERE: R(pseudosphere); \
-		case CONE: R(cone); \
-		case SPHERE: R(sphere); \
-		case PROJECTIVE_PLANE: R(sphere); \
-	}
+#include <game/SurfaceSwitch.hpp>
 
 Vec3 Surfaces::position(Vec2 uv) const {
 	#define R(name) return name.position(uv.x, uv.y)
-	SWITCH();
+	SURFACE_SWITCH(selected, R);
 	#undef R
 	ASSERT_NOT_REACHED();
 }
 
 Vec3 Surfaces::normal(Vec2 uv) const {
 	#define R(name) return name.normal(uv.x, uv.y)
-	SWITCH();
+	SURFACE_SWITCH(selected, R);
 	#undef R
 	ASSERT_NOT_REACHED();
 }
 
 Vec3 Surfaces::tangentU(Vec2 uv) const {
 	#define R(name) return name.tangentU(uv.x, uv.y)
-	SWITCH();
+	SURFACE_SWITCH(selected, R);
 	#undef R
 	ASSERT_NOT_REACHED();
 }
 
 Vec3 Surfaces::tangentV(Vec2 uv) const {
 	#define R(name) return name.tangentV(uv.x, uv.y)
-	SWITCH();
+	SURFACE_SWITCH(selected, R);
 	#undef R
 	ASSERT_NOT_REACHED();
 }
 
 PrincipalCurvatures Surfaces::principalCurvatures(Vec2 uv) const {
 	#define R(name) return name.principalCurvatures(uv.x, uv.y)
-	SWITCH();
+	SURFACE_SWITCH(selected, R);
 	#undef R
 	ASSERT_NOT_REACHED();
 }
@@ -59,6 +47,11 @@ const char* surfaceNameStr(Surfaces::Type surface) {
 	case CONE: return "cone";
 	case SPHERE: return "sphere";
 	case PROJECTIVE_PLANE: return "projective plane";
+	case KLEIN_BOTTLE: return "klein bottle";
+	case HYPERBOLIC_PARABOLOID: return "hyperbolic paraboloid";
+	case MONKEY_SADDLE: return "monkey saddle";
+	case CATENOID: return "catenoid";
+	case ENNEPER_SURFACE: return "enneper surface";
 	}
 	return "";
 }

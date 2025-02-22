@@ -1,5 +1,6 @@
 #include "GeodesicTool.hpp"
 #include <engine/Input/Input.hpp>
+#include <game/SurfaceSwitch.hpp>
 #include <engine/Math/Color.hpp>
 #include <game/RayIntersection.hpp>
 #include <game/Utils.hpp>
@@ -123,17 +124,7 @@ void GeodesicTool::update(
 	);
 
 	#define U(name) integrateGeodesic(surfaces.name, renderer); break;
-	switch (surfaces.selected) {
-		using enum Surfaces::Type;
-	case TORUS: U(torus);
-	case TREFOIL: U(trefoil);
-	case HELICOID: U(helicoid);
-	case MOBIUS_STRIP: U(mobiusStrip);
-	case PSEUDOSPHERE: U(pseudosphere);
-	case CONE: U(cone);
-	case SPHERE: U(sphere);
-	case PROJECTIVE_PLANE: U(projectivePlane);
-	}
+	SURFACE_SWITCH(surfaces.selected, U);
 	#undef U
 }
 

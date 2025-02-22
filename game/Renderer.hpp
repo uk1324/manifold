@@ -27,7 +27,7 @@ struct TriangleRenderer {
 
 	i32 addVertex(const Vertex& vertex);
 	void addTri(i32 i0, i32 i1, i32 i2);
-	void addQuat(i32 i00, i32 i01, i32 i11, i32 i10);
+	void addQuad(i32 i00, i32 i01, i32 i11, i32 i10);
 	void tri(const Vertex& v0, const Vertex& v1, const Vertex3Pnt& v2);
 };
 
@@ -48,7 +48,7 @@ struct Renderer {
 
 	TriangleRenderer<Vertex3Pn> coloredShadingTriangles;
 	void renderColoredShadingTriangles();
-	void circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius);
+	void circleArc(Vec3 center, Vec3 d0, Vec3 d1, f32 radius, Vec3 color);
 
 	struct Mesh {
 		Vbo vbo;
@@ -85,6 +85,14 @@ struct Renderer {
 		f32 radius, 
 		f32 coneRadius, 
 		f32 coneLength, 
+		Vec3 lineColor,
+		Vec3 coneColor);
+	void arrowStartDirection(
+		Vec3 start,
+		Vec3 direction,
+		f32 radius,
+		f32 coneRadius,
+		f32 coneLength,
 		Vec3 lineColor,
 		Vec3 coneColor);
 	void renderCones();
@@ -128,7 +136,7 @@ void TriangleRenderer<Vertex>::addTri(i32 i0, i32 i1, i32 i2) {
 }
 
 template<typename Vertex>
-void TriangleRenderer<Vertex>::addQuat(i32 i00, i32 i01, i32 i11, i32 i10) {
+void TriangleRenderer<Vertex>::addQuad(i32 i00, i32 i01, i32 i11, i32 i10) {
 	indicesAddQuad(indices, i00, i01, i11, i10);
 }
 

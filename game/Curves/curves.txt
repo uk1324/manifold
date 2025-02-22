@@ -1,0 +1,13 @@
+If we have some curve regular curve a(t) such that |a'(t)| != 0
+Then the length is a monotically increasing function so we can define a length based such that parametrization
+a(t(s)) = b(s)
+This parametrization will have |b'(s)| = 1.
+
+Then the original curve a(t) = b(s(t)) so that
+a'(t) = b'(s(t)) * s'(t)
+|a'(t)| = |b'(s(t)) * s'(t)| = |b'(s(t))| * |s'(t)| = 1 * s'(t) = s'(t)
+Which implies that 
+a'(t)/|a'(t)| = b'(s(t)), which is the tangent of the unit speed parametrization.
+So you don't need to compute the unit speed parametrization work with it's frenet frame.
+
+https://en.wikipedia.org/wiki/Frenet%E2%80%93Serret_formulas#Other_expressions_of_the_frame

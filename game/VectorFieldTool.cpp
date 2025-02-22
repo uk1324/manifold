@@ -54,27 +54,33 @@ void VectorFieldTool::initializeParticles(
 
 }
 
-void VectorFieldTool::initializeParticles(const Surfaces& surfaces, const SurfaceData& surfaceData, i32 particleCount) {
-	#define I(surface, vectorField) initializeParticles(flowParticles, particleCount, surface, surfaceData, vectorField)
-	#define S(vectorField) \
+#define SWITCH_SURFACE_VECTOR_FIELD(vectorField) \
 	switch (surfaces.selected) { \
 		using enum Surfaces::Type; \
-	case TORUS: I(surfaces.torus, vectorField); break; \
-	case TREFOIL: I(surfaces.trefoil, vectorField); break; \
-	case HELICOID: I(surfaces.helicoid, vectorField); break; \
-	case MOBIUS_STRIP: I(surfaces.mobiusStrip, vectorField); break; \
-	case PSEUDOSPHERE: I(surfaces.pseudosphere, vectorField); break; \
-	case CONE: I(surfaces.cone, vectorField); break; \
-	case SPHERE: I(surfaces.sphere, vectorField); break; \
-	case PROJECTIVE_PLANE: I(surfaces.projectivePlane, vectorField); break; \
+	case TORUS: I(torus, vectorField); break; \
+	case TREFOIL: I(trefoil, vectorField); break; \
+	case HELICOID: I(helicoid, vectorField); break; \
+	case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
+	case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
+	case CONE: I(cone, vectorField); break; \
+	case SPHERE: I(sphere, vectorField); break; \
+	case PROJECTIVE_PLANE: I(projectivePlane, vectorField); break; \
+	case KLEIN_BOTTLE: I(kleinBottle, vectorField); break; \
+	case HYPERBOLIC_PARABOLOID: I(hyperbolicParaboloid, vectorField); break; \
+	case MONKEY_SADDLE: I(monkeySaddle, vectorField); break; \
+	case CATENOID: I(catenoid, vectorField); break; \
+	case ENNEPER_SURFACE: I(enneperSurface, vectorField); break; \
 	}
+
+void VectorFieldTool::initializeParticles(const Surfaces& surfaces, const SurfaceData& surfaceData, i32 particleCount) {
+	#define I(surface, vectorField) initializeParticles(flowParticles, particleCount, surfaces.surface, surfaceData, vectorField)
+
 	switch (selectedVectorField) {
 		using enum VectorFieldType;
-	case RANDOM: S([this](Vec3 pos) { return randomVectorFieldSample(pos); }); break;
-	case CUSTOM: S(CustomVectorField(this)); break;
+	case RANDOM: SWITCH_SURFACE_VECTOR_FIELD([this](Vec3 pos) { return randomVectorFieldSample(pos); }); break;
+	case CUSTOM: SWITCH_SURFACE_VECTOR_FIELD(CustomVectorField(this)); break;
 	}
 	#undef I
-	#undef S
 
 	initializeSampleVectors(surfaceData, surfaces);
 }
@@ -259,25 +265,12 @@ Vec3 VectorFieldTool::customVectorFieldSample(Vec3 v) const {
 void VectorFieldTool::update(const Mat4& view, Vec3 cameraPosition, Vec3 cameraDirection, Renderer& renderer, const Surfaces& surfaces, const SurfaceData& surfaceData) {
 	if (showFlow) {
 		 #define I(name, vectorField) updateParticles(view, renderer, surfaces.name, surfaceData, vectorField)
-		#define S(vectorField) \
-		switch (surfaces.selected) { \
-			using enum Surfaces::Type; \
-		case TORUS: I(torus, vectorField); break; \
-		case TREFOIL: I(trefoil, vectorField); break; \
-		case HELICOID: I(helicoid, vectorField); break; \
-		case MOBIUS_STRIP: I(mobiusStrip, vectorField); break; \
-		case PSEUDOSPHERE: I(pseudosphere, vectorField); break; \
-		case CONE: I(cone, vectorField); break; \
-		case SPHERE: I(sphere, vectorField); break; \
-		case PROJECTIVE_PLANE: I(projectivePlane, vectorField); break; \
-		}
 		switch (selectedVectorField) {
 			using enum VectorFieldType;
-		case RANDOM: S([this](Vec3 pos) { return randomVectorFieldSample(pos); }); break;
-		case CUSTOM: S(CustomVectorField(this)); break;
+		case RANDOM: SWITCH_SURFACE_VECTOR_FIELD([this](Vec3 pos) { return randomVectorFieldSample(pos); }); break;
+		case CUSTOM: SWITCH_SURFACE_VECTOR_FIELD(CustomVectorField(this)); break;
 		}
 		#undef I
-		#undef S
 	}
 
 	if (showVectors) {

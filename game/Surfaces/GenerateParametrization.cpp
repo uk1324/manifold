@@ -27,8 +27,8 @@ DerivativesUpToSeondOrder2To3 midpointDerivativesUpToSeondOrder2To3(Function f, 
 	};
 }
 
-#define self (*static_cast<T*>(this))
-#define midpointDerivatives() midpointDerivativesUpToSeondOrder2To3([this](f32 u, f32 v) { return self.position(u, v); })
+#define self (*static_cast<const T*>(this))
+#define midpointDerivatives() midpointDerivativesUpToSeondOrder2To3([this](f32 u, f32 v) { return self.position(u, v); }, u, v, step)
 
 template<typename T>
 Vec3 GenerateParametrization<T>::tangentU(f32 u, f32 v) const {
@@ -100,3 +100,11 @@ FundamentalForms GenerateParametrization<T>::fundamentalForms(f32 u, f32 v) cons
 		.second = ::secondFundamentalForm(d.xUu, d.xUv, d.xVv, normal)
 	};
 }
+
+#include "Trefoil.hpp"
+#include "ProjectivePlane.hpp"
+#include "KleinBottle.hpp"
+
+template struct GenerateParametrization<Trefoil>;
+template struct GenerateParametrization<ProjectivePlane>;
+template struct GenerateParametrization<KleinBottle>;

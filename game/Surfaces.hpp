@@ -8,6 +8,11 @@
 #include <game/Surfaces/MobiusStrip.hpp>
 #include <game/Surfaces/Sphere.hpp>
 #include <game/Surfaces/ProjectivePlane.hpp>
+#include <game/Surfaces/KleinBottle.hpp>
+#include <game/Surfaces/HyperbolicParaboloid.hpp>
+#include <game/Surfaces/MonkeySaddle.hpp>
+#include <game/Surfaces/Catenoid.hpp>
+#include <game/Surfaces/EnneperSurface.hpp>
 
 struct Surfaces {
 	Torus torus{ .r = 0.4f, .R = 1.0f };
@@ -24,6 +29,11 @@ struct Surfaces {
 	};
 	Sphere sphere{ .r = 1.0f };
 	ProjectivePlane projectivePlane;
+	KleinBottle kleinBottle;
+	HyperbolicParaboloid hyperbolicParaboloid;
+	MonkeySaddle monkeySaddle;
+	Catenoid catenoid;
+	EnneperSurface enneperSurface;
 
 	// Not using a sum type, because the settings should remain.
 	enum class Type {
@@ -35,6 +45,11 @@ struct Surfaces {
 		CONE,
 		SPHERE,
 		PROJECTIVE_PLANE,
+		KLEIN_BOTTLE,
+		HYPERBOLIC_PARABOLOID,
+		MONKEY_SADDLE,
+		CATENOID,
+		ENNEPER_SURFACE,
 	};
 
 	Vec3 position(Vec2 uv) const;

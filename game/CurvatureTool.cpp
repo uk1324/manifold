@@ -29,7 +29,7 @@ void CurvatureTool::update(
 		const auto d = curvatures.direction[i];
 		const auto dir = (d.x * tangentU + d.y * tangentV).normalized();
 		const auto radius = 1.0f / c;
-		renderer.circleArc(point + normal * radius, normal, dir, radius);
+		renderer.circleArc(point + normal * radius, normal, dir, radius, Color3::WHITE);
 		//const auto dir = 
 	}
 }
