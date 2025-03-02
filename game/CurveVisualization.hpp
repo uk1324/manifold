@@ -17,43 +17,66 @@ struct ParameterInputSettings {
 	f32 allowedMax;
 };
 
-struct CurveBoundsInput {
-	CurveBoundsInput(
+//struct CurveBoundsInput {
+//	CurveBoundsInput(
+//		f32 startT, 
+//		f32 endT, 
+//		f32 selectedMin, 
+//		f32 selectedMax, 
+//		f32 allowedMin = -std::numeric_limits<f32>::infinity(),
+//		f32 allowedMax = std::numeric_limits<f32>::infinity());
+//	f32 startT;
+//	f32 endT;
+//
+//	ParameterInputSettings startTSettings;
+//	ParameterInputSettings endTSettings;
+//};
+
+struct CurveTInputs {
+	CurveTInputs(
+		f32 selectedT, 
 		f32 startT, 
 		f32 endT, 
 		f32 selectedMin, 
-		f32 selectedMax, 
+		f32 selectedMax,
 		f32 allowedMin = -std::numeric_limits<f32>::infinity(),
-		f32 allowedMax = std::numeric_limits<f32>::infinity());
+		f32 allowedMax = std::numeric_limits<f32>::infinity()
+	);
+
+	f32 selectedT;
 	f32 startT;
 	f32 endT;
-
+	ParameterInputSettings selectedTSettings;
 	ParameterInputSettings startTSettings;
 	ParameterInputSettings endTSettings;
 };
 
 struct CurveVisualization {
-	CurveVisualization();
+	static CurveVisualization make();
 
 	void update(Renderer& renderer);
 
-	f32 selectedT = 0.0f;
+	const CurveTInputs& selectedCurveTInputs() const;
 
-	struct StartEnd {
-		f32 start;
-		f32 end;
-	};
-	StartEnd startEndT() const;
+	static constexpr auto nearZero = 0.01f;
 
-	CurveBoundsInput helixBounds = CurveBoundsInput(0.0f, PI<f32> * 4.0f, 0.0f, PI<f32> * 4.0f);
-	ParameterInputSettings helixTSettings = ParameterInputSettings(0.0f, PI<f32>);
-	ParameterInputSettings helixASettings = ParameterInputSettings(0.01f, 1.0f, 0.01f);
-	ParameterInputSettings helixBSettings = ParameterInputSettings(0.0f, 1.0f);
+	CurveTInputs helixT;
+	ParameterInputSettings helixASettings;
+	ParameterInputSettings helixBSettings;
+
+	CurveTInputs vivanisCurveT;
+	ParameterInputSettings vivanisCurveRSettings;
+
+	CurveTInputs cycloidT;
+	ParameterInputSettings cycloidRSettings;
 
 	bool showFrenetFrame = false;
 	bool showCircleOfCurvature = false;
 
-	void boundsSliders(CurveBoundsInput& bounds);
+	bool parametrizeByArclength = true;
+
+	//void boundsSliders(CurveBoundsInput& bounds);
+	void tInputs(CurveTInputs& inputs);
 	void parameterSlider(const char* label, f32& parameter, ParameterInputSettings& settings);
 	void parameterSettingsGui();
 	struct OpenParameterSettings {

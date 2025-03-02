@@ -5,6 +5,8 @@
 	switch (valueToSwitchOn) { \
 		using enum Curves::Type; \
 		case HELIX: F(helix) \
+		case VIVANIS_CURVE: F(vivanisCurve) \
+		case CYCLOID: F(cycloid) \
 	} \
 
 Vec3 Curves::position(f32 t) const {

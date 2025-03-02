@@ -231,3 +231,57 @@ Graph torsion and curvature as functions of t.
 
 https://en.wikipedia.org/wiki/Curvature#Curvature_comb
 https://en.wikipedia.org/wiki/Evolute
+
+Projecting the curve onto a plane.
+
+https://mathcurve.com/courbes3d.gb/lissajous3d/billardrect.shtml
+https://mathcurve.com/courbes3d.gb/borromee/borromee.shtml
+https://mathcurve.com/courbes3d.gb/brunnien/brunnien.shtml
+https://mathcurve.com/courbes3d.gb/brachistochrone/brachistochrone.shtml
+https://mathcurve.com/courbes3d.gb/capareda/capareda.shtml
+https://mathcurve.com/courbes3d.gb/chainette/chainette.shtml
+https://mathcurve.com/courbes3d.gb/celtic/celtic.shtml
+https://mathcurve.com/courbes3d.gb/cercle_geodesique/cercle_geodesique.shtml
+https://mathcurve.com/courbes3d.gb/clelie/clelie.shtml
+https://mathcurve.com/courbes3d.gb/lignes/courbure.shtml
+https://mathcurve.com/courbes3d.gb/cycloidspheric/cycloidspheric.shtml
+https://mathcurve.com/courbes3d.gb/couronnesinusoidale/couronnesinusoidale.shtml
+https://mathcurve.com/courbes3d.gb/noeuds/noeudenhuit.shtml
+https://mathcurve.com/courbes3d.gb/developpee/developpee.shtml
+https://mathcurve.com/courbes3d.gb/feston/feston.shtml
+https://mathcurve.com/courbes3d.gb/topographic/ecoulement.shtml
+https://mathcurve.com/courbes3d.gb/graphe/graphedentrelacs.shtml
+https://mathcurve.com/courbes3d.gb/polygramme/polygramme.shtml
+https://en.wikipedia.org/wiki/Cycloid#Cycloidal_pendulum
+https://en.wikipedia.org/wiki/Involute
+https://mathcurve.com/courbes3d.gb/relevement/relevement.shtml
+
+The gradient can be thought as 
+the direciton in which the directional derivative is maximized
+a way to compute an arbitrary directional derivative df_p(v) = <v, grad f>
+the closest linear approximation of a function
+
+The second way quite easily implies the first way, because if v is unit length all you can do to change the angle to be the same so that the cosine is 1.
+
+
+Because of the second formula the gradient being zero also means that the differential in any direction is zero.
+
+In general differential quantities are kind of weird. Sometimes they have some nice interpretation, but most of the time they seem as tricks to convert a problem into a local one.
+
+In the one dimensional case the boundaries are just 2 points so the definitions are really simple, but in more dimensions the flux has to be consider over some region so it's probably simpler to just give the coordinate dependent expression instead of the general expression.
+
+
+The n-th eigenfunction of the dirichlet boundary valume problem has at most m modal domains
+https://youtu.be/C1EeTlKnxGo?si=U2sHMBIzNSLpm1_h&t=5085
+
+
+Finite element method 
+https://youtu.be/9O_G85M8khM?si=G_tXWgQKG9xw5AVF&t=1242
+
+Manifolds of lines
+Caustics
+
+What does it mean to randomly distribiute points on a surface. 
+Could maybe extrinically have a distribiution of points in space and then restrict the points to lie on the surface. What to do with the fact that the probability of a point lying on a surface is zero?
+
+Could intrically say that the probability of a point lying in a geodeisc circle is proportional to it's area.

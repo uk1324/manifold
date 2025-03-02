@@ -13,7 +13,7 @@ struct MainLoop {
 	};
 	SurfaceVisualization surfaceVisualization;
 	CurveVisualization curveVisualization;
-	Mode mode = Mode::CURVE;
+	Mode mode = Mode::SURFACE;
 
 	Renderer renderer;
 };

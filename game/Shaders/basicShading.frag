@@ -31,6 +31,7 @@ void main() {
 	fragColor = vec4((normal + 1) / 2, 1.0);
     vec3 normalColor = (normal + 1) / 2;
     //float pattern = checkersTextureGradBox(uv * 4, dFdx(uv), dFdy(uv));
+    //float pattern = checkersTexture((uv) * 3 * vec2(13.0, 1.0));
     float pattern = checkersTexture((uv) * 10);
 	fragColor = vec4(normalColor * (pattern + 1.0 / 2.0), opacity);
     //fragColor = vec4(uv, 0.0, 1.0);

@@ -42,15 +42,12 @@ Vec3 Helix::binormal(f32 t) const {
 
 f32 Helix::curvature(f32 t) const {
 	f32 out;
-	out = a / sqrt(pow(a, 2) + pow(b, 2));
+	out = a / (pow(a, 2) + pow(b, 2));
 	return out;
 }
 
 f32 Helix::torsion(f32 t) const {
 	f32 out;
-	out = b / sqrt(pow(a, 2) + pow(b, 2));
+	out = b / (pow(a, 2) + pow(b, 2));
 	return out;
 }
-
-
-

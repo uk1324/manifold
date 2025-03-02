@@ -23,6 +23,8 @@ void initializeSurface(
 	SurfaceData& surface) {
 	//const auto size = 100;
 	const auto size = 50;
+	const auto sizeU = 4 * size;
+	const auto sizeV = size;
 	surface.indices.clear();
 	surface.positions.clear();
 	surface.uvs.clear();
@@ -30,10 +32,10 @@ void initializeSurface(
 	surface.normals.clear();
 	surface.curvatures.clear();
 
-	for (i32 vi = 0; vi <= size; vi++) {
-		for (i32 ui = 0; ui <= size; ui++) {
-			const auto ut = f32(ui) / size;
-			const auto vt = f32(vi) / size;
+	for (i32 vi = 0; vi <= sizeV; vi++) {
+		for (i32 ui = 0; ui <= sizeU; ui++) {
+			const auto ut = f32(ui) / sizeU;
+			const auto vt = f32(vi) / sizeV;
 			const auto u = lerp(parametrization.uMin, parametrization.uMax, ut);
 			const auto v = lerp(parametrization.vMin, parametrization.vMax, vt);
 			const auto p = parametrization.position(u, v);
@@ -50,15 +52,15 @@ void initializeSurface(
 	}
 
 
-	auto index = [&size](i32 ui, i32 vi) {
+	auto index = [&sizeU](i32 ui, i32 vi) {
 		//// Wrap aroud
 		//if (ui == size) { ui = 0; }
 		//if (vi == size) { vi = 0; }
 
-		return vi * (size + 1) + ui;
+		return vi * (sizeU + 1) + ui;
 	};
-	for (i32 vi = 0; vi < size; vi++) {
-		for (i32 ui = 0; ui < size; ui++) {
+	for (i32 vi = 0; vi < sizeV; vi++) {
+		for (i32 ui = 0; ui < sizeU; ui++) {
 			const auto i0 = index(ui, vi);
 			const auto i1 = index(ui + 1, vi);
 			const auto i2 = index(ui + 1, vi + 1);

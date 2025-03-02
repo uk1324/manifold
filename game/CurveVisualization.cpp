@@ -10,23 +10,76 @@
 #include <game/GuiUtils.hpp>
 #include <imgui/implot.h>
 
-CurveVisualization::CurveVisualization() {
-	camera.movementSpeed = 2.0f;
+CurveVisualization CurveVisualization::make() {
+
+	auto result = CurveVisualization{
+		.helixT = CurveTInputs(0.0f, 0.0f, PI<f32> * 4.0f, 0.0f, PI<f32> * 4.0f, nearZero),
+		.helixASettings = ParameterInputSettings(nearZero, 1.0f, nearZero),
+		.helixBSettings = ParameterInputSettings(0.0f, 1.0f),
+		.vivanisCurveT = CurveTInputs(0.0f, -PI<f32>, PI<f32>, -PI<f32>, PI<f32>, -PI<f32>, PI<f32>),
+		.vivanisCurveRSettings = ParameterInputSettings(nearZero, 4.0f, nearZero),
+		.cycloidT = CurveTInputs(0.0f, 0.0f, TAU<f32> * 2.0f, 0.0f, TAU<f32> * 2.0f),
+		.cycloidRSettings = ParameterInputSettings(nearZero, 4.0f, nearZero)
+	};
+
+	result.camera.movementSpeed = 2.0f;
+	return result;
 }
 
 void CurveVisualization::update(Renderer& renderer) {
 	ImGui::Begin("settings");
 
+	{
+		auto curveTypeStr = [](Curves::Type type) {
+			switch (type) {
+				using enum Curves::Type;
+			case HELIX: return "helix";
+			case VIVANIS_CURVE: return "vivani's curve";
+			case CYCLOID: return "cycloid";
+			}
+			return "";
+		};
+
+		using enum Curves::Type;
+		Curves::Type surfaceTypes[]{
+			HELIX,
+			VIVANIS_CURVE,
+			CYCLOID,
+		};
+
+		if (ImGui::BeginCombo("curve", curveTypeStr(curves.type))) {
+			for (const auto& type : surfaceTypes) {
+				const auto isSelected = curves.type == type;
+				if (ImGui::Selectable(curveTypeStr(type), isSelected)) {
+					curves.type = type;
+				}
+				if (isSelected) { ImGui::SetItemDefaultFocus(); }
+			}
+			ImGui::EndCombo();
+		}
+	}
+
 	ImGui::Checkbox("frenet frame", &showFrenetFrame);
 	ImGui::Checkbox("circle of curvature", &showCircleOfCurvature);
+
+	ImGui::Checkbox("parametrize plot by arclength", &parametrizeByArclength);
 
 	switch (curves.type) {
 		using enum Curves::Type;
 	case HELIX:
-		boundsSliders(helixBounds);
-		parameterSlider("t", selectedT, helixTSettings);
+		tInputs(helixT);
 		parameterSlider("a", curves.helix.a, helixASettings);
 		parameterSlider("b", curves.helix.b, helixBSettings);
+		break;
+
+	case VIVANIS_CURVE: 
+		tInputs(vivanisCurveT);
+		parameterSlider("r", curves.vivanisCurve.r, vivanisCurveRSettings);
+		break;
+
+	case CYCLOID:
+		tInputs(cycloidT);
+		parameterSlider("r", curves.cycloid.r, cycloidRSettings);
 		break;
 	}
 
@@ -52,16 +105,19 @@ void CurveVisualization::update(Renderer& renderer) {
 	renderer.transform = projection * view;
 	renderer.view = view;
 
+	std::vector<Vec3> centersOfCurvature;
+	const auto tInputs = selectedCurveTInputs();
 	const auto color = Color3::WHITE;
-	const auto tBounds = startEndT();
 	const auto samplePoints = 100;
 	const auto circlePoints = 50;
 	f32 radius = 0.02f;
 	for (i32 ti = 0; ti < samplePoints; ti++) {
-		const auto t = lerp(tBounds.start, tBounds.end, f32(ti) / f32(samplePoints - 1));
+		const auto t = lerp(tInputs.startT, tInputs.endT, f32(ti) / f32(samplePoints - 1));
 		const auto curvePosition = curves.position(t);
 		const auto curveNormal = curves.normal(t);
 		const auto binormal = curves.binormal(t);
+		const auto radiusOfCurvature = 1.0f / curves.curvature(t);
+		centersOfCurvature.push_back(curvePosition + radiusOfCurvature * curveNormal);
 		for (i32 ai = 0; ai < circlePoints; ai++) {
 			const auto a = f32(ai) / f32(circlePoints) * TAU<f32>;
 			const auto vertexNormal = curveNormal * cos(a) + binormal * sin(a);
@@ -71,7 +127,6 @@ void CurveVisualization::update(Renderer& renderer) {
 				.normal = vertexNormal,
 				.color = color,
 			});
-
 		}
 	}
 	auto index = [&](i32 ai, i32 ti) -> i32 {
@@ -79,14 +134,24 @@ void CurveVisualization::update(Renderer& renderer) {
 	};
 
 	std::vector<f32> ts;
-	//std::vector<f32> arclengths;
+	std::vector<f32> arclengths;
 	std::vector<f32> curvatures;
 	std::vector<f32> torsions;
 	{
 		f32 currentArclength = 0.0f;
 		const auto n = 200;
+		arclengths.push_back(0.0f);
 		for (i32 i = 0; i < n; i++) {
-			const auto t = lerp(tBounds.start, tBounds.end, f32(i) / f32(n - 1));
+			auto tOfI = [&](i32 i){
+				return lerp(tInputs.startT, tInputs.endT, f32(i) / f32(n - 1));
+			};
+
+			const auto t = tOfI(i);
+			if (i < n - 1) {
+				const auto t1 = tOfI(i + 1);
+				currentArclength += curves.position(t).distanceTo(curves.position(t1));
+				arclengths.push_back(currentArclength);
+			}
 			const auto curvature = curves.curvature(t);
 			const auto torsion = curves.torsion(t);
 			ts.push_back(t);
@@ -95,19 +160,34 @@ void CurveVisualization::update(Renderer& renderer) {
 		}
 	}
 
+	for (i32 i = 0; i < centersOfCurvature.size() - 1; i++) {
+		renderer.line(centersOfCurvature[i], centersOfCurvature[i + 1], radius, Vec3(1.0f, 0.75f, 0.0f));
+	}
+
+	std::vector<f32>* argument;
+	if (parametrizeByArclength) {
+		argument = &arclengths;
+	} else {
+		argument = &ts;
+	}
+
 	//ImPlot::ShowDemoWindow();
 	ImGui::Begin("plot");
 	if (ImPlot::BeginPlot("plot", ImVec2(-1.0f, -1.0f), ImPlotFlags_Equal)) {
-		ImPlot::SetupAxes("t", "value");
-		ImPlot::SetupAxisLimits(ImAxis_X1, tBounds.start, tBounds.end);
+		if (parametrizeByArclength) {
+			ImPlot::SetupAxes("arclength", "value");
+		} else {
+			ImPlot::SetupAxes("t", "value");
+		}
+		ImPlot::SetupAxisLimits(ImAxis_X1, tInputs.startT, tInputs.endT);
 		{
 			ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
-			ImPlot::PlotLine("curvature", ts.data(), curvatures.data(), ts.size());
+			ImPlot::PlotLine("curvature", argument->data(), curvatures.data(), int(ts.size()));
 			ImPlot::PopStyleColor();
 		}
 		{
 			ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
-			ImPlot::PlotLine("torsion", ts.data(), torsions.data(), ts.size());
+			ImPlot::PlotLine("torsion", argument->data(), torsions.data(), int(ts.size()));
 			ImPlot::PopStyleColor();
 		}
 		////ImPlot::SetupAxesLimits(tBounds.start, tBounds.end, , surface.vMax, ImPlotCond_Always);
@@ -121,7 +201,7 @@ void CurveVisualization::update(Renderer& renderer) {
 	ImGui::End();
 
 	for (i32 ti = 0; ti < samplePoints - 1; ti++) {
-		f32 previousAi = circlePoints - 1;
+		i32 previousAi = circlePoints - 1;
 		for (i32 ai = 0; ai < circlePoints; ai++) {
 			renderer.coloredTriangles.addQuad(
 				index(previousAi, ti),
@@ -133,11 +213,11 @@ void CurveVisualization::update(Renderer& renderer) {
 		}
 	}
 
-	const auto curvePosition = curves.position(selectedT);
-	const auto curveTangent = curves.tangent(selectedT);
-	const auto curveNormal = curves.normal(selectedT);
+	const auto curvePosition = curves.position(tInputs.selectedT);
+	const auto curveTangent = curves.tangent(tInputs.selectedT);
+	const auto curveNormal = curves.normal(tInputs.selectedT);
 	if (showFrenetFrame) {
-		const auto binormal = curves.binormal(selectedT);
+		const auto binormal = curves.binormal(tInputs.selectedT);
 		auto vector = [&](Vec3 vector, Vec3 color) {
 			const auto radius = 0.02f;
 			const auto coneRadius = 2.0f * radius;
@@ -149,21 +229,16 @@ void CurveVisualization::update(Renderer& renderer) {
 		vector(binormal, Color3::BLUE);
 	}
 	if (showCircleOfCurvature) {
-		const auto radiusOfCurvature = 1.0f / curves.curvature(selectedT);
-		renderer.circleArc(curvePosition + curveNormal * radiusOfCurvature, curveNormal, curveTangent, radiusOfCurvature, Color3::YELLOW);
+		const auto radiusOfCurvature = 1.0f / curves.curvature(tInputs.selectedT);
+		const auto centerOfCurvature = curvePosition + curveNormal * radiusOfCurvature;
+		renderer.sphere(centerOfCurvature, 0.03f, Color3::YELLOW);
+		renderer.circleArc(centerOfCurvature, curveNormal, curveTangent, radiusOfCurvature, Color3::YELLOW);
 	}
 
 	renderer.renderColoredTriangles(1.0f);
 	renderer.renderCones();
 	renderer.renderCyllinders();
-}
-
-CurveVisualization::StartEnd CurveVisualization::startEndT() const {
-	switch (curves.type) {
-		using enum Curves::Type;
-	case HELIX: return { helixBounds.startT, helixBounds.endT };
-	}
-	return { 0.0f, 0.0f };
+	renderer.renderHemispheres();
 }
 
 static constexpr auto parameterSettingsWindowName = "parameter settings";
@@ -198,11 +273,6 @@ void CurveVisualization::parameterSlider(const char* label, f32& parameter, Para
 	ImGui::PopID();
 }
 
-void CurveVisualization::boundsSliders(CurveBoundsInput& bounds) {
-	parameterSlider("start t", bounds.startT, bounds.startTSettings);
-	parameterSlider("end t", bounds.endT, bounds.endTSettings);
-}
-
 void CurveVisualization::parameterSettingsGui() {
 	const auto center = ImGui::GetMainViewport()->GetCenter();
 	ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
@@ -227,15 +297,34 @@ void CurveVisualization::parameterSettingsGui() {
 	ImGui::EndPopup();
 }
 
+const CurveTInputs& CurveVisualization::selectedCurveTInputs() const {
+	switch (curves.type) {
+		using enum Curves::Type;
+	case HELIX: return helixT;
+	case VIVANIS_CURVE: return vivanisCurveT;
+	case CYCLOID: return cycloidT;
+	}
+	ASSERT_NOT_REACHED();
+}
+
+void CurveVisualization::tInputs(CurveTInputs& inputs) {
+	parameterSlider("selcted t", inputs.selectedT, inputs.selectedTSettings);
+	parameterSlider("start t", inputs.startT, inputs.startTSettings);
+	parameterSlider("end t", inputs.endT, inputs.endTSettings);
+}
+
 ParameterInputSettings::ParameterInputSettings(f32 selectedMin, f32 selectedMax, f32 allowedMin, f32 allowedMax)
 	: selectedMin(selectedMin)
 	, selectedMax(selectedMax)
 	, allowedMin(allowedMin)
 	, allowedMax(allowedMax) {}
 
-CurveBoundsInput::CurveBoundsInput(f32 startT, f32 endT, f32 selectedMin, f32 selectedMax, f32 allowedMin, f32 allowedMax)
-	: startT(startT)
-	, endT(endT)
-	, startTSettings(selectedMin, selectedMax, allowedMin, allowedMax)
-	, endTSettings(selectedMin, selectedMax, allowedMin, allowedMax) {
-}
+
+CurveTInputs::CurveTInputs(f32 selectedT, f32 startT, f32 endT, f32 selectedMin, f32 selectedMax, f32 allowedMin, f32 allowedMax)
+	: startTSettings(selectedMin, selectedMax, allowedMin, allowedMax)
+	, endTSettings(selectedMin, selectedMax, allowedMin, allowedMax)
+	, selectedTSettings(selectedMin, selectedMax, allowedMin, allowedMax)
+	, selectedT(selectedT)
+	, startT(startT)
+	, endT(endT) {}
+

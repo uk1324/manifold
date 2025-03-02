@@ -1,7 +1,8 @@
 #include "MainLoop.hpp"
 
 MainLoop::MainLoop()
-	: renderer(Renderer::make()) {
+	: renderer(Renderer::make()) 
+	, curveVisualization(CurveVisualization::make()) {
 
 	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	Window::disableCursor();
