@@ -10,7 +10,7 @@
 
 
 int main() {
- 	Engine::initAll(Window::Settings{
+	Engine::initAll(Window::Settings{
 		.maximized = true,
 		.multisamplingSamplesPerPixel = 16
 	}, FONT);

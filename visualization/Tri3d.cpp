@@ -1,12 +1,52 @@
 #include "Tri3d.hpp"
 
 Vec3 triCenter(Vec3 v0, Vec3 v1, Vec3 v2) {
-    return (v0 + v1 + v2) / 3.0f;
+	return (v0 + v1 + v2) / 3.0f;
 }
 
 Vec3 triCenter(const Vec3* v) {
-    return triCenter(v[0], v[2], v[1]);
+	return triCenter(v[0], v[2], v[1]);
 }
+
+//std::optional<RayTriIntersection> rayTriIntersection(Vec3 rayOrigin, Vec3 rayDirection, Vec3 v0, Vec3 v1, Vec3 v2) {
+//	constexpr auto epsilon = std::numeric_limits<f32>::epsilon();
+//
+//    const auto edge1 = v1 - v0;
+//    const auto edge2 = v2 - v0;
+//    const auto ray_cross_e2 = cross(rayDirection, edge2);
+//    const auto det = dot(edge1, ray_cross_e2);
+//
+//    if (det > -epsilon && det < epsilon) {
+//        // ray parallel to triangle
+//        return std::nullopt;    
+//    }
+//
+//    const auto invDet = 1.0 / det;
+//    const auto s = rayOrigin - v0;
+//    const auto u = invDet * dot(s, ray_cross_e2);
+//
+//    if ((u < 0 && abs(u) > epsilon) || (u > 1 && abs(u - 1) > epsilon)) {
+//        return std::nullopt;
+//    }
+//        
+//    const auto s_cross_e1 = cross(s, edge1);
+//    const auto v = invDet * dot(rayDirection, s_cross_e1);
+//
+//    if ((v < 0 && abs(v) > epsilon) || (u + v > 1 && abs(u + v - 1) > epsilon)) {
+//        return std::nullopt;
+//    }
+//
+//    // At this stage we can compute t to find out where the intersection point is on the line.
+//    const auto t = invDet * dot(edge2, s_cross_e1);
+//
+//    if (t > epsilon) {
+//        // ray intersection
+//        return rayOrigin + rayDirection * t;
+//    } else {
+//        // This means that there is a line intersection but not a ray intersection.
+//        return std::nullopt;
+//    }
+//}
 
 std::optional<RayTriIntersection> rayTriIntersection(Vec3 rayOrigin, Vec3 rayDirection, Vec3 v0, Vec3 v1, Vec3 v2) {
     constexpr auto epsilon = std::numeric_limits<f32>::epsilon();

@@ -1,19 +1,9 @@
 #pragma once
 
-#include <game/SurfaceVisualization.hpp>
-#include <game/CurveVisualization.hpp>
+#include <game/Game.hpp>
 
 struct MainLoop {
-	MainLoop();
-
 	void update();
 
-	enum class Mode {
-		SURFACE, CURVE
-	};
-	SurfaceVisualization surfaceVisualization;
-	CurveVisualization curveVisualization;
-	Mode mode = Mode::SURFACE;
-
-	Renderer renderer;
+	Game game;
 };

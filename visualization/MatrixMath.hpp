@@ -9,10 +9,10 @@ void matrixMultiply(Matrix1 a, i32 aSizeX, i32 aSizeY, Matrix2 b, i32 bSizeX, i3
 	const auto outputSizeY = aSizeY;
 	const auto outputSizeX = bSizeX;
 
-	for (i32 row = 0; row < outputSizeY; row++) {
-		for (i32 column = 0; column < outputSizeX; column++) {
+	for (i64 row = 0; row < outputSizeY; row++) {
+		for (i64 column = 0; column < outputSizeX; column++) {
 			output(column, row) = 0;
-			for (i32 i = 0; i < sumIndexMax; i++) {
+			for (i64 i = 0; i < sumIndexMax; i++) {
 				output(column, row) += a(i, row) * b(column, i);
 			}
 		}

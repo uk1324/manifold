@@ -1,6 +1,6 @@
 #include <engine/Engine.hpp>
 #include <engine/EngineUpdateLoop.hpp>
-#include <game2/MainLoop.hpp>
+#include <game/MainLoop.hpp>
 
 #ifdef FINAL_RELEASE
 #define FONT "assets/fonts/RobotoMono-Regular.ttf"
@@ -10,7 +10,7 @@
 
 
 int main() {
-	Engine::initAll(Window::Settings{
+ 	Engine::initAll(Window::Settings{
 		.maximized = true,
 		.multisamplingSamplesPerPixel = 16
 	}, FONT);

@@ -1,3 +1,7 @@
+#pragma once
+
+#include <Types.hpp>
+
 namespace Constants {
-	const auto dt = 1.0f / 60.0f;
+	f32 dt = 1.0f / 60.0f;
 }

@@ -115,6 +115,6 @@ PrincipalCurvatures principalCurvatues(const Mat2& firstFundamentalForm, const M
 	//return PrincipalCurvatures(e0, v0, e1, v1);
 }
 
-PrincipalCurvatures::PrincipalCurvatures(f32 c0, Vec2 v0, f32 c1, Vec2 v1)
+PrincipalCurvatures::PrincipalCurvatures(f32 c0, Vec2 v0, f32 c1, Vec2 v1) 
 	: curvature{ c0, c1 }
 	, direction{ v0, v1 } {}

@@ -1,21 +1,30 @@
 #pragma once
 
+#include "ChristoffelSymbols.hpp"
+#include "Connectivity.hpp"
 #include <engine/Math/Derivative.hpp>
 #include <engine/Math/Vec3.hpp>
-#include <engine/Math/Mat2.hpp>
 
-struct ChristoffelSymbols {
-	Mat2 x;
-	Mat2 y;
+template<typename Parametrization>
+concept RectParametrization = requires(Parametrization surface, f32 u, f32 v) {
+	{ surface.normal(u, v) } -> std::convertible_to<Vec3>;
+	{ surface.tangentU(u, v) } -> std::convertible_to<Vec3>;
+	{ surface.tangentV(u, v) } -> std::convertible_to<Vec3>;
+	{ surface.christoffelSymbols(u, v) } -> std::convertible_to<ChristoffelSymbols>;
+	{ surface.uConnectivity } -> std::convertible_to<SquareSideConnectivity>;
+	{ surface.vConnectivity } -> std::convertible_to<SquareSideConnectivity>;
+	{ surface.uMin } -> std::convertible_to<f32>;
+	{ surface.uMax } -> std::convertible_to<f32>;
+	{ surface.vMin } -> std::convertible_to<f32>;
+	{ surface.vMax } -> std::convertible_to<f32>;
 };
 
-enum class SquareSideConnectivity {
-	NONE,
-	NORMAL,
-	REVERSED
-};
+// Using crtp could make a struct with all the functions based only on the position function.
+Vec3 normal(const RectParametrization auto& s, Vec2 uv);
 
-// The uv tangents of the surface can also be called partial velocities.
+Vec3 normal(const RectParametrization auto& s, Vec2 uv) {
+	return s.normal(uv.x, uv.y);
+}
 
 Vec3 surfaceNormal(Vec3 tangentU, Vec3 tangentV);
 
@@ -73,13 +82,13 @@ So a'' = k_n N + k_g B.
 k_n is the normal curvature and k_g is the geodesic curvature.
 Because N, B are orthogonal we have that k_n = <a'', N>.
 Representing a' = (u', v') in the tangent space basis we get that.
-a'' =
-<(x_u u' + x_v v')', N> =
-<N, x_u u'' + (x_uu u' + x_uv v')u' + (x_uv u' + x_vv v')v'> =
+a'' = 
+<(x_u u' + x_v v')', N> = 
+<N, x_u u'' + (x_uu u' + x_uv v')u' + (x_uv u' + x_vv v')v'> = 
 The x_u and x_v terms cancel, because they are parallel to the normal
 <x_uu, N> u'^2 + 2<x_uv, N>u'v' + <x_vv, N> v'^2
 The matrix
-II =
+II = 
 [<x_uu, N> <x_uv, N>]
 [<x_uu, N> <x_vv, N>]
 is the second fundamental form and it allows expressing the normal curvature of a curve going in a given direction.
@@ -89,7 +98,7 @@ Then II(w) = |w|^2 II(m)  = I(w) II(m) = I(w) * k_n
 //Explicit written out it says
 //<w, II w> = k_n <w, I w>
 //<w, (II - k_n I) w> = 0
-//It doesn't make sense for w to be 0, so w != 0, but then this implies that (II - k_n I) = 0, because
+//It doesn't make sense for w to be 0, so w != 0, but then this implies that (II - k_n I) = 0, because 
 k_n = II(w) / I(w)
 
 Not sure how to continue the derivation. The general idea is the the solution to minizming the curvature can be obtained by solving the eigenvalue problem II I^-1 w = k_n w.

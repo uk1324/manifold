@@ -1,4 +1,0 @@
-Space skybox 
-Different tilings on surfaces
-
-Using curves in parametric radial form.

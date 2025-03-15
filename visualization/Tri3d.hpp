@@ -27,9 +27,9 @@ std::optional<RayTriIntersection> rayTriIntersection(
 
 template<typename T>
 T barycentricInterpolate(Vec3 barycentricCoordinates, const T& v0, const T& v1, const T& v2) {
-    return
-        barycentricCoordinates.x * v0 +
-        barycentricCoordinates.y * v1 +
+    return 
+        barycentricCoordinates.x * v0 + 
+        barycentricCoordinates.y * v1 + 
         barycentricCoordinates.z * v2;
 }
 
