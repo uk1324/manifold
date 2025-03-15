@@ -1,34 +1,18 @@
 #include "SurfaceCamera.hpp"
 #include <engine/Math/OdeIntegration/RungeKutta4.hpp>
 
-Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) {
-	// Untimatelly this requires solving the system of equations a0 tV + a1 tU = v so I don't think there is any better way of doing this.
-	const auto v0 = tangentU.normalized();
-	const auto v1 = cross(tangentU, normal).normalized();
-	auto toOrthonormalBasis = [&](Vec3 v) -> Vec2 {
-		return Vec2(dot(v, v0), dot(v, v1));
-		};
-	// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
-	const auto tU = toOrthonormalBasis(tangentU);
-	const auto tV = toOrthonormalBasis(tangentV);
-	const auto i = toOrthonormalBasis(v);
-	const auto inUvCoordinates = Mat2(tU, tV).inversed() * i;
-	return inUvCoordinates;
-}
-
-Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
+Mat4 SufaceCamera::update(const Surface& surface, Vec2 directionInput, f32 speed, f32 dt) {
 	const auto normalSign = this->normalSign();
-	Vec3 cameraUp = surface.normal(uvPosition) * normalSign;
-	const auto uTangent = surface.tangentU(uvPosition);
-	const auto vTangent = surface.tangentV(uvPosition);
+	Vec3 cameraUp = surface.normal(position) * normalSign;
+	const auto uTangent = surface.tangentU(position);
+	const auto vTangent = surface.tangentV(position);
 
 	const auto forwardTangent = (cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent).normalized();
-	Vec3 cameraPosition = this->cameraPosition(surface.position(uvPosition), cameraUp);
+	Vec3 cameraPosition = this->cameraPosition(surface.position(position), cameraUp);
 	Vec3 cameraRight = cross(cameraUp, forwardTangent).normalized();
 	Vec3 cameraForward =
 		Quat(angleToTangentPlane, cameraRight) *
 		forwardTangent;
-	const auto view = Mat4::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp);
 
 	if (Window::isCursorEnabled()) {
 		lastMousePosition = std::nullopt;
@@ -122,7 +106,7 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		};
 
 	auto movementRhs = [&](Vec4 state, f32 _) {
-		const auto symbols = surface.christoffelSymbols(Vec2(state.x, state.y));
+		const auto symbols = surface.christoffelSymbols(SurfacePosition::makeUv(Vec2(state.x, state.y)));
 		Vec2 velocity(state.z, state.w);
 
 		//Vec2 uvPosition(state.x, state.y);
@@ -143,7 +127,7 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 			-dot(velocity, symbols.x * velocity),
 			-dot(velocity, symbols.y * velocity)
 		);
-		};
+	};
 
 	// Solutions to the geodesic equation are constant speed
 	// https://www.ams.jhu.edu/~mmiche18/120a.1.10w/lectures.html
@@ -166,21 +150,26 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 	Vec3 movementDirection(0.0f);
 	const auto forward = (cos(uvForwardAngle) * uTangent + sin(uvForwardAngle) * vTangent).normalized();
 	const auto right = cross(cameraUp, forward).normalized();
-	{
-		// Recomputing this, because uvForwardAngle changed.
-		if (Input::isKeyHeld(KeyCode::W)) {
-			movementDirection += forward;
-		}
-		if (Input::isKeyHeld(KeyCode::S)) {
-			movementDirection -= forward;
-		}
-		if (Input::isKeyHeld(KeyCode::D)) {
-			movementDirection += right;
-		}
-		if (Input::isKeyHeld(KeyCode::A)) {
-			movementDirection -= right;
-		}
-	}
+
+	movementDirection = 
+		directionInput.x * right + 
+		directionInput.y * forward;
+
+	//{
+	//	// Recomputing this, because uvForwardAngle changed.
+	//	if (Input::isKeyHeld(KeyCode::W)) {
+	//		movementDirection += forward;
+	//	}
+	//	if (Input::isKeyHeld(KeyCode::S)) {
+	//		movementDirection -= forward;
+	//	}
+	//	if (Input::isKeyHeld(KeyCode::D)) {
+	//		movementDirection += right;
+	//	}
+	//	if (Input::isKeyHeld(KeyCode::A)) {
+	//		movementDirection -= right;
+	//	}
+	//}
 
 	const auto angleBetweenForwardAndMovement = atan2(
 		dot(movementDirection, right),
@@ -193,20 +182,22 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		const auto v = (velocity.x * uTangent + velocity.y * vTangent).length();
 		// Unit speed initial condition.
 		velocity /= v;
+		velocity *= speed;
+		velocity *= movementDirection.length();
 
-		const auto a = movementRhs(Vec4(uvPosition.x, uvPosition.y, velocity.x, velocity.y), 0.0f);
+		const auto a = movementRhs(Vec4(position.uv.x, position.uv.y, velocity.x, velocity.y), 0.0f);
 		//ImGui::Text("%g", Vec2(a.z, a.w).length());
 
 		i32 n = 5;
-		Vec4 state(uvPosition.x, uvPosition.y, velocity.x, velocity.y);
+		Vec4 state(position.uv.x, position.uv.y, velocity.x, velocity.y);
 		for (i32 i = 0; i < n; i++) {
 			state = rungeKutta4Step(movementRhs, state, 0.0f, dt / n);
 		}
 
-		uvPosition = Vec2(state.x, state.y);
-		const auto uTangentNew = surface.tangentU(uvPosition);
-		const auto vTangentNew = surface.tangentV(uvPosition);
-		const Vec3 normalNew = surface.normal(uvPosition) * normalSign;
+		position.uv = Vec2(state.x, state.y);
+		const auto uTangentNew = surface.tangentU(position);
+		const auto vTangentNew = surface.tangentV(position);
+		const Vec3 normalNew = surface.normal(position) * normalSign;
 
 		const auto newMovementDirection = state.z * uTangentNew + state.w * vTangentNew;
 		const auto newForwardDirection = Quat(-angleBetweenForwardAndMovement, normalNew) * newMovementDirection;
@@ -241,13 +232,13 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 		return value;
 	};
 
-	uvPosition.x = handleConnectivity(uvPosition.x, surface.uMin(), surface.uMax(), surface.uConnectivity());
-	uvPosition.y = handleConnectivity(uvPosition.y, surface.vMin(), surface.vMax(), surface.vConnectivity());
+	position.uv.x = handleConnectivity(position.uv.x, surface.uMin(), surface.uMax(), surface.uConnectivity());
+	position.uv.y = handleConnectivity(position.uv.y, surface.vMin(), surface.vMax(), surface.vConnectivity());
 	if (surface.uConnectivity() == SquareSideConnectivity::REVERSED) {
-		if (uvPosition.x < surface.uMin() || uvPosition.x > surface.uMax()) {
+		if (position.uv.x < surface.uMin() || position.uv.x > surface.uMax()) {
 			normalFlipped = !normalFlipped;
-			uvPosition.y = surface.vMax() - uvPosition.y;
-			uvPosition.y += PI<f32>;
+			position.uv.y = surface.vMax() - position.uv.y;
+			position.uv.y += PI<f32>;
 			//uvForwardAngle -= PI<f32> / 2.0f;
 			uvForwardAngle = -uvForwardAngle;
 			//uvForwardAngle += PI<f32> / 2.0f;
@@ -262,16 +253,24 @@ Mat4 SufaceCamera::update(const Surface& surface, f32 dt) {
 			//const auto newDir = reflectedV.x * firstDir + reflectedV.y * secondDir;
 			//uvForwardAngle = -vectorInTangentSpaceBasis(newDir, uTangent, vTangent, normal).angle();
 		}
-		uvPosition.x = wrapToRange(uvPosition.x, surface.uMin(), surface.uMax());
+		position.uv.x = wrapToRange(position.uv.x, surface.uMin(), surface.uMax());
 
 	}
 	//ImGui::InputFloat2("positin", uvPosition.data()); 
 
-	return view;
+	{
+		Vec3 cameraPosition = this->cameraPosition(surface.position(position), cameraUp);
+		Vec3 cameraRight = cross(cameraUp, forwardTangent).normalized();
+		Vec3 cameraForward =
+			Quat(angleToTangentPlane, cameraRight) *
+			forwardTangent;
+		const auto view = Mat4::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp);
+		return view;
+	}
 }
 
 Vec3 SufaceCamera::cameraPosition(const Surface& surface) const {
-	return cameraPosition(surface.position(uvPosition), surface.normal(uvPosition) * normalSign());
+	return cameraPosition(surface.position(position), surface.normal(position) * normalSign());
 }
 
 

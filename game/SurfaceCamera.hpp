@@ -13,7 +13,7 @@
 
 struct SufaceCamera {
 	// In uv space
-	Vec2 uvPosition = Vec2(0.1f);
+	SurfacePosition position = SurfacePosition::makeUv(Vec2(0.1f));
 	f32 uvForwardAngle = 0.0f;
 
 	// In 3d space
@@ -25,7 +25,7 @@ struct SufaceCamera {
 
 	f32 normalSign() const;
 
-	Mat4 update(const Surface& surface, f32 dt);
+	Mat4 update(const Surface& surface, Vec2 directionInput, f32 speed, f32 dt);
 	Vec3 cameraPosition(Vec3 position, Vec3 normalAtUvPosition) const;
 	Vec3 cameraPosition(const Surface& surface) const;
 };

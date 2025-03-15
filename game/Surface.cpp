@@ -1,5 +1,9 @@
 #include <game/Surface.hpp>
 #include <game/Tri3d.hpp>
+//#include <game/MeshUtils.hpp>
+#include <game/Constants.hpp>
+#include <engine/Math/OdeIntegration/RungeKutta4.hpp>
+#include <engine/Math/Vec4.hpp>
 #include <game/MeshUtils.hpp>
 #include <engine/Math/Interpolation.hpp>
 
@@ -89,39 +93,87 @@ void Surface::initialize(Type selected) {
 	}
 }
 
-Vec3 Surface::position(Vec2 uv) const {
-	switch (selected) {
-		using enum Type;
-	case TORUS: return torus.position(uv.x, uv.y);
-	}
+SurfaceTangent Surface::scaleTangent(SurfaceTangent tangent, f32 scale) const {
+	return SurfaceTangent::makeUv(tangent.uv * scale);
 }
 
-Vec3 Surface::normal(Vec2 uv) const {
+Vec3 Surface::position(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
-	case TORUS: return torus.normal(uv.x, uv.y);
+	case TORUS: return torus.position(pos.uv.x, pos.uv.y);
 	}
+	ASSERT_NOT_REACHED();
 }
 
-Vec3 Surface::tangentU(Vec2 uv) const{
+Vec3 Surface::normal(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
-	case TORUS: return torus.tangentU(uv.x, uv.y);
+	case TORUS: return torus.normal(pos.uv.x, pos.uv.y);
 	}
+	ASSERT_NOT_REACHED();
 }
 
-Vec3 Surface::tangentV(Vec2 uv) const {
+Vec3 Surface::tangentU(SurfacePosition pos) const{
 	switch (selected) {
 		using enum Type;
-	case TORUS: return torus.tangentV(uv.x, uv.y);
+	case TORUS: return torus.tangentU(pos.uv.x, pos.uv.y);
 	}
+	ASSERT_NOT_REACHED();
 }
 
-ChristoffelSymbols Surface::christoffelSymbols(Vec2 uv) const {
+Vec3 Surface::tangentV(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
-	case TORUS: return torus.christoffelSymbols(uv.x, uv.y);
+	case TORUS: return torus.tangentV(pos.uv.x, pos.uv.y);
 	}
+	ASSERT_NOT_REACHED();
+}
+
+ChristoffelSymbols Surface::christoffelSymbols(SurfacePosition pos) const {
+	switch (selected) {
+		using enum Type;
+	case TORUS: return torus.christoffelSymbols(pos.uv.x, pos.uv.y);
+	}
+	ASSERT_NOT_REACHED();
+}
+
+SurfacePosition Surface::randomPointOnSurface() {
+	const auto value = uniform01(rng) * totalArea;
+	f32 cursor = 0.0f;
+	i32 randomTriangleIndex = 0;
+	for (i32 i = 0; i < triangleCount(); i++) {
+		cursor += triangleAreas[i];
+		if (cursor >= value) {
+			randomTriangleIndex = i;
+			break;
+		}
+	}
+	Vec2 triUvs[3];
+	getTriangle(uvs, indices, triUvs, randomTriangleIndex);
+	const auto r0 = uniform01(rng);
+	const auto r1 = uniform01(rng);
+	const auto uv = uniformRandomPointOnTri(triUvs, r0, r1);
+	return SurfacePosition::makeUv(uv);
+}
+
+SurfaceTangent Surface::randomTangentVectorAt(SurfacePosition position, f32 length) {
+	f32 randomAngle = uniform01(rng) * TAU<f32>;
+	return tangentVectorFromPolar(position, randomAngle, length);
+}
+
+SurfaceTangent Surface::tangentVectorFromPolar(SurfacePosition position, f32 angle, f32 length) {
+	const auto uTangent = tangentU(position);
+	const auto vTangent = tangentV(position);
+	const auto normal = cross(uTangent, vTangent);
+	const auto orthonormalTangentSpaceBasis0 = uTangent.normalized();
+	const auto orthonormalTangentSpaceBasis1 = cross(uTangent, normal).normalized();
+	const auto randomUnitTangentVector =
+		(cos(angle) * orthonormalTangentSpaceBasis0 +
+		sin(angle) * orthonormalTangentSpaceBasis1) * length;
+
+	const auto randomUnitTangentVectorInUvBasis = vectorInTangentSpaceBasis(
+		randomUnitTangentVector, uTangent, vTangent, normal);
+	return SurfaceTangent::makeUv(randomUnitTangentVectorInUvBasis);
 }
 
 f32 Surface::uMin() const {
@@ -129,6 +181,7 @@ f32 Surface::uMin() const {
 		using enum Type;
 	case TORUS: return torus.uMin;
 	}
+	ASSERT_NOT_REACHED();
 }
 
 f32 Surface::uMax() const {
@@ -136,6 +189,7 @@ f32 Surface::uMax() const {
 		using enum Type;
 	case TORUS: return torus.uMax;
 	}
+	ASSERT_NOT_REACHED();
 }
 
 f32 Surface::vMin() const {
@@ -143,6 +197,7 @@ f32 Surface::vMin() const {
 		using enum Type;
 	case TORUS: return torus.vMin;
 	}
+	ASSERT_NOT_REACHED();
 }
 
 f32 Surface::vMax() const {
@@ -150,6 +205,7 @@ f32 Surface::vMax() const {
 		using enum Type;
 	case TORUS: return torus.vMax;
 	}
+	ASSERT_NOT_REACHED();
 }
 
 SquareSideConnectivity Surface::uConnectivity() const {
@@ -157,6 +213,7 @@ SquareSideConnectivity Surface::uConnectivity() const {
 		using enum Type;
 	case TORUS: return torus.uConnectivity;
 	}
+	ASSERT_NOT_REACHED();
 }
 
 SquareSideConnectivity Surface::vConnectivity() const {
@@ -164,6 +221,36 @@ SquareSideConnectivity Surface::vConnectivity() const {
 		using enum Type;
 	case TORUS: return torus.vConnectivity;
 	}
+	ASSERT_NOT_REACHED();
+}
+
+void Surface::integrateParticle(SurfacePosition& position, SurfaceTangent& velocity) {
+	Vec2 velocityUv = velocity.uv;
+	const auto uTangent = tangentU(position);
+	const auto vTangent = tangentV(position);
+
+	auto movementRhs = [&](Vec4 state, f32 _) {
+		const auto symbols = christoffelSymbols(SurfacePosition::makeUv(Vec2(state.x, state.y)));
+		Vec2 velocity(state.z, state.w);
+
+		return Vec4(
+			velocity.x,
+			velocity.y,
+			-dot(velocity, symbols.x * velocity),
+			-dot(velocity, symbols.y * velocity)
+		);
+	};
+
+	const auto a = movementRhs(Vec4(position.uv.x, position.uv.y, velocityUv.x, velocityUv.y), 0.0f);
+
+	i32 n = 5;
+	Vec4 state(position.uv.x, position.uv.y, velocityUv.x, velocityUv.y);
+	for (i32 i = 0; i < n; i++) {
+		state = rungeKutta4Step(movementRhs, state, 0.0f, Constants::dt / n);
+	}
+
+	position.uv = Vec2(state.x, state.y);
+	velocity.uv = Vec2(state.z, state.w);
 }
 
 void Surface::sortTriangles(Vec3 cameraPosition) {
@@ -192,3 +279,37 @@ void Surface::addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt) {
 	uvs.push_back(uv);
 	uvts.push_back(uvt);
 }
+
+SurfacePosition SurfacePosition::makeUv(Vec2 uv) {
+	return SurfacePosition(uv);
+}
+
+SurfacePosition::SurfacePosition(Vec2 uv)
+	: uv(uv) {}
+
+
+Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal) {
+	// Untimatelly this requires solving the system of equations a0 tV + a1 tU = v so I don't think there is any better way of doing this.
+	const auto v0 = tangentU.normalized();
+	const auto v1 = cross(tangentU, normal).normalized();
+	auto toOrthonormalBasis = [&](Vec3 v) -> Vec2 {
+		return Vec2(dot(v, v0), dot(v, v1));
+	};
+	// Instead of doing this could for example use the Moore Penrose pseudoinverse or some other method for system with no solution. One advantage of this might be that it always gives some value instead of doing division by zero in points where the surface is not regular, but it is probably also more expensive, because it requires an inverse of a 3x3 matrix.
+	const auto tU = toOrthonormalBasis(tangentU);
+	const auto tV = toOrthonormalBasis(tangentV);
+	const auto i = toOrthonormalBasis(v);
+	const auto inUvCoordinates = Mat2(tU, tV).inversed() * i;
+	return inUvCoordinates;
+}
+
+Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV) {
+	return vectorInTangentSpaceBasis(v, tangentU, tangentV, cross(tangentU, tangentV).normalized());
+}
+
+SurfaceTangent SurfaceTangent::makeUv(Vec2 uv) {
+	return SurfaceTangent(uv);
+}
+
+SurfaceTangent::SurfaceTangent(Vec2 uv)
+	: uv(uv) {}

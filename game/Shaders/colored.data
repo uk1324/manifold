@@ -1,0 +1,19 @@
+struct Vertex3Pn {
+	Vec3 position;
+	Vec3 normal;
+}
+
+shader Colored {
+	vertexStruct = Vertex3Pn;
+	vertUniforms = {
+		Mat4 transform;
+		Mat4 view;
+	};
+	fragInstance = {
+		Vec3 color;
+		Mat4 model;
+	};
+	vertOut = {
+		Vec3 interpolatedNormal;
+	};
+}

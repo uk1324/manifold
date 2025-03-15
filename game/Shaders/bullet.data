@@ -1,0 +1,21 @@
+import "surface.data";
+
+shader Bullet {
+	vertexStruct = Vertex3Pnt;
+	vertInstance = {
+		Vec4 positionScale;
+	};
+	vertUniforms = {
+		Mat4 transform;
+		Mat4 rotate;
+	};
+	fragInstance = {
+		Vec4 color;
+	};
+	fragUniforms = {
+		float opacity;
+	};
+	vertOut = {
+		Vec2 uv;
+	};
+}

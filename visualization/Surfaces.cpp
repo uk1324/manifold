@@ -1,5 +1,6 @@
 #include <game/Surfaces.hpp>
 #include <game/SurfaceSwitch.hpp>
+#include "Surfaces.hpp"
 
 Vec3 Surfaces::position(Vec2 uv) const {
 	#define R(name) return name.position(uv.x, uv.y)

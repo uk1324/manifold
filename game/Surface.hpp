@@ -1,7 +1,33 @@
 #pragma once
 
 #include "Surfaces/Torus.hpp"
+#include <random>
 #include <vector>
+
+struct SurfacePosition {
+	static SurfacePosition makeUv(Vec2 uv);
+
+	explicit SurfacePosition(Vec2 uv);
+
+	union {
+		Vec2 uv;
+		Vec3 sphere;
+	};
+};
+
+struct SurfaceTangent {
+	static SurfaceTangent makeUv(Vec2 uv);
+	explicit SurfaceTangent(Vec2 uv);
+
+	Vec2 uv;
+};
+
+// Tangent space direction.
+struct SurfaceDirection {
+	f32 uvAngle;
+	Vec2 direction;
+	Vec3 sphereDirection;
+};
 
 struct Surface {
 	enum class Type {
@@ -9,15 +35,24 @@ struct Surface {
 	};
 
 	Torus torus{ .r = 0.4f, .R = 1.0f };
+	//Torus torus{ .r = 1.0f, .R = 2.5f };
+	//Torus torus{ .r = 0.7f, .R = 1.5f };
 	//Sphere sphere{ .r = 1.0f };
 
 	void initialize(Type selected);
 
-	Vec3 position(Vec2 uv) const;
-	Vec3 normal(Vec2 uv) const;
-	Vec3 tangentU(Vec2 uv) const;
-	Vec3 tangentV(Vec2 uv) const;
-	ChristoffelSymbols christoffelSymbols(Vec2 uv) const;
+	SurfaceTangent scaleTangent(SurfaceTangent tangent, f32 scale) const;
+
+	Vec3 position(SurfacePosition pos) const;
+	Vec3 normal(SurfacePosition pos) const;
+	Vec3 tangentU(SurfacePosition pos) const;
+	Vec3 tangentV(SurfacePosition pos) const;
+	ChristoffelSymbols christoffelSymbols(SurfacePosition pos) const;
+
+	SurfacePosition randomPointOnSurface();
+	SurfaceTangent randomTangentVectorAt(SurfacePosition position, f32 length);
+
+	SurfaceTangent tangentVectorFromPolar(SurfacePosition position, f32 angle, f32 length);
 
 	f32 uMin() const;
 	f32 uMax() const;
@@ -25,6 +60,9 @@ struct Surface {
 	f32 vMax() const;
 	SquareSideConnectivity uConnectivity() const;
 	SquareSideConnectivity vConnectivity() const;
+
+	void integrateParticle(SurfacePosition& position, SurfaceTangent& velocity);
+	//SurfacePosition addVelocity(SurfacePosition)
 
 	std::vector<Vec3> positions;
 	std::vector<Vec3> normals;
@@ -49,4 +87,11 @@ struct Surface {
 	void addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt);
 
 	Type selected = Type::TORUS;
+
+	std::random_device dev;
+	std::default_random_engine rng;
+	std::uniform_real_distribution<f32> uniform01 = std::uniform_real_distribution<f32>(0.0f, 1.0f);
 };
+
+Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal);
+Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV);
