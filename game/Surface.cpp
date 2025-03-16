@@ -48,7 +48,7 @@ void initializeSurface(
 		//if (vi == size) { vi = 0; }
 
 		return vi * (sizeU + 1) + ui;
-		};
+	};
 	for (i32 vi = 0; vi < sizeV; vi++) {
 		for (i32 ui = 0; ui < sizeU; ui++) {
 			const auto i0 = index(ui, vi);

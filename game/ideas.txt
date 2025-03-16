@@ -4,3 +4,15 @@ Different tilings on surfaces
 Using curves in parametric radial form.
 
 SDF fade between tilings.
+
+https://sparen.github.io/ph3tutorials/ddsga2.html
+Directed bullets, for example arrows might be more readable in complicated patterns.
+Randomizing the angle or directing it at the player to remove blind spots.
+
+Have multiple bullets with different velocities spawn at a point to have a nice spreading.
+
+One issue with the torus is that most ofo the geodesics are not closed so things turn into a mess quicky. One way to deal with it might be to fade the bullets before that happens.
+
+Could integrate the points as if they were on a flat torus. Might be good to use the conformal mapping for this.
+
+Geodesic danmaku

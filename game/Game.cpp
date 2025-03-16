@@ -280,6 +280,26 @@ void Game::update() {
 			}
 		}
 	}
+	if (Input::isKeyDown(KeyCode::N)) {
+		const auto uCount = 8;
+		const auto vCount = 3;
+		for (i32 ui = 0; ui < uCount; ui++) {
+			for (i32 vi = 0; vi < vCount; vi++) {
+				auto u = lerp(surface.uMin(), surface.uMax(), f32(ui) / f32(uCount));
+				auto v = lerp(surface.vMin(), surface.vMax(), f32(vi) / f32(vCount));
+
+				/*if (ui % 2 == 0) {
+					u += TAU<f32> / uCount / 2.0f;
+				}*/
+
+				if (ui % 2 == 0) {
+					v += TAU<f32> / vCount / 2.0f;
+				}
+				const auto pos = SurfacePosition::makeUv(Vec2(u, v));
+				spawnCircle(pos, 30);
+			}
+		}
+	}
 
 	for (auto& emitter : basicEmitters) {
 		emitter.elapsed += Constants::dt;
@@ -290,11 +310,17 @@ void Game::update() {
 		}
 	}
 
+	for (const auto& bullet : bullets) {
+		const auto position = surface.position(bullet.position) + surface.normal(bullet.position) * 0.03f;
+		//renderer.sphere(surface.position(bullet.position), bulletSize / 2.0f, Color3::RED);
+		renderer.bullet(bulletSize, position, Vec4(Color3::RED));
+	}
+
 	renderer.renderHemispheres();
-	renderer.renderCubemap();
+	//renderer.renderCubemap();
 
 	const auto meshOpacity = 1.0f;
-	//const auto meshOpacity = 0.9f;
+	//const auto meshOpacity = 0.7f;
 	const auto isVisible = meshOpacity > 0.0f;
 	const auto isTransparent = meshOpacity < 1.0f;
 	if (isTransparent) {
@@ -308,7 +334,7 @@ void Game::update() {
 		const auto uvt = surface.uvts[i];
 
 		renderer.surfaceTriangles.addVertex(Vertex3Pnt{
-			.position = position ,
+			.position = position,
 			.normal = surface.normals[i],
 			.uv = surface.uvts[i]
 		});
@@ -334,11 +360,6 @@ void Game::update() {
 		glDepthMask(GL_TRUE);
 	}
 
-	for (const auto& bullet : bullets) {
-		const auto position = surface.position(bullet.position) + surface.normal(bullet.position) * 0.03f;
-		//renderer.sphere(surface.position(bullet.position), bulletSize, Color3::RED);
-		renderer.bullet(bulletSize, position, Vec4(Color3::RED));
-	}
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE);
