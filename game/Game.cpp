@@ -1,5 +1,6 @@
 #include <game/Game.hpp>
 #include <engine/Input/Input.hpp>
+#include <gfx2d/Quad2dPt.hpp>
 #include <engine/Math/Interpolation.hpp>
 #include <engine/Math/Color.hpp>
 #include <game/UniformPartition.hpp>
@@ -145,22 +146,7 @@ void Game::update() {
 	}
 		
 	}
-	// Could convert to Mat3 and just do a transpose.
-	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz().normalized();
-
-  	const auto aspectRatio = Window::aspectRatio();
-	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
-	const auto swaxpYZ = Mat4(Mat3(Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec3(0.0f, 1.0f, 0.0f)));
-	renderer.transform = projection * view;
-	renderer.view = view;
-	renderer.projection = projection;
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
-
-	renderer.sphere(surface.position(surfaceCamera.position), playerSize, Color3::WHITE);
-
+	
 	iterateAndRemove(
 		bullets,
 		[&](Bullet& bullet) {
@@ -310,61 +296,164 @@ void Game::update() {
 		}
 	}
 
-	for (const auto& bullet : bullets) {
-		const auto position = surface.position(bullet.position) + surface.normal(bullet.position) * 0.03f;
-		//renderer.sphere(surface.position(bullet.position), bulletSize / 2.0f, Color3::RED);
-		renderer.bullet(bulletSize, position, Vec4(Color3::RED));
+	render(view, cameraPosition);
+}
+
+void Game::render(const Mat4& view, Vec3 cameraPosition) {
+	// Could convert to Mat3 and just do a transpose.
+	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz().normalized();
+	const auto aspectRatio = Window::aspectRatio();
+	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
+	const auto swaxpYZ = Mat4(Mat3(Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec3(0.0f, 1.0f, 0.0f)));
+	renderer.transform = projection * view;
+	renderer.view = view;
+	renderer.projection = projection;
+	renderer.resizeBuffers(Vec2T<i32>(Window::size()));
+	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
+
+	auto drawQuatPt = [this]() {
+		renderer.quadPtVao.bind();
+		quad2dPtDraw();
+	};
+
+
+	// opaque
+	{
+		renderer.opaqueFbo.bind();
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		glDepthMask(GL_TRUE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glDisable(GL_BLEND);
+
+		renderer.sphere(surface.position(surfaceCamera.position), playerSize, Color3::WHITE);
+		renderer.renderHemispheres();
+		Fbo::unbind();
 	}
 
-	renderer.renderHemispheres();
-	//renderer.renderCubemap();
+	// transparent
+	{
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+		glBlendFunci(renderer.accumulateTextureColorBufferIndex, GL_ONE, GL_ONE);
+		glBlendFunci(renderer.revealTextureColorBufferIndex, GL_ZERO, GL_ONE_MINUS_SRC_COLOR); 
+		glBlendEquation(GL_FUNC_ADD);
 
-	const auto meshOpacity = 1.0f;
-	//const auto meshOpacity = 0.7f;
-	const auto isVisible = meshOpacity > 0.0f;
-	const auto isTransparent = meshOpacity < 1.0f;
-	if (isTransparent) {
-		surface.sortTriangles(cameraPosition);
+		renderer.transparentFbo.bind();
+		f32 zeros[]{ 0.0f, 0.0f, 0.0f, 0.0f };
+		glClearBufferfv(GL_COLOR, 0, zeros); 
+		f32 ones[]{ 1.0f, 1.0f, 1.0f, 1.0f };
+		glClearBufferfv(GL_COLOR, 1, ones);
+
+		const auto meshOpacity = 0.7f;
+		const auto indicesOffset = i32(renderer.surfaceTriangles.currentIndex());
+		for (i32 i = 0; i < surface.vertexCount(); i++) {
+			const auto position = surface.positions[i];
+
+			const auto uvt = surface.uvts[i];
+
+			renderer.surfaceTriangles.addVertex(Vertex3Pnt{
+				.position = position,
+				.normal = surface.normals[i],
+				.uv = surface.uvts[i]
+			});
+		}
+		for (i32 i = 0; i < surface.triangleCount(); i++) {
+			const auto index = indicesOffset + surface.sortedTriangles[i] * 3;
+			const auto i0 = surface.indices[index];
+			const auto i1 = surface.indices[index + 1];
+			const auto i2 = surface.indices[index + 2];
+			renderer.surfaceTriangles.addTri(i0, i1, i2);
+		}
+		renderer.renderSurfaceTriangles(meshOpacity);
+		Fbo::unbind();
 	}
-
-	const auto indicesOffset = i32(renderer.surfaceTriangles.currentIndex());
-	for (i32 i = 0; i < surface.vertexCount(); i++) {
-		const auto position = surface.positions[i];
-
-		const auto uvt = surface.uvts[i];
-
-		renderer.surfaceTriangles.addVertex(Vertex3Pnt{
-			.position = position,
-			.normal = surface.normals[i],
-			.uv = surface.uvts[i]
-		});
-	}
-	for (i32 i = 0; i < surface.triangleCount(); i++) {
-		const auto index = indicesOffset + surface.sortedTriangles[i] * 3;
-		const auto i0 = surface.indices[index];
-		const auto i1 = surface.indices[index + 1];
-		const auto i2 = surface.indices[index + 2];
-		renderer.surfaceTriangles.addTri(i0, i1, i2);
-	}
-
-	if (isTransparent) {
+	// composite
+	{
+		renderer.opaqueFbo.bind();
+		glDepthFunc(GL_ALWAYS);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glDepthMask(GL_FALSE);
+
+		renderer.transparencyCompositingShader.use();
+
+		glActiveTexture(GL_TEXTURE0);
+		renderer.accumulateTexture.bind(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE1);
+		renderer.revealTexture.bind(GL_TEXTURE_2D);
+		drawQuatPt();
 	}
 
-	renderer.renderSurfaceTriangles(meshOpacity); 
-
-	if (isTransparent) {
+	// draw quad
+	{
+		glDisable(GL_DEPTH_TEST);
+		glDepthMask(GL_TRUE); // enable depth writes so glClear won't ignore clearing the depth buffer
 		glDisable(GL_BLEND);
-		glDepthMask(GL_TRUE);
+
+		Fbo::unbind();
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		renderer.fullscreenTexturedQuadShader.use();
+		renderer.fullscreenTexturedQuadShader.setTexture("textureSampler", 0, renderer.opaqueColorTexture);
+		drawQuatPt();
 	}
 
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-	glDepthMask(GL_FALSE);
-	renderer.renderBullets(view.inversed());
-	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
+	//for (const auto& bullet : bullets) {
+	//	const auto position = surface.position(bullet.position) + surface.normal(bullet.position) * 0.03f;
+	//	//renderer.sphere(surface.position(bullet.position), bulletSize / 2.0f, Color3::RED);
+	//	renderer.bullet(bulletSize, position, Vec4(Color3::RED));
+	//}
+
+	//renderer.renderHemispheres();
+	////renderer.renderCubemap();
+
+	//const auto meshOpacity = 1.0f;
+	////const auto meshOpacity = 0.7f;
+	//const auto isVisible = meshOpacity > 0.0f;
+	//const auto isTransparent = meshOpacity < 1.0f;
+	//if (isTransparent) {
+	//	surface.sortTriangles(cameraPosition);
+	//}
+
+	//const auto indicesOffset = i32(renderer.surfaceTriangles.currentIndex());
+	//for (i32 i = 0; i < surface.vertexCount(); i++) {
+	//	const auto position = surface.positions[i];
+
+	//	const auto uvt = surface.uvts[i];
+
+	//	renderer.surfaceTriangles.addVertex(Vertex3Pnt{
+	//		.position = position,
+	//		.normal = surface.normals[i],
+	//		.uv = surface.uvts[i]
+	//		});
+	//}
+	//for (i32 i = 0; i < surface.triangleCount(); i++) {
+	//	const auto index = indicesOffset + surface.sortedTriangles[i] * 3;
+	//	const auto i0 = surface.indices[index];
+	//	const auto i1 = surface.indices[index + 1];
+	//	const auto i2 = surface.indices[index + 2];
+	//	renderer.surfaceTriangles.addTri(i0, i1, i2);
+	//}
+
+	//if (isTransparent) {
+	//	glEnable(GL_BLEND);
+	//	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//	glDepthMask(GL_FALSE);
+	//}
+
+	//renderer.renderSurfaceTriangles(meshOpacity);
+
+	//if (isTransparent) {
+	//	glDisable(GL_BLEND);
+	//	glDepthMask(GL_TRUE);
+	//}
+
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	////glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	//glDepthMask(GL_FALSE);
+	//renderer.renderBullets(view.inversed());
+	//glDisable(GL_BLEND);
+	//glDepthMask(GL_TRUE);
 }

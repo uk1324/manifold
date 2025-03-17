@@ -1,0 +1,8 @@
+import "../../engine/gfx2d/Vertex2dPt.data";
+
+shader TexturedFullscreenQuad {
+	vertexStruct = Vertex2dPt;
+	vertOut = {
+		Vec2 position;
+	};
+}

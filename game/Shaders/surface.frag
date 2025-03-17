@@ -22,21 +22,22 @@ float checkersTexture( in vec2 p ) {
     return mod( q.x+q.y, 2.0 );            // xor pattern
 }
 
+layout (location = 0) out vec4 accum;
+layout (location = 1) out float reveal;
 
 void main() {
     vec3 normal = normalize(interpolatedNormal);
-//	float diffuse = max(0.0, dot(normal, -lightDir)) + 0.1;
-//	fragColor = vec4(vec3(diffuse), 1.0);
 	fragColor = vec4((normal + 1) / 2, 1.0);
     vec3 normalColor = (normal + 1) / 2;
-    //float pattern = checkersTextureGradBox(uv * 4, dFdx(uv), dFdy(uv));
-    //float pattern = checkersTexture((uv) * 3 * vec2(13.0, 1.0));
     float pattern = checkersTexture((uv) * 10);
-	fragColor = vec4(normalColor * (pattern + 1.0 / 2.0) * 0.5, opacity);
-    //fragColor = vec4(uv, 0.0, 1.0);
-    //fragColor = vec4(vec3(pattern), 1.0);
-//    vec3 lightDir = vec3(0, -1, 0);
-//    float diffuse = max(0.0, dot(normal, -lightDir)) + 0.1;
-//    fragColor = vec4(vec3(diffuse), 1.0);
-    //fragColor = vec4(vec3(0.2), 1.0);
+
+    vec3 color = normalColor * (pattern + 1.0 / 2.0) * 0.5;
+    float alpha = opacity;
+
+    // weight function
+    float weight = clamp(pow(min(1.0, alpha * 10.0) + 0.01, 3.0) * 1e8 * pow(1.0 - gl_FragCoord.z * 0.9, 3.0), 1e-2, 3e3);
+    // store pixel color accumulation
+    accum = vec4(color.rgb * alpha, alpha) * weight;
+    reveal = alpha;
+	//fragColor = vec4(, opacity);
 }

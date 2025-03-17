@@ -1,7 +1,10 @@
 #include "GameRenderer.hpp"
 #include <gfx/ShaderManager.hpp>
+#include <engine/Window.hpp>
 #include <StructUtils.hpp>
 #include <engine/Math/Constants.hpp>
+#include <game/Shaders/transparencyCompositingData.hpp>
+#include <game/Shaders/texturedFullscreenQuadData.hpp>
 
 template<typename Vertex>
 void renderTriangles(ShaderProgram& shader, TriangleRenderer<Vertex>& r) {
@@ -67,7 +70,7 @@ GameRenderer GameRenderer::make() {
 
 		auto toIndex = [](i32 ui, i32 vi) {
 			return ui * circleVertexCount + vi;
-			};
+		};
 		i32 previousUi = circleVertexCount - 1;
 		for (i32 ui = 0; ui < circleVertexCount; ui++) {
 			i32 previousVi = circleVertexCount - 1;
@@ -100,7 +103,67 @@ GameRenderer GameRenderer::make() {
 
 	auto cubemapMesh = makeMesh<CubemapShader>(constView(cubeVertices), constView(cubeIndices), instancesVbo);
 
-	return GameRenderer{
+	auto opaqueFbo = Fbo::generate();
+	auto opaqueColorTexture = Texture::generate();
+	auto depthTexture = Texture::generate();
+	{
+		opaqueColorTexture.bind();
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		depthTexture.bind();
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		opaqueFbo.bind();
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, opaqueColorTexture.handle(), 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture.handle(), 0);
+		Fbo::unbind();
+	}
+
+	auto revealTexture = Texture::generate();
+	auto accumulateTexture = Texture::generate();
+	auto transparentFbo = Fbo::generate();
+	{
+
+		accumulateTexture.bind(GL_TEXTURE_2D);		
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		revealTexture.bind(GL_TEXTURE_2D);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		
+		transparentFbo.bind();
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, accumulateTexture.handle(), 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, revealTexture.handle(), 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture.handle(), 0);
+		const GLenum transparentDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, transparentDrawBuffers);
+		Fbo::unbind();
+	}
+
+	auto gfx2d = Gfx2d::make();
+
+	/*auto quadPtVao = Vao::generate();
+	quadPtVao.bind();
+	createInstancingVao<TexturedFullscreenQuadShader>(gfx2d.quad2dPtVbo, gfx2d.quad2dPtIbo, instancesVbo);
+	TexturedFullscreenQuadShader::addAttributesToVao(quadPtVao, gfx2d.quad2dPtVbo, instancesVbo);
+	gfx2d.quad2dPtVbo.bind();
+	gfx2d.quad2dPtIbo.bind();
+	Vao::unbind();
+	Ibo::unbind();*/
+	auto quadPtVao = createInstancingVao<TexturedFullscreenQuadShader>(gfx2d.quad2dPtVbo, gfx2d.quad2dPtIbo, instancesVbo); 
+
+	GameRenderer renderer{
+		MOVE(opaqueFbo),
+		MOVE(opaqueColorTexture),
+		MOVE(depthTexture),
+		MOVE(transparentFbo),
+		MOVE(accumulateTexture),
+		MOVE(revealTexture),
+		.transparencyCompositingShader = MAKE_GENERATED_SHADER(TRANSPARENCY_COMPOSITING),
+		MOVE(quadPtVao),
+		.fullscreenTexturedQuadShader = MAKE_GENERATED_SHADER(TEXTURED_FULLSCREEN_QUAD),
 		.transform = Mat4::identity,
 		.view = Mat4::identity,
 		.projection = Mat4::identity,
@@ -112,9 +175,29 @@ GameRenderer GameRenderer::make() {
 		MOVE(hemisphere),
 		.surfaceTriangles = TriangleRenderer<Vertex3Pnt>::make<SurfaceShader>(instancesVbo),
 		.surfaceShader = MAKE_GENERATED_SHADER(SURFACE),
-		MOVE(instancesVbo)
-		//.gfx2d = Gfx2d::make()
+		MOVE(gfx2d),
+		MOVE(instancesVbo),
 	};
+
+	renderer.resizeBuffers(Vec2T<i32>(Window::size()));
+
+	return renderer;
+}
+
+void GameRenderer::resizeBuffers(Vec2T<i32> screenSize) {
+	const auto lastScreenSize = currentScreenSize;
+	currentScreenSize = screenSize;
+	if (lastScreenSize.has_value() && *lastScreenSize == screenSize) {
+		return;
+	}
+	opaqueColorTexture.bind();
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenSize.x, screenSize.y, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
+	depthTexture.bind();
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, screenSize.x, screenSize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	accumulateTexture.bind(GL_TEXTURE_2D);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenSize.x, screenSize.y, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
+	revealTexture.bind(GL_TEXTURE_2D);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, screenSize.x, screenSize.y, 0, GL_RED, GL_FLOAT, NULL);
 }
 
 void GameRenderer::renderCubemap() {

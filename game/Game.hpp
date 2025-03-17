@@ -8,6 +8,7 @@ struct Game {
 	Game();
 
 	void update();
+	void render(const Mat4& view, Vec3 cameraPosition);
 
 	enum class CameraMode {
 		ON_SURFACE,

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <engine/Graphics/Fbo.hpp>
+#include <engine/gfx2d/Gfx2d.hpp>
 #include <game/TriangleRenderer.hpp>
 #include <game/Shaders/surfaceData.hpp>
 #include <game/Shaders/coloredData.hpp>
@@ -15,6 +17,25 @@ struct Mesh {
 
 struct GameRenderer {
 	static GameRenderer make();
+
+	void resizeBuffers(Vec2T<i32> screenSize);
+
+	std::optional<Vec2T<i32>> currentScreenSize;
+
+	Fbo opaqueFbo;
+	Texture opaqueColorTexture;
+	Texture depthTexture;
+
+	Fbo transparentFbo;
+	Texture accumulateTexture;
+	static constexpr i32 accumulateTextureColorBufferIndex = 0;
+	Texture revealTexture;
+	static constexpr i32 revealTextureColorBufferIndex = 1;
+
+	ShaderProgram& transparencyCompositingShader;
+	Vao quadPtVao;
+
+	ShaderProgram& fullscreenTexturedQuadShader;
 
 	Mat4 transform;
 	Mat4 view;
@@ -43,6 +64,8 @@ struct GameRenderer {
 	TriangleRenderer<Vertex3Pnt> surfaceTriangles;
 	ShaderProgram& surfaceShader;
 	void renderSurfaceTriangles(f32 opacity);
+
+	Gfx2d gfx2d;
 
 	Vbo instancesVbo;
 };
