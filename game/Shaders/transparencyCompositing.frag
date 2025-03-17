@@ -17,19 +17,16 @@ layout (binding = 1) uniform sampler2D reveal;
 const float EPSILON = 0.00001f;
 
 // calculate floating point numbers equality accurately
-bool isApproximatelyEqual(float a, float b)
-{
+bool isApproximatelyEqual(float a, float b) {
     return abs(a - b) <= (abs(a) < abs(b) ? abs(b) : abs(a)) * EPSILON;
 }
 
 // get the max value between three values
-float max3(vec3 v)
-{
+float max3(vec3 v) {
     return max(max(v.x, v.y), v.z);
 }
 
-void main()
-{
+void main() {
     // fragment coordination
     ivec2 coords = ivec2(gl_FragCoord.xy);
 

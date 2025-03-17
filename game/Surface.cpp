@@ -87,9 +87,9 @@ void initializeSurface(
 void Surface::initialize(Type selected) {
 	this->selected = selected;
 	switch (selected) {
-	case Surface::Type::TORUS:
-		initializeSurface(*this, torus);
-		break;
+		using enum Type;
+	case TORUS: initializeSurface(*this, torus); break;
+	case KLEIN_BOTTLE: initializeSurface(*this, kleinBottle); break;
 	}
 }
 
@@ -101,6 +101,7 @@ Vec3 Surface::position(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.position(pos.uv.x, pos.uv.y);
+	case KLEIN_BOTTLE: return kleinBottle.position(pos.uv.x, pos.uv.y);
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -109,6 +110,7 @@ Vec3 Surface::normal(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.normal(pos.uv.x, pos.uv.y);
+	case KLEIN_BOTTLE: return kleinBottle.normal(pos.uv.x, pos.uv.y);
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -117,6 +119,7 @@ Vec3 Surface::tangentU(SurfacePosition pos) const{
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.tangentU(pos.uv.x, pos.uv.y);
+	case KLEIN_BOTTLE: return kleinBottle.tangentU(pos.uv.x, pos.uv.y);
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -125,6 +128,7 @@ Vec3 Surface::tangentV(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.tangentV(pos.uv.x, pos.uv.y);
+	case KLEIN_BOTTLE: return kleinBottle.tangentV(pos.uv.x, pos.uv.y);
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -133,6 +137,7 @@ ChristoffelSymbols Surface::christoffelSymbols(SurfacePosition pos) const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.christoffelSymbols(pos.uv.x, pos.uv.y);
+	case KLEIN_BOTTLE: return kleinBottle.christoffelSymbols(pos.uv.x, pos.uv.y);
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -180,6 +185,7 @@ f32 Surface::uMin() const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.uMin;
+	case KLEIN_BOTTLE: return kleinBottle.uMin;
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -188,6 +194,7 @@ f32 Surface::uMax() const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.uMax;
+	case KLEIN_BOTTLE: return kleinBottle.uMax;
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -196,6 +203,7 @@ f32 Surface::vMin() const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.vMin;
+	case KLEIN_BOTTLE: return kleinBottle.vMin;
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -204,6 +212,7 @@ f32 Surface::vMax() const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.vMax;
+	case KLEIN_BOTTLE: return kleinBottle.vMax;
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -212,6 +221,7 @@ SquareSideConnectivity Surface::uConnectivity() const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.uConnectivity;
+	case KLEIN_BOTTLE: return kleinBottle.uConnectivity;
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -220,6 +230,7 @@ SquareSideConnectivity Surface::vConnectivity() const {
 	switch (selected) {
 		using enum Type;
 	case TORUS: return torus.vConnectivity;
+	case KLEIN_BOTTLE: return kleinBottle.vConnectivity;
 	}
 	ASSERT_NOT_REACHED();
 }
@@ -280,6 +291,10 @@ void Surface::addVertex(Vec3 p, Vec3 n, Vec2 uv, Vec2 uvt) {
 	uvts.push_back(uvt);
 }
 
+SurfacePosition SurfacePosition::makeUv(f32 u, f32 v) {
+	return SurfacePosition(Vec2(u, v));
+}
+
 SurfacePosition SurfacePosition::makeUv(Vec2 uv) {
 	return SurfacePosition(uv);
 }
@@ -309,6 +324,10 @@ Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV) {
 
 SurfaceTangent SurfaceTangent::makeUv(Vec2 uv) {
 	return SurfaceTangent(uv);
+}
+
+SurfaceTangent SurfaceTangent::zero() {
+	return SurfaceTangent::makeUv(Vec2(0.0f));
 }
 
 SurfaceTangent::SurfaceTangent(Vec2 uv)

@@ -1,0 +1,17 @@
+Weighted blended OIT doesn't work well, because it can't handle surfaces with opacity equal or near 1.
+This is described and shown here: https://mynameismjp.wordpress.com/2014/02/03/weighted-blended-oit/
+Bullets and visual effects should be visible to the player, but might have some transparent parts.
+So I would have to make these things fully opaque and use OIT only for the surface to handle cases of self overlap like the klein bottle.
+
+The only real solutions seems to be:
+Use a single ubershader for all transparent things and just sort the triangles.
+This would require a 
+struct Vertex {
+	Vec3 pos;
+	i32 type;
+	Vec2 uv;
+}
+
+Use depth peeling or some other technique that does per pixel sorting.
+
+Could make the surface fully transparent and make it scaffold.	

@@ -22,8 +22,7 @@ float checkersTexture( in vec2 p ) {
     return mod( q.x+q.y, 2.0 );            // xor pattern
 }
 
-layout (location = 0) out vec4 accum;
-layout (location = 1) out float reveal;
+#include "oit.glsl"
 
 void main() {
     vec3 normal = normalize(interpolatedNormal);
@@ -32,12 +31,7 @@ void main() {
     float pattern = checkersTexture((uv) * 10);
 
     vec3 color = normalColor * (pattern + 1.0 / 2.0) * 0.5;
-    float alpha = opacity;
 
-    // weight function
-    float weight = clamp(pow(min(1.0, alpha * 10.0) + 0.01, 3.0) * 1e8 * pow(1.0 - gl_FragCoord.z * 0.9, 3.0), 1e-2, 3e3);
-    // store pixel color accumulation
-    accum = vec4(color.rgb * alpha, alpha) * weight;
-    reveal = alpha;
-	//fragColor = vec4(, opacity);
+    //OIT_OUTPUT(color, opacity);
+    fragColor = vec4(color, opacity);
 }

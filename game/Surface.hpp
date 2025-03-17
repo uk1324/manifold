@@ -1,10 +1,12 @@
 #pragma once
 
 #include "Surfaces/Torus.hpp"
+#include <game/Surfaces/KleinBottle.hpp>
 #include <random>
 #include <vector>
 
 struct SurfacePosition {
+	static SurfacePosition makeUv(f32 u, f32 v);
 	static SurfacePosition makeUv(Vec2 uv);
 
 	explicit SurfacePosition(Vec2 uv);
@@ -17,6 +19,7 @@ struct SurfacePosition {
 
 struct SurfaceTangent {
 	static SurfaceTangent makeUv(Vec2 uv);
+	static SurfaceTangent zero();
 	explicit SurfaceTangent(Vec2 uv);
 
 	Vec2 uv;
@@ -32,9 +35,13 @@ struct SurfaceDirection {
 struct Surface {
 	enum class Type {
 		TORUS,
+		KLEIN_BOTTLE,
 	};
 
-	Torus torus{ .r = 0.4f, .R = 1.0f };
+	//Torus torus{ .r = 0.4f, .R = 1.0f };
+	//Torus torus{ .r = 0.4f, .R = 0.7f };
+	Torus torus{ .r = 0.3f, .R = 0.55f };
+	KleinBottle kleinBottle;
 	//Torus torus{ .r = 1.0f, .R = 2.5f };
 	//Torus torus{ .r = 0.7f, .R = 1.5f };
 	//Sphere sphere{ .r = 1.0f };

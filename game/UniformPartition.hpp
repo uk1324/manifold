@@ -10,6 +10,7 @@ struct UniformPartition {
 		Point& operator++();
 		bool operator==(const Point& other) const;
 		Point& operator*();
+		operator T() const;
 
 		i64 i;
 		i64 n;
@@ -17,7 +18,7 @@ struct UniformPartition {
 		T x;
 	};
 
-	UniformPartition(i64 n, T min, T max);
+	UniformPartition(T min, T max, i64 n);
 
 	Point begin();
 	Point end();
@@ -28,7 +29,7 @@ struct UniformPartition {
 
 
 template<typename T>
-UniformPartition<T>::UniformPartition(i64 n, T min, T max)
+UniformPartition<T>::UniformPartition(T min, T max, i64 n)
 	: n(n)
 	, min(min)
 	, max(max) {}
@@ -66,4 +67,9 @@ bool UniformPartition<T>::Point::operator==(const Point& other) const {
 template<typename T>
 typename UniformPartition<T>::Point& UniformPartition<T>::Point::operator*() {
 	return *this;
+}
+
+template<typename T>
+UniformPartition<T>::Point::operator T() const {
+	return x;
 }

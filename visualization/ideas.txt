@@ -285,3 +285,7 @@ What does it mean to randomly distribiute points on a surface.
 Could maybe extrinically have a distribiution of points in space and then restrict the points to lie on the surface. What to do with the fact that the probability of a point lying on a surface is zero?
 
 Could intrically say that the probability of a point lying in a geodeisc circle is proportional to it's area.
+
+
+Enemies polyhedra
+Morphing between a polyhedron and it's dual.
