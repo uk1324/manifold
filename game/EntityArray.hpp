@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <RefOptional.hpp>
 #include <Types.hpp>
 #include <Assertions.hpp>
@@ -127,8 +128,9 @@ void EntityArray<Entity, DefaultInitialize>::update() {
 
 		if (id.version_ != entityVersions[id.index_]) {
 			// Should double free be an error?
-			CHECK_NOT_REACHED();
-			return;
+			/*CHECK_NOT_REACHED();
+			return;*/
+			continue;
 		}
 
 		freeEntities.push_back(id.index_);

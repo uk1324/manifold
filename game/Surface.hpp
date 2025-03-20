@@ -9,6 +9,7 @@ struct SurfacePosition {
 	static SurfacePosition makeUv(f32 u, f32 v);
 	static SurfacePosition makeUv(Vec2 uv);
 
+	SurfacePosition();
 	explicit SurfacePosition(Vec2 uv);
 
 	union {
@@ -18,6 +19,7 @@ struct SurfacePosition {
 };
 
 struct SurfaceTangent {
+	SurfaceTangent();
 	static SurfaceTangent makeUv(Vec2 uv);
 	static SurfaceTangent zero();
 	explicit SurfaceTangent(Vec2 uv);
@@ -60,6 +62,7 @@ struct Surface {
 	SurfaceTangent randomTangentVectorAt(SurfacePosition position, f32 length);
 
 	SurfaceTangent tangentVectorFromPolar(SurfacePosition position, f32 angle, f32 length);
+	SurfaceTangent tangentVectorNormalize(SurfacePosition position, SurfaceTangent tangent);
 
 	f32 uMin() const;
 	f32 uMax() const;
@@ -69,6 +72,12 @@ struct Surface {
 	SquareSideConnectivity vConnectivity() const;
 
 	void integrateParticle(SurfacePosition& position, SurfaceTangent& velocity);
+	SurfacePosition moveForward(SurfacePosition position, SurfaceTangent direction, f32 distance);
+	struct MoveForwardResult {
+		SurfacePosition position;
+		SurfaceTangent finalDirection;
+	};
+	MoveForwardResult moveForwardAndReturnDirection(SurfacePosition position, SurfaceTangent direction, f32 distance);
 	//SurfacePosition addVelocity(SurfacePosition)
 
 	std::vector<Vec3> positions;

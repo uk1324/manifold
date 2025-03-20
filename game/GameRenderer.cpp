@@ -1,6 +1,7 @@
 #include "GameRenderer.hpp"
 #include <gfx/ShaderManager.hpp>
 #include <engine/Window.hpp>
+#include <game/Polyhedra.hpp>
 #include <StructUtils.hpp>
 #include <engine/Math/Constants.hpp>
 #include <game/Shaders/transparencyCompositingData.hpp>
@@ -52,12 +53,15 @@ GameRenderer GameRenderer::make() {
 		return makeMesh<ColoredShader>(constView(vertices), constView(indices), instancesVbo);
 	};
 
+	auto meshClear = [&]() {
+		vertices.clear();
+		indices.clear();
+	};
+
 	const i32 circleVertexCount = 50;
 
 	{
-		vertices.clear();
-		indices.clear();
-
+		meshClear();
 		for (i32 ui = 0; ui < circleVertexCount; ui++) {
 			for (i32 vi = 0; vi < circleVertexCount; vi++) {
 				const auto u = f32(ui) / f32(circleVertexCount) * TAU<f32>;
@@ -89,6 +93,18 @@ GameRenderer GameRenderer::make() {
 	}
 	auto hemisphere = coloredShaderMesh();
 
+	{
+		meshClear();
+		const auto data = flatShadeRegularPolyhedron(constView(cubeVertices), constView(cubeFaces), cubeVerticesPerFace);
+		for (i32 i = 0; i < data.positions.size(); i++) {
+			vertices.push_back(Vertex3Pn{ data.positions[i], data.normals[i] });
+		}
+		for (i32 i = 0; i < data.indices.size(); i++) {
+			indices.push_back(data.indices[i]);
+		}
+	}
+	auto cubeMesh = coloredShaderMesh();
+
 	auto makeRectVertex = [&](f32 x, f32 y) {
 		return Vertex3Pnt{ Vec3(x, y, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec2(x, y) };
 	};
@@ -101,7 +117,7 @@ GameRenderer GameRenderer::make() {
 	i32 rectIndices[]{ 0, 1, 2, 3 };
 	auto bulletRectMesh = makeMesh<BulletShader>(constView(rectVertices), constView(rectIndices), instancesVbo);
 
-	auto cubemapMesh = makeMesh<CubemapShader>(constView(cubeVertices), constView(cubeIndices), instancesVbo);
+	auto cubemapMesh = makeMesh<CubemapShader>(constView(cubeMapVertices), constView(cubemapIndices), instancesVbo);
 
 	auto opaqueFbo = Fbo::generate();
 	auto opaqueColorTexture = Texture::generate();
@@ -179,6 +195,7 @@ GameRenderer GameRenderer::make() {
 		.bulletShader = MAKE_GENERATED_SHADER(BULLET),
 		.coloredShader = MAKE_GENERATED_SHADER(COLORED),
 		MOVE(hemisphere),
+		MOVE(cubeMesh),
 		.surfaceTriangles = TriangleRenderer<Vertex3Pnt>::make<SurfaceShader>(instancesVbo),
 		.surfaceShader = MAKE_GENERATED_SHADER(SURFACE),
 		MOVE(gfx2d),
@@ -274,10 +291,23 @@ void GameRenderer::renderHemispheres() {
 	hemispheres.clear();
 }
 
+void GameRenderer::cube(Vec3 color) {
+	cubes.push_back(ColoredInstance{
+		.color = color,
+		.model = Mat4::identity
+	});
+}
+
+void GameRenderer::renderCubes() {
+	initColoredShader();
+	drawMeshInstances(cubeMesh, constView(cubes), instancesVbo);
+	cubes.clear();
+}
+
 void GameRenderer::renderSurfaceTriangles(f32 opacity) {
 	shaderSetUniforms(surfaceShader, SurfaceFragUniforms{
 		.opacity = opacity
-		});
+	});
 	shaderSetUniforms(surfaceShader, SurfaceVertUniforms{
 		.transform = transform
 	});

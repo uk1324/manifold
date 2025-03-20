@@ -1,0 +1,134 @@
+If you want to move on E^3, that is you want to generate a random curve in E^3 you can move a vector on the unit tangent vectors by moving a point on a unit sphere. To move on the unit sphere just take some starting point and starting direction angle and move using the cross product in that direction then change the angle for example by adding perlin noise to the current angle.
+
+If you want to get the tangent space on S^3 on way is to parametrize it for example as x = sqrt(1 - y^2 - z^2 - w^2) and the compute the partial derivatives of (sqrt(1 - y^2 - z^2 - w^2), y, z, w).
+
+
+https://www.cs.cmu.edu/~kiranb/animation/p245-shoemake.pdf
+This sphere of unit quaternions forms a sub-group, S^3, of the quaternion group. Furthermore, the spherical metric of S3 is the same as the angular metric of SO(3).
+
+
+Any 2 rotations differ by a single rotation so I guess you could take the angle of the rotation conneting them as the distance.
+
+
+The 3 sphere admits non vanishing vector fields so you could integrate the geodesic equations on it i guess.
+https://en.wikipedia.org/wiki/3-sphere#Geometric_properties
+https://en.wikipedia.org/wiki/Vector_fields_on_spheres
+
+https://en.wikipedia.org/wiki/3-sphere#Hyperspherical_coordinates
+The unit quaternions can be written as exp(axis * angle) = cos(angle) + sin(angle) * axis
+Where axis as a unit imaginary quaternion
+https://en.wikipedia.org/wiki/Quaternion#Square_roots_of_%E2%88%921
+
+I guess one kind of rotation would be to have a constant rotation about an axis and just change the axis.
+Otherwise the velocity of the rotation would change which might look weird.
+Doesn't this give me the full freedom, because the tangent space to a 3 manifold is 3 dimensional, but I only want unit vectors which is a 2d subspace of the 3d subspace so this should give all the possible rotations I guess.
+Is there any better way to move in S^3?
+Does doing this create constant speed curves in S^3? {
+	If we have some unit speed on the sphere r(t)
+	And we have some unit sphere parametrization of the rotation angle a(t)
+	The the quaternion is
+	q(t) = cos(a(t)) + sin(a(t)) * r(t)
+	q'(t) = -sin(a(t)) a'(t) + sin(a(t)) * r'(t) + cos(a(t)) a'(t) r(t)
+	Let 
+	a = -sin(a(t)) a'(t)
+	b = sin(a(t)) * r'(t)
+	c = cos(a(t)) a'(t) r(t)
+	Then <q'(t), q'(t)> = a^2 + <b + c, b + c>
+	<b + c, b + c> = 
+	<b, b + c> + <c, b + c> = 
+	<b, b> + <b, c> + <c, b> + <c, c> = 
+	<b, b> + <c, c> because the cross terms <c, b> cancel, because the are scalar multiples of <r(t), r'(t)> and r(t), r'(t) are perpendicular, because one is a point on the unit sphere the other is a tangent to it.
+
+	<a, a> = sin(a(t))^2 a'(t)^2
+	<b, b> = sin(a(t))^2 * <r'(t), r'(t)> = sin(a(t))^2
+	<c, c> = cos(a(t))^2 a'(t)^2 * <r(t), r(t)> = cos(a(t))^2 a'(t)^2
+	<a, a> + <b, b> + <c, c> = a'(t)^2 + sin(a(t))^2 = 1 + sin(a(t))^2
+
+	{
+		From this we get that the velocity of the curve is sqrt(1 + sin(a(t))^2)
+		//For things to not have issues with the angle going though 2pi it might 
+		{
+			Could make the angle of the form a(t) = start + speed * t and adjust r'(t) so that the velocity is always 1 istead of the above value.
+		}
+		If an object goes though 2pi it goes though the identity element so isn't it going to look weird if it just comes back to the identity so periodically.
+	}
+
+	!!!!
+	Some of the below things are probably wrong, because the derivative of the exponential map of a lie group isn't this simple.
+	I guess the formula does work for liear function in the exponential. For example in a matrix if we have
+	exp(At) then At is the linear function and then the derivative with respect to t is A exp(At)
+	If you try to rearange the above equation for the derivative of exp(r(t)) and r'(t)exp(r(t)) you won' get a equality, because of the additional terms described in 
+	https://en.wikipedia.org/wiki/Derivative_of_the_exponential_map
+
+	The same thing can be derived using the exponential map. And the fact that exp' = exp
+	q(t) = exp(r(t)a(t))
+	This function produces a unit quaternion so that |q(t)| = 1.
+
+	So in general if we want exp(p(t)) we need |p'(t)| = 1 and in here p is a curve in R^3 not just a curve constrainted to a sphere. At (0, 0, 0) there is an ambiguity, because all the directon doesn't matter.
+	
+	Examples of function p(t) are r * a(t) and r(t) * a. That is constant axis and velocity with constant speed and changing axis, but constant angle.
+
+	The parametrization by r(t)a(t) is just the parametrization of a point inside a 3 ball with antipodal points glued or equivalently as the 2 sphere x 1 sphere. That is a kind of circular tube of 2 spheres. Here one issue is that the spheres with radius being a multiple 2pi correspond to a single point. The movement parallel to these circles would produce no rotation even though the speed is changing.
+
+	This can't happen if the angle is constantly changing. For example when a(t) = a * t.
+
+	Because the sphere at k 2pi is a single point velocity is zero on curves moving on it so the condition doesn't work, because all the points get mapped to the same point by the exponential map so the derivative is zero.
+
+	As long as you stay don't touch zero and don't move tangnet o the spheres you get a constant speed curve on so3.
+
+}
+
+
+
+
+https://www.cs.cmu.edu/~cga/dynopt/readings/Rmetric.pdf
+Given a rotation an axis u and a rotation angle a
+the 3x3 rotation matrix R can be obtained by exp([a * u]_x)
+Where [v]_x is the matrix such that [v1]_x v2 = v1 x v2
+
+The group SO(3) is covered by one-parameter subgroups which are circles.
+
+The explicit formula for the exponential map in this form is the Rodrigues formula.
+
+The unit quaternion for of the same rotation is
++-(cos(a / 2), sin(a/2) * v)
+
+You can also write it as a 2x2 complex matrix. Here we can once again apply the exponential map and get another version of the Rodrigues formula.
+SU(2) is a double cover of SO(3) they also have the same Lie algebra.
+
+A metric should probably be invariant in the sense that the group operations should preserve the distance.
+
+The functions 
+arccos(<q1, q2>)
+and |log(R1 R2^T)| are scalar muliples of eachother.
+
+https://en.wikipedia.org/wiki/Quaternion#Exponential,_logarithm,_and_power_functions
+
+
+https://maxime-tournier.github.io/notes/quaternions.html
+Therefore, the Lie algebra metric extended to the whole manifold by left or right translation, is a Riemannian metric (the one induced by the ambient space)
+An interesting consequence is that the Lie group exponential can be used to compute geodesics for this metric.
+
+By looking at the characterization of geodesics as the intersections with planes in R^4. If an intersection of S^3 with a plane (does it have to be though the origin?) is a geodesic then the we get a circle and the distance on a circle is just the angle.
+
+bi-invariant metric
+
+
+Not sure if this should generate a random rotation or just randomly change the current rotation.
+Could just have the current position and a current rotation direction given by a point on the 2 sphere. Then just multiply the position by exp(direction) and randomly move the point on the the 2 sphere.
+I guess in the limit we get exp(r1) ... exp(rn) then in the limit they commute so that it will just be exp(r1 + ... rn) so that we just get a curve exp(r(t)). So this would just reduce to the previous thing.
+
+Any curve can be given a unit speed parametrization
+
+I think just doing the thing above seems most reasonable.
+That is we have the current rotation of the object and some point on the 2 sphere that represent the direction we are moving S3 that is the tangent vector.
+Then if we multiply the current rotation by the quaternion that goes in this direction we will always be moving in some direction. The velocity won't be zero.
+This is basically just moving bit by bit on geodesics. I think this might be what it would be like the integrate the geodesic cuve parametrized by the tangent velocity.
+
+I guess this also might be similar to just moving a bit in a tangent direction to the 3 sphere and the projecting back down.
+
+
+
+
+
+Could generate random points (maybe at a given geodesic distance) and the interplate between them using splines.

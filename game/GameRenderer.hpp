@@ -61,6 +61,11 @@ struct GameRenderer {
 	void sphere(Vec3 center, f32 radius, Vec3 color);
 	void renderHemispheres();
 
+	Mesh cubeMesh;
+	std::vector<ColoredInstance> cubes;
+	void cube(Vec3 color);
+	void renderCubes();
+
 	TriangleRenderer<Vertex3Pnt> surfaceTriangles;
 	ShaderProgram& surfaceShader;
 	void renderSurfaceTriangles(f32 opacity);

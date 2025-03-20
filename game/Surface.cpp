@@ -13,7 +13,7 @@ void initializeSurface(
 	const RectParametrization& parametrization) {
 	//const auto size = 100;
 	const auto size = 50;
-	const auto sizeU = 4 * size;
+	const auto sizeU = i32(2.0f * size);
 	const auto sizeV = size;
 	surface.indices.clear();
 	surface.positions.clear();
@@ -181,6 +181,12 @@ SurfaceTangent Surface::tangentVectorFromPolar(SurfacePosition position, f32 ang
 	return SurfaceTangent::makeUv(randomUnitTangentVectorInUvBasis);
 }
 
+SurfaceTangent Surface::tangentVectorNormalize(SurfacePosition position, SurfaceTangent tangent) {
+	const auto uTangent = tangentU(position);
+	const auto vTangent = tangentV(position);
+	return SurfaceTangent::makeUv(tangent.uv / (tangent.uv.x * uTangent + tangent.uv.y * vTangent).length());
+}
+
 f32 Surface::uMin() const {
 	switch (selected) {
 		using enum Type;
@@ -264,6 +270,42 @@ void Surface::integrateParticle(SurfacePosition& position, SurfaceTangent& veloc
 	velocity.uv = Vec2(state.z, state.w);
 }
 
+SurfacePosition Surface::moveForward(SurfacePosition position, SurfaceTangent direction, f32 distance) {
+	return moveForwardAndReturnDirection(position, direction, distance).position;
+}
+
+Surface::MoveForwardResult Surface::moveForwardAndReturnDirection(SurfacePosition position, SurfaceTangent direction, f32 distance) {
+	Vec2 velocityUv = direction.uv;
+	const auto uTangent = tangentU(position);
+	const auto vTangent = tangentV(position);
+
+	auto movementRhs = [&](Vec4 state, f32 _) {
+		const auto symbols = christoffelSymbols(SurfacePosition::makeUv(Vec2(state.x, state.y)));
+		Vec2 velocity(state.z, state.w);
+
+		return Vec4(
+			velocity.x,
+			velocity.y,
+			-dot(velocity, symbols.x * velocity),
+			-dot(velocity, symbols.y * velocity)
+		);
+	};
+
+	const auto a = movementRhs(Vec4(position.uv.x, position.uv.y, velocityUv.x, velocityUv.y), 0.0f);
+
+	const auto step = 0.05f;
+	i32 n = i32(distance / step);
+	Vec4 state(position.uv.x, position.uv.y, velocityUv.x, velocityUv.y);
+	for (i32 i = 0; i < n; i++) {
+		state = rungeKutta4Step(movementRhs, state, 0.0f, distance / n);
+	}
+
+	return MoveForwardResult{
+		.position = SurfacePosition::makeUv(state.x, state.y),
+		.finalDirection = SurfaceTangent::makeUv(Vec2(state.z, state.w))
+	};
+}
+
 void Surface::sortTriangles(Vec3 cameraPosition) {
 	// @Performance: Could discard triangles behind the camera.
 	std::vector<f32> distances;
@@ -299,6 +341,9 @@ SurfacePosition SurfacePosition::makeUv(Vec2 uv) {
 	return SurfacePosition(uv);
 }
 
+SurfacePosition::SurfacePosition()
+	: SurfacePosition(Vec2(0.0f)) {}
+
 SurfacePosition::SurfacePosition(Vec2 uv)
 	: uv(uv) {}
 
@@ -321,6 +366,9 @@ Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV, Vec3 normal
 Vec2 vectorInTangentSpaceBasis(Vec3 v, Vec3 tangentU, Vec3 tangentV) {
 	return vectorInTangentSpaceBasis(v, tangentU, tangentV, cross(tangentU, tangentV).normalized());
 }
+
+SurfaceTangent::SurfaceTangent()
+	: SurfaceTangent(Vec2(0.0f)) {}
 
 SurfaceTangent SurfaceTangent::makeUv(Vec2 uv) {
 	return SurfaceTangent(uv);
