@@ -37,7 +37,7 @@ static i32 cubeFaces[]{
 	3, 2, 6, 7, // front
 	4, 0, 3, 7, // right
 	2, 1, 5, 6, // left
-	4, 5, 6, 7, // bottom
+	4, 7, 6, 5, // bottom
 	1, 0, 4, 5, // back
 };
 

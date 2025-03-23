@@ -44,6 +44,8 @@ void drawMeshInstances(Mesh& mesh, View<const Instance> instances, Vbo& instance
 	});
 }
 
+#include <game/DoublyConnectedEdgeList.hpp>
+
 GameRenderer GameRenderer::make() {
 	auto instancesVbo = Vbo(1024ull * 10);
 
@@ -61,6 +63,31 @@ GameRenderer GameRenderer::make() {
 	const i32 circleVertexCount = 50;
 
 	{
+		DoublyConnectedEdgeList edgeList;
+		{
+			std::vector<i32> verticesPerFace;
+			for (i32 i = 0; i < std::size(cubeFaces) / cubeVerticesPerFace; i++) {
+				verticesPerFace.push_back(cubeVerticesPerFace);
+			}
+			edgeList.initialize(constView(cubeVertices), constView(cubeFaces), constView(verticesPerFace));
+		}
+
+		const auto& vertex = edgeList.vertices[0];
+		DoublyConnectedEdgeList::Halfedge* startHalfEdge = &edgeList.halfedges[vertex.halfedge];
+		auto halfEdge = startHalfEdge;
+		/*do {
+
+			halfEdge->next
+
+		} while (halfEdge != startHalfEdge)*/
+		//start_he = v.halfedge
+		//he = start_he
+		//do {
+		//	# do something useful
+
+		//	he = he.prev.twin
+		//} while he != start_he
+
 		meshClear();
 		for (i32 ui = 0; ui < circleVertexCount; ui++) {
 			for (i32 vi = 0; vi < circleVertexCount; vi++) {

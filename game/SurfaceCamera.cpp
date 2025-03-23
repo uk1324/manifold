@@ -82,7 +82,10 @@ Mat4 SufaceCamera::update(const Surface& surface, Vec2 directionInput, f32 speed
 		//	ImPlot::EndPlot();
 		//}
 
-
+		// Istead of this, it might be possible to do something with the elipse defined by the jacobian at this point.
+		// Explicit formulas for the angle may be possible (would elliptic integral happen?).
+		// This is sometimes called the anisotropy ellipse. It is described on page 36 of "Polygonal mesh processing".
+		// Maybe you could just put the angle on a circle apply inverse jacobian and calculate the angle of a point on the obtained ellipse.
 		i32 n = 5;
 		for (i32 i = 0; i < n; i++) {
 			uvForwardAngle = rungeKutta4Step(rhs, uvForwardAngle, 0.0f, dt / n);

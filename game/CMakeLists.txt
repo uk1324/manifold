@@ -1,4 +1,4 @@
-add_executable(game "main.cpp" "MainLoop.cpp" "Game.cpp" "GameRenderer.cpp" "Surfaces/Torus.cpp" "Surfaces/RectParametrization.cpp" "Surface.cpp" "Tri3d.cpp" "MeshUtils.cpp" "FpsCamera3d.cpp" "SurfaceCamera.cpp" "Constants.cpp" "Surfaces/KleinBottle.cpp" "Surfaces/GenerateParametrization.cpp" "Polyhedra.cpp")
+add_executable(game "main.cpp" "MainLoop.cpp" "Game.cpp" "GameRenderer.cpp" "Surfaces/Torus.cpp" "Surfaces/RectParametrization.cpp" "Surface.cpp" "Tri3d.cpp" "MeshUtils.cpp" "FpsCamera3d.cpp" "SurfaceCamera.cpp" "Constants.cpp" "Surfaces/KleinBottle.cpp" "Surfaces/GenerateParametrization.cpp" "Polyhedra.cpp" "DoublyConnectedEdgeList.cpp")
 
 target_link_libraries(game PUBLIC engine)
 

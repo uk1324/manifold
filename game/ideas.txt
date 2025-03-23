@@ -22,3 +22,18 @@ Many twin stick shooters rely on enemies chasing you for creating the challange
 Dijkstra for spawning 
 
 To get noise on a sphere just use 3d noise and constrain it to a sphere.
+
+Conformal mapping of torus.
+All conformal mappings of sphere.
+
+The insometry on a sphere can be uniquely (up to sign) determined by 3 points. This theorem hold in general without the parallel postulate.
+First determine the symmetry of the faces (just connected vertices to centroids). This will give the appropriate tiling.
+
+Could do colorings of sphere. Could either just raytrace sphere and draw curves on it like this. Or raytrace the triangles and have a texture. Then based on the triangle you can get which isometry brings it back to the original and then uv map the texture 
+For this also could do colorings. Some curves will be drawn with different colors.
+
+Rendering system for oit. And rendering curves.
+
+Drawing Caley graphs.
+
+If you have a laser in a triangle (or 2 angle, like the ones on the sphere) that is part of some tiling the reflections inside it will produce closed curves. If the converse also true?

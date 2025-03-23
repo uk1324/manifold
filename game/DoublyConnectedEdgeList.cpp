@@ -1,0 +1,155 @@
+#include "DoublyConnectedEdgeList.hpp"
+#include <unordered_map>
+#include <HashCombine.hpp>
+#include <optional>
+
+using OrientedEdgeId = std::pair<DoublyConnectedEdgeList::VertexIndex, DoublyConnectedEdgeList::VertexIndex>;
+
+
+struct OrientedEdgeIdHash {
+	usize operator()(OrientedEdgeId id) const {
+		return hashCombine(id.first, id.second);
+	}
+};
+
+struct OrientedEdgeIdEqual {
+	usize operator()(OrientedEdgeId a, OrientedEdgeId b) const {
+		return a.first == b.first && a.second == b.second;
+	}
+};
+
+void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i32> facesIndices, View<const i32> verticesPerFace) {
+
+	std::unordered_map<OrientedEdgeId, HalfedgeIndex, OrientedEdgeIdHash, OrientedEdgeIdEqual> orientedEdgeIdToHalfedge;
+
+	for (const auto& vertex : vertices) {
+		this->vertices.push_back(Vertex{ .position = vertex });
+	}
+
+	i32 offsetInFacesIndices = 0;
+	for (const auto faceVertexCount : verticesPerFace) {
+		ASSERT(faceVertexCount >= 3);
+
+		const FaceIndex faceIndex = faces.size();
+		faces.push_back(Face{});
+		const i32 faceVerticesStartOffset = vertices.size();
+
+		const i32 faceHalfedgesStartOffset = halfedges.size();
+		faces[faceIndex].halfedge = faceHalfedgesStartOffset;
+		const auto faceEdgeCount = faceVertexCount;
+
+		for (i32 i = 0; i < faceEdgeCount; i++) {
+			const auto startVertexIndex = facesIndices[offsetInFacesIndices + i];
+			const auto endVertexIndex = facesIndices[offsetInFacesIndices + (i + 1) % faceVertexCount];
+
+			const auto halfedgeIndex = halfedges.size();
+			halfedges.push_back(Halfedge{});
+			auto& halfedge = halfedges.back();
+
+			halfedge.origin = startVertexIndex;
+			// This will get overriden multiple times.
+			this->vertices[startVertexIndex].halfedge = halfedgeIndex;
+			halfedge.face = faceIndex;
+
+			const auto result = orientedEdgeIdToHalfedge.try_emplace(
+				OrientedEdgeId{ startVertexIndex, endVertexIndex },
+				halfedgeIndex
+			);
+			const auto newItem = result.second;
+			// If it already exists then either it is more than 2 faces sharing a vertex (non-manifold feature) or the orientation of some face is wrong.
+			ASSERT(newItem);
+		}
+
+		auto previousHalfedgeIndex = halfedges.size() - 1;
+		for (i32 i = 0; i < faceEdgeCount; i++) {
+			const auto startVertexIndex = facesIndices[offsetInFacesIndices + i];
+			const auto endVertexIndex = facesIndices[offsetInFacesIndices + (i + 1) % faceVertexCount];
+
+			const auto halfedgeIndex = faceHalfedgesStartOffset + i;
+			auto& halfedge = halfedges[halfedgeIndex];
+			halfedge.previous = previousHalfedgeIndex;
+			halfedge.next = faceHalfedgesStartOffset + (i + 1) % faceEdgeCount;
+			const auto twin = orientedEdgeIdToHalfedge.find(OrientedEdgeId{ endVertexIndex, startVertexIndex });
+			if (twin == orientedEdgeIdToHalfedge.end()) {
+				halfedge.twin = NULL_HALFEDGE_INDEX;
+			} else {
+				halfedge.twin = twin->second;
+				auto& twinsTwin = halfedges[halfedge.twin].twin;
+				// This probably should be detected also by the previous assert.
+				ASSERT(twinsTwin == NULL_HALFEDGE_INDEX);
+				twinsTwin = halfedgeIndex;
+			}
+			previousHalfedgeIndex = halfedgeIndex;
+		}
+
+		offsetInFacesIndices += faceVertexCount;
+	}
+
+	std::vector<HalfedgeIndex> boundaryHalfedges;
+	for (HalfedgeIndex i = 0; i < halfedges.size(); i++) {
+		if (halfedges[i].twin == NULL_HALFEDGE_INDEX) {
+			boundaryHalfedges.push_back(i);
+		}
+	}
+	std::vector<bool> visited;
+	visited.resize(boundaryHalfedges.size(), false);
+	// The boundary halfedges essentially for a directed graph. And we want to either get though all the edges using either a single or multiple cycles. In the case of non-manifold meshes the "cycles" maybe visit the same vertex multiple times. For example think of something like the radioactive symbol (or maybe a pyramid triangulated into 3 layers with the holes being the radioactive symbol).
+	// If the mesh is manifold the boundaries should be disjoint cycles.
+
+	for (;;) {
+		std::optional<HalfedgeIndex> startEdgeIndex;
+		for (HalfedgeIndex i = 0; i < visited.size(); i++) {
+			if (!visited[i]) {
+				startEdgeIndex = boundaryHalfedges[i];
+				visited[i] = true;
+				break;
+			}
+		}
+		if (!startEdgeIndex.has_value()) {
+			break;
+		}
+
+		HalfedgeIndex currentEdgeIndex = *startEdgeIndex;
+		HalfedgeIndex previousHalfedgeIndex = NULL_HALFEDGE_INDEX; // Filled in later.
+		// This way pointers are set is based on just drawing and image of a hole and trying to make the hole go in the opposite way to the faces.
+		do {
+			const auto oppositeIndex = halfedges.size();
+			halfedges.push_back(Halfedge{});
+			auto& opposite = halfedges.back();
+
+			auto& current = halfedges[currentEdgeIndex];
+			current.twin = oppositeIndex;
+
+			opposite.face = NULL_FACE_INDEX;
+			opposite.origin = halfedges[current.next].origin;
+			if (previousHalfedgeIndex != NULL_HALFEDGE_INDEX) {
+				opposite.previous = halfedges[previousHalfedgeIndex].twin;
+				halfedges[halfedges[previousHalfedgeIndex].twin].next = oppositeIndex;
+			}
+			opposite.twin = currentEdgeIndex;
+
+			bool foundNext = false;
+			for (i32 i = 0; i < boundaryHalfedges.size(); i++) {
+				const auto& halfedge = boundaryHalfedges[i];
+				// Could check if there are multiple. If it is a manifold then there shouldn't be.
+				if (halfedges[halfedges[halfedge].next].origin == current.origin) {
+					previousHalfedgeIndex = currentEdgeIndex;
+					currentEdgeIndex = halfedge;
+					foundNext = true;
+					if (visited[i]) {
+						ASSERT(halfedge == startEdgeIndex);
+						const auto startBoundaryIndex = halfedges[*startEdgeIndex].twin;
+						halfedges[startBoundaryIndex].previous = oppositeIndex;
+						halfedges[oppositeIndex].next = startBoundaryIndex;
+						break;
+					} else {
+						visited[i] = true;
+						break;
+					}
+				}
+			}
+			ASSERT(foundNext);
+		} while (currentEdgeIndex != startEdgeIndex);
+	}
+	// Could there be hole cycles of length 2? 
+}
