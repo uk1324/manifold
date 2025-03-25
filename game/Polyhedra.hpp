@@ -33,12 +33,12 @@ static Vec3 cubeVertices[]{
 static i32 cubeVerticesPerFace = 4;
 
 static i32 cubeFaces[]{
-	0, 1, 2, 3, // top
-	3, 2, 6, 7, // front
-	4, 0, 3, 7, // right
-	2, 1, 5, 6, // left
-	4, 7, 6, 5, // bottom
-	1, 0, 4, 5, // back
+	0, 1, 2, 3, // top 0
+	3, 2, 6, 7, // front 1
+	4, 0, 3, 7, // right 2 
+	2, 1, 5, 6, // left 3 
+	4, 7, 6, 5, // bottom 4
+	1, 0, 4, 5, // back 5
 };
 
 #include <vector>
@@ -48,3 +48,10 @@ struct FlatShadingResult {
 	std::vector<i32> indices;
 };
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace);
+
+struct PolygonSoup {
+	std::vector<Vec3> positions;
+	std::vector<i32> facesVertices;
+	std::vector<i32> verticesPerFace;
+};
+PolygonSoup dualPolyhedron(const PolygonSoup& polyhedron);

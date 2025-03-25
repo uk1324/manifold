@@ -1,4 +1,13 @@
 #include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
 #include <unordered_map>
 #include <HashCombine.hpp>
 #include <optional>
@@ -84,6 +93,9 @@ void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i
 
 		offsetInFacesIndices += faceVertexCount;
 	}
+	
+	// The code below add twin halfedges to all the edges on the boundary and sets their face to NULL. The previous code just set those to null.
+	// This makes iterating simpler. For example if you wanted to iterate around a vertex on a boundary without doing this then you would at some point encounter a null twin. Then to iterate over all faces you would need go back the other way (technically if the mesh is nonmanifold there could be a for example be 2 triangles sharing only a single vertex, because they are non-connected triangles comming you wouldn't be able to iterate (this also creates ambiogous ordering, because you can rotate on of the triangles 180 degrees for example)).
 
 	std::vector<HalfedgeIndex> boundaryHalfedges;
 	for (HalfedgeIndex i = 0; i < halfedges.size(); i++) {
@@ -152,4 +164,97 @@ void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i
 		} while (currentEdgeIndex != startEdgeIndex);
 	}
 	// Could there be hole cycles of length 2? 
+}
+
+DoublyConnectedEdgeList::FacesAroundVertexIterator DoublyConnectedEdgeList::facesAroundVertex(VertexIndex vertexIndex) {
+	auto& vertex = vertices[vertexIndex];
+	CHECK(halfedges[vertex.halfedge].origin == vertexIndex);
+	return FacesAroundVertexIterator(*this, vertex.halfedge);
+}
+
+DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::verticesAroundFace(FaceIndex faceIndex) {
+	auto& halfedge = faces[faceIndex].halfedge;
+	CHECK(halfedges[halfedge].face == faceIndex);
+	return VerticesAroundFaceIterator(*this, halfedge);
+}
+
+DoublyConnectedEdgeList::HalfedgeIndex DoublyConnectedEdgeList::rotatePositivelyAroundOrigin(HalfedgeIndex halfedge) {
+	auto& edge = halfedges[halfedge];
+	return halfedges[edge.previous].twin;
+}
+
+DoublyConnectedEdgeList::FacesAroundVertexIterator::FacesAroundVertexIterator(DoublyConnectedEdgeList& list, HalfedgeIndex halfedge) 
+	: list(list)
+	, current(halfedge)
+	, startedIterating(false) {}
+
+bool DoublyConnectedEdgeList::FacesAroundVertexIterator::operator==(const FacesAroundVertexIterator& other) const {
+	CHECK(&other.list == &list);
+	return (current == other.current) && (startedIterating == other.startedIterating);
+}
+
+bool DoublyConnectedEdgeList::FacesAroundVertexIterator::operator!=(const FacesAroundVertexIterator& other) const {
+	return !(*this == other);
+}
+
+DoublyConnectedEdgeList::FacesAroundVertexIterator& DoublyConnectedEdgeList::FacesAroundVertexIterator::operator++() {
+	do {
+		current = list.rotatePositivelyAroundOrigin(current);
+	} while (list.halfedges[current].face == NULL_FACE_INDEX);
+	startedIterating = true;
+	return *this;
+}
+
+DoublyConnectedEdgeList::FaceIndex DoublyConnectedEdgeList::FacesAroundVertexIterator::operator*() const {
+	return list.halfedges[current].face;
+}
+
+DoublyConnectedEdgeList::FacesAroundVertexIterator DoublyConnectedEdgeList::FacesAroundVertexIterator::begin() {
+	auto copy = *this;
+	copy.startedIterating = false;
+	return copy;
+}
+
+DoublyConnectedEdgeList::FacesAroundVertexIterator DoublyConnectedEdgeList::FacesAroundVertexIterator::end() {
+	auto copy = *this;
+	copy.startedIterating = true;
+	return copy;
+}
+
+
+
+DoublyConnectedEdgeList::VerticesAroundFaceIterator::VerticesAroundFaceIterator(DoublyConnectedEdgeList& list, HalfedgeIndex halfedge)
+	: list(list)
+	, current(halfedge)
+	, startedIterating(false) {}
+
+bool DoublyConnectedEdgeList::VerticesAroundFaceIterator::operator==(const VerticesAroundFaceIterator& other) const {
+	CHECK(&other.list == &list);
+	return (current == other.current) && (startedIterating == other.startedIterating);
+}
+
+bool DoublyConnectedEdgeList::VerticesAroundFaceIterator::operator!=(const VerticesAroundFaceIterator& other) const {
+	return !(*this == other);
+}
+
+DoublyConnectedEdgeList::VerticesAroundFaceIterator& DoublyConnectedEdgeList::VerticesAroundFaceIterator::operator++() {
+	current = list.halfedges[current].next;
+	startedIterating = true;
+	return *this;
+}
+
+DoublyConnectedEdgeList::VertexIndex DoublyConnectedEdgeList::VerticesAroundFaceIterator::operator*() const {
+	return list.halfedges[current].origin;
+}
+
+DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::VerticesAroundFaceIterator::begin() {
+	auto copy = *this;
+	copy.startedIterating = false;
+	return copy;
+}
+
+DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::VerticesAroundFaceIterator::end() {
+	auto copy = *this;
+	copy.startedIterating = true;
+	return copy;
 }

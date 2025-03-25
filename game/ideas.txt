@@ -37,3 +37,26 @@ Rendering system for oit. And rendering curves.
 Drawing Caley graphs.
 
 If you have a laser in a triangle (or 2 angle, like the ones on the sphere) that is part of some tiling the reflections inside it will produce closed curves. If the converse also true?
+
+
+If you have a tiling then in some you cannot change the shape of the fundamental domain and in some you can (for example in some tilings the reflection doesn't change on face and ). This is discribed in Coexter.
+If you have a pure translational tiling then the any fundamental polygon has equal area and you can construct a tiling from any simple (non-intersecting) quadrilateral. The quadrilateral can be be concave. To do this you mirror it in one side and then repeat that shape.
+There are also constrations on the symmetry of latice tiling. In general a lattice has a rotational symmetry around the center (what is a center?) of the funamental polygon.
+
+Using change of coordinate to for example derive the equation for distancce of points in polar coordinates or to find the angle needed to transform a quadratic form so that the cross terms disappear. If you have a quadratic form you just to a coordinate transformation to an arbitaray rotated coordinate system and set the cross term to zero.
+Similarly formulas like inversion that are simpler in polar coordinates can be calculated in cartesian coordinates similarly.
+
+The identity 
+z^n - 1 = (z - 1)(z - a)(z - a^2)...(z - a^(n-1)) 
+is easily deduced from the interpretation of complex numbers as rotations and roots of z^n as points on an n-gon.
+For each a^i there is also it's conjugate (except for the ones on the real axis).
+
+If we have a polyhedron with Schlafi symbol { p, q } then this also describes a graph. From this we can get some formulas.
+For example form eulers handshake formula we have that q * V = 2E. This is true, because each vertex has q neigbours.
+Smilarly we can regard faces as "vertices" of some graph. We then get that pF = 2E.
+Both these also make a lot of sense geometrically, because each edge joins 2 vertices so we are double counting and similarly each edge connects to faces so that we are again double counting.
+
+Unique determination of transformation by image on sufficently unsymetrical set of points. 
+Decomposition of transformation into simpler transformations.
+
+How to calculate the dual of a 4 polytope

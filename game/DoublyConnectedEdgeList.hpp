@@ -40,6 +40,62 @@ struct DoublyConnectedEdgeList {
 		Vec3 position;
 	};
 
+	/*
+	auto startHalfedge = vertex.halfedge
+	auto currentHalfedge = startHalfedge
+	do {
+		// Boundary halfdege
+		if (currentHalfedge.face == NULL) {
+			continue;
+		}
+
+		// Process face.
+
+		currentHalfedge = rotatePositivelyAroundOrigin(currentHalfedge);
+	} while (currentHalfedge != startHalfedge);
+
+	*/
+	struct FacesAroundVertexIterator {
+		FacesAroundVertexIterator(DoublyConnectedEdgeList& list, HalfedgeIndex halfedge);
+
+		bool operator==(const FacesAroundVertexIterator& other) const;
+		bool operator!=(const FacesAroundVertexIterator& other) const;
+
+		FacesAroundVertexIterator& operator++();
+		FaceIndex operator*() const;
+
+		FacesAroundVertexIterator begin();
+		FacesAroundVertexIterator end();
+
+		DoublyConnectedEdgeList& list;
+		HalfedgeIndex current;
+		bool startedIterating;
+		// To implement an iterator working using a regular for loop the pmp library uses a flag to simulate the do while loop.
+		// https://github.com/pmp-library/pmp-library/blob/main/src/pmp/surface_mesh.h#L893
+	};
+	FacesAroundVertexIterator facesAroundVertex(VertexIndex vertexIndex);
+
+	struct VerticesAroundFaceIterator {
+		VerticesAroundFaceIterator(DoublyConnectedEdgeList& list, HalfedgeIndex halfedge);
+
+		bool operator==(const VerticesAroundFaceIterator& other) const;
+		bool operator!=(const VerticesAroundFaceIterator& other) const;
+
+		VerticesAroundFaceIterator& operator++();
+		VertexIndex operator*() const;
+
+		VerticesAroundFaceIterator begin();
+		VerticesAroundFaceIterator end();
+
+		DoublyConnectedEdgeList& list;
+		HalfedgeIndex current;
+		bool startedIterating;
+	};
+	VerticesAroundFaceIterator verticesAroundFace(FaceIndex faceIndex);
+
+	// The positive orietnation is the one that the input faces have.
+	HalfedgeIndex rotatePositivelyAroundOrigin(HalfedgeIndex halfedge);
+
 	std::vector<Vertex> vertices;
 	std::vector<Halfedge> halfedges;
 	std::vector<Face> faces;

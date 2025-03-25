@@ -45,6 +45,7 @@ void drawMeshInstances(Mesh& mesh, View<const Instance> instances, Vbo& instance
 }
 
 #include <game/DoublyConnectedEdgeList.hpp>
+#include <iostream>
 
 GameRenderer GameRenderer::make() {
 	auto instancesVbo = Vbo(1024ull * 10);
@@ -75,6 +76,17 @@ GameRenderer GameRenderer::make() {
 		const auto& vertex = edgeList.vertices[0];
 		DoublyConnectedEdgeList::Halfedge* startHalfEdge = &edgeList.halfedges[vertex.halfedge];
 		auto halfEdge = startHalfEdge;
+
+		for (i32 i = 0; i < edgeList.faces.size(); i++) {
+			std::cout << "face " << i << '\n';
+			for (const auto& vertex : edgeList.verticesAroundFace(i)) {
+				std::cout << vertex << '\n';
+			}
+		}
+
+		/*for (const auto& face : DoublyConnectedEdgeList::FacesAroundVertexIterator(edgeList, 0)) {
+			std::cout << face << '\n';
+		}*/
 		/*do {
 
 			halfEdge->next

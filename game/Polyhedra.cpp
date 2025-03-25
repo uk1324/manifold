@@ -1,4 +1,5 @@
 #include "Polyhedra.hpp"
+#include <game/DoublyConnectedEdgeList.hpp>
 
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace) {
 	ASSERT(facesIndices.size() % verticesPerFace == 0);
@@ -29,4 +30,20 @@ FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<con
 		}
 	}
 	return result;
+}
+
+PolygonSoup dualPolyhedron(const PolygonSoup& polyhedron) {
+	DoublyConnectedEdgeList halfedge;
+	halfedge.initialize(constView(polyhedron.positions), constView(polyhedron.facesVertices), constView(polyhedron.verticesPerFace));
+
+	std::vector<Vec3> vertices;
+	for (const auto& face : halfedge.faces) {
+		//for (
+	}
+	//for (DoublyConnectedEdgeList::VertexIndex i = 0; i < halfedge.vertices.size(); i++) {
+	//	for (const auto& face : polyhedron.)
+	//}
+	//for (const auto& faceIndex : halfedge.facesAroundVertex())
+
+	return PolygonSoup();
 }
