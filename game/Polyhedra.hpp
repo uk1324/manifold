@@ -41,6 +41,12 @@ static i32 cubeFaces[]{
 	1, 0, 4, 5, // back 5
 };
 
+struct PolygonSoup {
+	std::vector<Vec3> positions;
+	std::vector<i32> facesVertices;
+	std::vector<i32> verticesPerFace;
+};
+
 #include <vector>
 struct FlatShadingResult {
 	std::vector<Vec3> positions;
@@ -48,10 +54,10 @@ struct FlatShadingResult {
 	std::vector<i32> indices;
 };
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace);
+// Soup of planar convex polygons.
+FlatShadingResult flatShadeConvexPolygonSoup(View<const Vec3> vertices, View<const i32> facesIndices, View<const i32> verticesPerFace);
+FlatShadingResult flatShadeConvexPolygonSoup(const PolygonSoup& polygonSoup);
 
-struct PolygonSoup {
-	std::vector<Vec3> positions;
-	std::vector<i32> facesVertices;
-	std::vector<i32> verticesPerFace;
-};
+PolygonSoup regularPolyhedronPolygonSoup(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace);
+
 PolygonSoup dualPolyhedron(const PolygonSoup& polyhedron);

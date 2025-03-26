@@ -60,3 +60,5 @@ Unique determination of transformation by image on sufficently unsymetrical set 
 Decomposition of transformation into simpler transformations.
 
 How to calculate the dual of a 4 polytope
+
+Random tiling pattern from the random walk.

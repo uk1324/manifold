@@ -1,6 +1,7 @@
 #include "GameRenderer.hpp"
 #include <gfx/ShaderManager.hpp>
 #include <engine/Window.hpp>
+#include <engine/Math/Interpolation.hpp>
 #include <game/Polyhedra.hpp>
 #include <StructUtils.hpp>
 #include <engine/Math/Constants.hpp>
@@ -64,42 +65,6 @@ GameRenderer GameRenderer::make() {
 	const i32 circleVertexCount = 50;
 
 	{
-		DoublyConnectedEdgeList edgeList;
-		{
-			std::vector<i32> verticesPerFace;
-			for (i32 i = 0; i < std::size(cubeFaces) / cubeVerticesPerFace; i++) {
-				verticesPerFace.push_back(cubeVerticesPerFace);
-			}
-			edgeList.initialize(constView(cubeVertices), constView(cubeFaces), constView(verticesPerFace));
-		}
-
-		const auto& vertex = edgeList.vertices[0];
-		DoublyConnectedEdgeList::Halfedge* startHalfEdge = &edgeList.halfedges[vertex.halfedge];
-		auto halfEdge = startHalfEdge;
-
-		for (i32 i = 0; i < edgeList.faces.size(); i++) {
-			std::cout << "face " << i << '\n';
-			for (const auto& vertex : edgeList.verticesAroundFace(i)) {
-				std::cout << vertex << '\n';
-			}
-		}
-
-		/*for (const auto& face : DoublyConnectedEdgeList::FacesAroundVertexIterator(edgeList, 0)) {
-			std::cout << face << '\n';
-		}*/
-		/*do {
-
-			halfEdge->next
-
-		} while (halfEdge != startHalfEdge)*/
-		//start_he = v.halfedge
-		//he = start_he
-		//do {
-		//	# do something useful
-
-		//	he = he.prev.twin
-		//} while he != start_he
-
 		meshClear();
 		for (i32 ui = 0; ui < circleVertexCount; ui++) {
 			for (i32 vi = 0; vi < circleVertexCount; vi++) {
@@ -131,6 +96,84 @@ GameRenderer GameRenderer::make() {
 		}
 	}
 	auto hemisphere = coloredShaderMesh();
+
+	{
+		meshClear();
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			const auto a = f32(i) / f32(circleVertexCount) * TAU<f32>;
+			const auto position = Vec3(cos(a), sin(a), 0.0f);
+			const auto normal = Vec3(position.x, position.y, 1.0f) / sqrt(2.0f);
+			vertices.push_back(Vertex3Pn{
+				.position = position,
+				.normal = normal
+			});
+		}
+		const auto topVerticiesOffset = i32(vertices.size());
+		const auto centerAngleOffset = TAU<f32> / f32(circleVertexCount) / 2.0f;
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			const auto a = f32(i) / f32(circleVertexCount) * TAU<f32> +centerAngleOffset;
+			const auto normal = Vec3(cos(a), sin(a), 1.0f) / sqrt(2.0f);
+			vertices.push_back(Vertex3Pn{
+				.position = Vec3(0.0f, 0.0f, 1.0f),
+				.normal = normal
+			});
+		}
+
+		i32 previous = circleVertexCount - 1;
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			indicesAddTri(indices, previous, i, topVerticiesOffset + i);
+			previous = i;
+		}
+	}
+	auto coneMesh = coloredShaderMesh();
+
+	{
+		meshClear();
+		Vec3 normal(0.0f, 0.0f, 1.0f);
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			const auto a = f32(i) / f32(circleVertexCount) * TAU<f32>;
+			const auto position = Vec3(cos(a), sin(a), 0.0f);
+			vertices.push_back(Vertex3Pn{
+				.position = position,
+				.normal = normal
+			});
+		}
+		const auto centerIndex = i32(vertices.size());
+		vertices.push_back(Vertex3Pn{
+			.position = Vec3(0.0f),
+			.normal = normal
+		});
+
+		i32 previous = circleVertexCount;
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			indicesAddTri(indices, previous, i, centerIndex);
+			previous = i;
+		}
+	}
+	auto circleMesh = coloredShaderMesh();
+
+	{
+		meshClear();
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			const auto t = f32(i) / f32(circleVertexCount);
+			const auto a = lerp(0.0f, TAU<f32>, t);
+			const auto bottomPos = Vec3(cos(a), sin(a), 0.0f);
+			const auto& normal = bottomPos;
+			const auto topPos = Vec3(bottomPos.x, bottomPos.y, 1.0f);
+			vertices.push_back(Vertex3Pn{ .position = bottomPos, .normal = normal });
+			vertices.push_back(Vertex3Pn{ .position = topPos, .normal = normal });
+		}
+		i32 previous = circleVertexCount - 1;
+		for (i32 i = 0; i < circleVertexCount; i++) {
+			const auto vBottom0 = previous * 2;
+			const auto vTop0 = previous * 2 + 1;
+			const auto vBottom1 = i * 2;
+			const auto vTop1 = i * 2 + 1;
+			indicesAddQuad(indices, vBottom0, vBottom1, vTop1, vTop0);
+			previous = i;
+		}
+	}
+	auto cyllinderMesh = coloredShaderMesh();
 
 	{
 		meshClear();
@@ -234,9 +277,14 @@ GameRenderer GameRenderer::make() {
 		.bulletShader = MAKE_GENERATED_SHADER(BULLET),
 		.coloredShader = MAKE_GENERATED_SHADER(COLORED),
 		MOVE(hemisphere),
+		MOVE(coneMesh),
+		MOVE(circleMesh),
+		MOVE(cyllinderMesh),
 		MOVE(cubeMesh),
 		.surfaceTriangles = TriangleRenderer<Vertex3Pnt>::make<SurfaceShader>(instancesVbo),
 		.surfaceShader = MAKE_GENERATED_SHADER(SURFACE),
+		.coloredShadingTriangles = TriangleRenderer<Vertex3Pnc>::make<ColoredShadingShader>(instancesVbo),
+		.coloredShadingShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
 		MOVE(gfx2d),
 		MOVE(instancesVbo),
 	};
@@ -330,6 +378,52 @@ void GameRenderer::renderHemispheres() {
 	hemispheres.clear();
 }
 
+Vec3 anyPerpendicularVector(Vec3 v) {
+	v = v.normalized();
+	const auto attempt = cross(v, Vec3(1.0f, 0.0f, 0.0f));
+	if (attempt.lengthSquared() == 0.0f) {
+		return cross(v, Vec3(0.0f, 1.0f, 0.0f)).normalized();
+	}
+	return attempt.normalized();
+}
+
+// Transforms a radially symmetric mesh such that (0, 0, 0) is mapped to a and (0, 0, 1) is mapped to (b - a).normalized().
+Mat4 transformMesh(Vec3 a, Vec3 b) {
+	auto v0 = b - a;
+	const auto length = v0.length();
+	v0 /= length;
+	const auto v1 = anyPerpendicularVector(v0);
+	const auto v2 = cross(v0, v1).normalized();
+	const auto rotateTranslate = Mat4::translation(a) * Mat4(Mat3(v1, v2, v0));
+	return rotateTranslate;
+}
+
+void GameRenderer::cone(Vec3 bottom, Vec3 top, f32 radius, Vec3 color) {
+	const auto rotateTranslate = transformMesh(bottom, top);
+	cones.push_back(ColoredInstance{
+		.color = color,
+		.model = rotateTranslate * Mat4(Mat3::scale(Vec3(1.0f, 1.0f, (bottom - top).length())))
+	});
+}
+
+void GameRenderer::renderCones() {
+	initColoredShader();
+	drawMeshInstances(coneMesh, constView(cones), instancesVbo);
+	cones.clear();
+}
+
+void GameRenderer::renderCircles() {
+	initColoredShader();
+	drawMeshInstances(circleMesh, constView(circles), instancesVbo);
+	circles.clear();
+}
+
+void GameRenderer::renderCyllinders() {
+	initColoredShader();
+	drawMeshInstances(cyllinderMesh, constView(cyllinders), instancesVbo);
+	cyllinders.clear();
+}
+
 void GameRenderer::cube(Vec3 color) {
 	cubes.push_back(ColoredInstance{
 		.color = color,
@@ -343,6 +437,27 @@ void GameRenderer::renderCubes() {
 	cubes.clear();
 }
 
+void GameRenderer::line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps) {
+	const auto length = (b - a).length();
+	const auto rotateTranslate = transformMesh(a, b);
+	const auto model = rotateTranslate * Mat4(Mat3::scale(Vec3(radius, radius, length)));
+	cyllinders.push_back(ColoredInstance{
+		.color = color,
+		.model = model
+	});
+	if (caps) {
+		const auto hemisphereScale = Mat4(Mat3::scale(Vec3(radius)));
+		hemispheres.push_back(ColoredInstance{
+			.color = color,
+			.model = rotateTranslate * Mat4::translation(Vec3(0.0f, 0.0f, length)) * Mat4(Mat3::scale(radius))
+		});
+		hemispheres.push_back(ColoredInstance{
+			.color = color,
+			.model = rotateTranslate * Mat4(Mat3::scale(Vec3(radius, radius, -radius)))
+		});
+	}
+}
+
 void GameRenderer::renderSurfaceTriangles(f32 opacity) {
 	shaderSetUniforms(surfaceShader, SurfaceFragUniforms{
 		.opacity = opacity
@@ -351,4 +466,13 @@ void GameRenderer::renderSurfaceTriangles(f32 opacity) {
 		.transform = transform
 	});
 	renderTriangles(surfaceShader, surfaceTriangles);
+}
+
+void GameRenderer::renderColoredShadingTriangles() {
+	shaderSetUniforms(coloredShadingShader, ColoredShadingVertUniforms{
+		.transform = transform,
+		.view = view,
+		.model = coloredShadingModel,
+	});
+	renderTriangles(coloredShadingShader, coloredShadingTriangles);
 }

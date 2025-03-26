@@ -74,6 +74,7 @@ struct DoublyConnectedEdgeList {
 		// https://github.com/pmp-library/pmp-library/blob/main/src/pmp/surface_mesh.h#L893
 	};
 	FacesAroundVertexIterator facesAroundVertex(VertexIndex vertexIndex);
+	FacesAroundVertexIterator facesAroundVertex(const Vertex& vertex);
 
 	struct VerticesAroundFaceIterator {
 		VerticesAroundFaceIterator(DoublyConnectedEdgeList& list, HalfedgeIndex halfedge);
@@ -91,7 +92,14 @@ struct DoublyConnectedEdgeList {
 		HalfedgeIndex current;
 		bool startedIterating;
 	};
+	FaceIndex faceReferenceToIndex(const Face& face) const;
+	VertexIndex vertexReferenceToIndex(const Vertex& face) const;
+
 	VerticesAroundFaceIterator verticesAroundFace(FaceIndex faceIndex);
+	VerticesAroundFaceIterator verticesAroundFace(const Face& face);
+
+	Vec3 computeFaceCentroid(FaceIndex face);
+	Vec3 computeFaceCentroid(const Face& face);
 
 	// The positive orietnation is the one that the input faces have.
 	HalfedgeIndex rotatePositivelyAroundOrigin(HalfedgeIndex halfedge);

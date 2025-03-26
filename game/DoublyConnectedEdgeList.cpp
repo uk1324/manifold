@@ -8,6 +8,12 @@
 #include "DoublyConnectedEdgeList.hpp"
 #include "DoublyConnectedEdgeList.hpp"
 #include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
+#include "DoublyConnectedEdgeList.hpp"
 #include <unordered_map>
 #include <HashCombine.hpp>
 #include <optional>
@@ -172,10 +178,48 @@ DoublyConnectedEdgeList::FacesAroundVertexIterator DoublyConnectedEdgeList::face
 	return FacesAroundVertexIterator(*this, vertex.halfedge);
 }
 
+DoublyConnectedEdgeList::FacesAroundVertexIterator DoublyConnectedEdgeList::facesAroundVertex(const Vertex& vertex) {
+	return facesAroundVertex(vertexReferenceToIndex(vertex));
+}
+
+DoublyConnectedEdgeList::FaceIndex DoublyConnectedEdgeList::faceReferenceToIndex(const Face& face) const {
+	// This is kind of stupid.
+	// This is basically useful so that you can iterate using the iterator syntax without creating special interators for indicies.
+	// Basically so that you can do this
+	// for (const auto& face : list.faces)
+	// Instead of 
+	// for (DoublyConnectedEdgeList::FaceIndex faceIndex = 0; faceIndex++ < list.faces.size(); faceIndex++);
+	return &face - &*faces.begin();
+}
+
+DoublyConnectedEdgeList::VertexIndex DoublyConnectedEdgeList::vertexReferenceToIndex(const Vertex& vertex) const {
+	return &vertex - &*vertices.begin();
+}
+
 DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::verticesAroundFace(FaceIndex faceIndex) {
 	auto& halfedge = faces[faceIndex].halfedge;
 	CHECK(halfedges[halfedge].face == faceIndex);
 	return VerticesAroundFaceIterator(*this, halfedge);
+}
+
+DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::verticesAroundFace(const Face& face) {
+	return verticesAroundFace(&face - &*faces.begin());
+}
+
+Vec3 DoublyConnectedEdgeList::computeFaceCentroid(FaceIndex face) {
+	i32 count = 0;
+	Vec3 centroid(0.0f);
+	for (const auto vertexIndex : verticesAroundFace(face)) {
+		const auto position = vertices[vertexIndex].position;
+		count++;
+		centroid += position;
+	}
+	centroid /= count;
+	return centroid;
+}
+
+Vec3 DoublyConnectedEdgeList::computeFaceCentroid(const Face& face) {
+	return computeFaceCentroid(faceReferenceToIndex(face));
 }
 
 DoublyConnectedEdgeList::HalfedgeIndex DoublyConnectedEdgeList::rotatePositivelyAroundOrigin(HalfedgeIndex halfedge) {

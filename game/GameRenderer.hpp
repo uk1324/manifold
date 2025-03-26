@@ -6,6 +6,7 @@
 #include <game/Shaders/surfaceData.hpp>
 #include <game/Shaders/coloredData.hpp>
 #include <game/Shaders/bulletData.hpp>
+#include <game/Shaders/coloredShadingData.hpp>
 #include <game/Cubemap.hpp>
 
 struct Mesh {
@@ -61,14 +62,34 @@ struct GameRenderer {
 	void sphere(Vec3 center, f32 radius, Vec3 color);
 	void renderHemispheres();
 
+	Mesh coneMesh;
+	std::vector<ColoredInstance> cones;
+	void cone(Vec3 bottom, Vec3 top, f32 radius, Vec3 color);
+	void renderCones();
+
+	Mesh circleMesh;
+	std::vector<ColoredInstance> circles;
+	void renderCircles();
+
+	Mesh cyllinderMesh;
+	std::vector<ColoredInstance> cyllinders;
+	void renderCyllinders();
+
 	Mesh cubeMesh;
 	std::vector<ColoredInstance> cubes;
 	void cube(Vec3 color);
 	void renderCubes();
 
+	void line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps = true);
+
 	TriangleRenderer<Vertex3Pnt> surfaceTriangles;
 	ShaderProgram& surfaceShader;
 	void renderSurfaceTriangles(f32 opacity);
+
+	TriangleRenderer<Vertex3Pnc> coloredShadingTriangles;
+	ShaderProgram& coloredShadingShader;
+	Mat4 coloredShadingModel = Mat4::identity;
+	void renderColoredShadingTriangles();
 
 	Gfx2d gfx2d;
 

@@ -3,5 +3,6 @@
 
 void MainLoop::update() {
 	ShaderManager::update();
-	game.update();
+	//game.update();
+	visualization.update();
 }
