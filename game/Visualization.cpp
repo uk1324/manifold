@@ -7,9 +7,30 @@
 #include <engine/Math/Angles.hpp>
 
 Visualization::Visualization() 
-	: renderer(GameRenderer::make()) {
+	: renderer(GameRenderer::make())
+	, noise(0) {
 
 	Window::disableCursor();
+}
+
+Quat movementOnSphericalGeodesic(Vec3 pos, f32 angle, f32 distance) {
+	using CalculationType = f64;
+	const auto p = Vec3T<CalculationType>(pos);
+	const auto a = CalculationType(atan2(pos.y, pos.x));
+	const auto up = Vec3T<CalculationType>(0.0f, 0.0f, 1.0f);
+
+	Vec3T<CalculationType> axis(0.0f, 1.0f, 0.0f);
+	if (p != -up) {
+		axis = cross(p, up).normalized();
+	}
+
+	const auto result = (QuatT<CalculationType>(-angle + a, pos) * QuatT<CalculationType>(distance, axis)).normalized();
+	return Quat(
+		f32(result.x),
+		f32(result.y),
+		f32(result.z),
+		f32(result.w)
+	);
 }
 
 void Visualization::update() {
@@ -60,9 +81,37 @@ void Visualization::update() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_BLEND);
 
-	const auto soup = regularPolyhedronPolygonSoup(constView(cubeVertices), constView(cubeFaces), cubeVerticesPerFace);
+	static f32 elapsed = 0.0f;
+	elapsed += Constants::dt;
+	positions.push_back(positionOnSphere);
+
+	const auto rotationAxis = cross(positionOnSphere, movementDirection);
+	const auto rotation = Quat(Constants::dt, rotationAxis);
+	positionOnSphere *= rotation;
+	//movementDirection *= rotation;
+
+	positionOnSphere = positionOnSphere.normalized();
+	movementDirection = cross(rotationAxis, positionOnSphere).normalized();
+
+	const auto rotationSpeed = 5.0f;
+	movementDirection *= Quat(noise.value2d(Vec2(0.0f, elapsed)) * Constants::dt * rotationSpeed, positionOnSphere);
+	//movementDirectionAngle += noise.value2d(Vec2(0.0f, elapsed)) * Constants::dt;
+
+	/*const auto movement = movementOnSphericalGeodesic(positionOnSphere, movementDirectionAngle, 0.01f);
+	positionOnSphere *= movement;
+	movementDirectionAngle += noise.value2d(Vec2(0.0f, elapsed)) * Constants::dt;
+
+	for (i32 i = 0; i < i32(positions.size()) - 1; i++) {
+		renderer.line(positions[i], positions[i + 1], 0.01f, Color3::GREEN);
+	}*/
+	for (i32 i = 0; i < i32(positions.size()) - 1; i++) {
+		renderer.line(positions[i], positions[i + 1], 0.01f, Color3::GREEN);
+	}
+ 	renderer.renderHemispheres();
+	renderer.renderCyllinders();
+	/*const auto soup = regularPolyhedronPolygonSoup(constView(cubeVertices), constView(cubeFaces), cubeVerticesPerFace);
 	const auto dual = dualPolyhedron(soup);
-	renderPolygonSoup(dual);
+	renderPolygonSoup(dual);*/
 
 	/*renderer.cube(Color3::GREEN);
 	renderer.renderCubes();*/
