@@ -17,6 +17,10 @@ struct Visualization {
 	Vec3 positionOnSphere = Vec3(1.0f, 0.0f, 0.0f);
 	Vec3 movementDirection = Vec3(0.0f, 1.0f, 0.0f);
 	PerlinNoise noise;
+	Quat positionOn3Sphere = Quat(1.0f, 1.0f, 0.0f, 0.0f).normalized();
+	f32 rotationSpeed = 1.0f;
+	f32 axisChangeSpeed1 = 1.0f;
+	f32 axisChangeSpeed2 = 1.0f;
 
 	GameRenderer renderer;
 	FpsCamera3d camera;

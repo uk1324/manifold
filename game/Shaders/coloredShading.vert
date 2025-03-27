@@ -15,7 +15,7 @@ out vec4 interpolatedColor;
 
 void main() {
     //m[3][3] = 1;
-	gl_Position = transform * (vec4(vertexPosition, 1.0));
+	gl_Position = transform * (model * vec4(vertexPosition, 1.0));
     interpolatedColor = vertexColor;
     interpolatedNormal = (transpose(inverse(model)) * vec4(vertexNormal, 0.0)).xyz;
 }

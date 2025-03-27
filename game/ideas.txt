@@ -62,3 +62,216 @@ Decomposition of transformation into simpler transformations.
 How to calculate the dual of a 4 polytope
 
 Random tiling pattern from the random walk.
+
+The random walk on a sphere could make a cool skybox.
+
+
+Could so something with jumping on manifolds
+
+
+
+
+
+
+If the exponential map is surjective then you can always find a geodesic connecting 2 points. Just take the logarithm of the exponential map at the starting point at the final point. This will give you the tangent vector to move on to get to the point.
+
+
+This says something about spheres in the tangent space: https://en.wikipedia.org/wiki/Gauss%27s_lemma_(Riemannian_geometry
+menotined here https://en.wikipedia.org/wiki/Exponential_map_(Riemannian_geometry)
+
+https://www.google.com/search?client=firefox-b-d&q=sphere+in+tangent+space
+https://en.wikipedia.org/wiki/Unit_tangent_bundle
+
+https://onlinelibrary.wiley.com/doi/10.1155/2013/821429
+
+I think this might just be normal coordinates. There is also mention of polar coordinates.
+https://en.wikipedia.org/wiki/Normal_coordinates
+
+https://www.researchgate.net/figure/Left-intrinsic-local-polar-coordinates-r-th-on-manifold-around-a-point-marked-in-white_fig4_339370347
+
+
+
+
+If you have a Lie group then you should be able to get to any transformation by just multiplying these around the identity (that is we only move on the tangent space at the identity by a bit and the multiply the current transformation by this), because if you have 2 transformations in the same direction they combine to a single more distance transformation in the same direction.
+
+
+This is an extrinsic formula for the geodesics on a n-sphere
+https://math.stackexchange.com/questions/1923416/exponential-map-on-the-n-sphere
+
+https://math.stackexchange.com/questions/1493831/prove-the-tangent-space-at-a-point-x-of-the-n-sphere-is-the-space-v-in
+
+Another way to move a vector given an extrinsic velocity and position would be to just move in acutally and the project both the position and the tangent. The projection of the tangent vector would just be v - dot(v, p). Because the position vector is orthogonal to the tangent space.
+The issue is still how to parametrize the rotation of the tangent vector? The n-1 sphere works intrinsically, but these methods work extrnically.
+
+Maybe like in the 2 sphere case one could look for the isometries that leave the tangent space invariant. Is this equivalent to leaving the line from the origin to the position fixed?
+Such isometries can be discribed by <v, x> = 0 => <v, Ax> = 0.
+
+If you wanted to do this up to S5 (so that you can have a curve on SO(4), whose dimension is 6). You would need to use the exponential map (to make the rotations of the tangent plane) of every SO up to SO(5), whose dimension is 5 * 4 / 2 = 10.
+{
+	The orientation preserving rotations leaving a n - 1 dimensional subspace invariant have to also leave the axis perpendicular to it (do they? how to show?).
+	If that is true then one eigenvalue has to be 1. The det has to be 1 so that the product of the other 3 also has to be 1.
+	Basically in some othonormal basis it should be
+	[ 1 0 ]
+	[ 0 M ]
+	where n-1 dimensional rotation matrix. This probably should be orientation preserving, because there is a 1 there and it's det should be 1 also.
+
+	The issue is to generate M you need to be able to generate a random direction on the tangent space at the identity of SO(n), which is what we are originally trying to do, so we can't do it in general.
+
+	Are there any further restriction that setting the first eigenvalue to 1 create? I don't think so. You should be able to do any orientation preserving isometry on that heprplane.
+
+
+	If you have a 3d hyperplane then you can chage it's orientation using
+	[-1 0]
+	[ 0 M]
+	where M is any orientation reversing rotation. For example -I. 
+	The determinant is -1 * -1 = 1.
+}
+
+https://papers.neurips.cc/paper_files/paper/2021/file/1680e9fa7b4dd5d62ece800239bb53bd-Supplemental.pdf
+
+
+The quaterions are nice, because we only need to parametrize the tangent space at the identity. Could this be done in general? Probably not? Because then it would make it a lie group.
+
+I guess it is similar on the S1, which is also a lie group. 
+The question is what is the way to do it on a 2 sphere, which isn't a lie group. Maybe this could be generalized.
+
+
+It also might be possible to decompose it into 2 quaterions. Something about this is described in
+https://en.wikipedia.org/wiki/Rotations_in_4-dimensional_Euclidean_space#Group_structure_of_SO(4)
+But this might cause thing like gimball lock maybe? Or maybe not, because it says its the universal double cover. If I understand correctly the issue with euler angles is that a whole in is mapped into a single point on SO3. Because this is a double cover this should happen.
+
+https://sundaram.wordpress.com/2013/03/08/mathematical-reason-behind-gimbal-lock-in-euler-angles/
+In formal language part
+
+
+
+
+
+I guess you can deompose a quaternion into a double cover of SO(3) and a scaling so that quaternions represent rotations (doubly) in 3d plus a scaling.
+
+
+https://omar-shehata.medium.com/how-to-fix-gimbal-lock-in-n-dimensions-f2f7baec2b5e
+
+
+
+https://en.wikipedia.org/wiki/Plane_of_rotation#Eigenvalues_and_eigenplanes
+
+
+Exponential map of product of lie groups
+https://math.stackexchange.com/questions/1367673/determine-the-exponential-map-of-the-direct-product-of-two-lie-groups
+
+
+
+Another option might be to generate a random vector field either directly on the manifold or just on the n-sphere (generate a vector field in R^(n+1) then project onto S_n).
+The issue with the vector field is that it might vanish somewhere. Also in general the velocity would be changing.
+
+Can't think of any good way of doing this without having some velocity. Because you want a unit speed curve probably so you either have to normalize something or just generate it having unit speed by assigning the velocity.
+
+Apparently in the path integral formulation of quantum mechanics there is some probability put on random curves (not sure how they define random). It's probably not useful in any way to this.
+
+Could generate a linear combination of some basis to create the curve.
+
+https://math.stackexchange.com/questions/2591158/how-can-i-generate-random-curves
+
+You could generate some simple curve for example a geodesic and the let a vector field distort it. That is you could let the vector field move the points on it, and add new points in between parts of the curve that are far apart. Then such a curve can be parametrized to unit length.
+
+
+
+One issue with the direct product of quaterions is what will be the length of the resulting rotation. 
+Wouldn't it require a unit vector on S6 so that the exponential map gives also a unit result.
+
+search "random 4d rotation"
+https://arxiv.org/pdf/2302.06230
+"However, for the resulting rotations to be small, said pairs of quaternions or rotation matrices cannot be chosen arbitrarily, but have to satisfy additional constraints".
+// What they do is weight the rotations so that they sum to the correct value.
+If you know that the lengths of the random vector on which the exponential map is called are a then the length of the result should be sqrt(a^2 + a^2) = sqrt(2) a. Right?
+
+
+
+https://en.wikipedia.org/wiki/Spin_group
+ For higher n, these isomorphisms disappear entirely. 
+ SO(n) / SO(n - 1) ~= S^(n-1) ??
+
+
+ Exponential for bivectors maybe?
+ https://en.wikipedia.org/wiki/Bivector
+ "in four dimensions every bivector is the sum of at most two exterior products"
+Is this related to the decomposition of the matricies into 2 matricies?
+
+
+
+{
+	The idea is to specify a random path on a Lie group by specifying a changing velocity vector and itergrating it.
+	On a Lie group this is possible, because each direction can be just specified at the identity and the by applying the exponential map converted into a direction on the manifold.
+
+	This method is nice, because it you change the vector slowly you get nearly geoedesic paths.
+
+	The issue then is how to generate the randomly changing velocity vector. Could just do the case of a unit velocity vector. This amounts to generating a randomly moving points on a (n - 1)-sphere. Where n is the dimension of the lie group.
+
+	It would be nice to use a similar approach to the Lie group one in general, but I don't think it's possible, because you can't give a Lie group structure to the 2 sphere for example, because it would allow creating liearly independent vector fields at each point, which would contradict the Poincare-Hopf theorem (https://math.stackexchange.com/questions/1417787/lie-group-structure-on-the-2-sphere-does-the-following-argument-hold). Maybe there is some other way to do this, but I can't think of it. 
+
+	Another way could be to store the tangent vector extrincially. On all spheres there is a formula for the exponential map given the extrnisic position and velocity. It just ammounts to moving along a circle so that you can calculate the position and the velocity of the resulting movement. Then for example you can move on a 2 sphere by just roatating the tangent vector in the tangent plane and the moving forward using the exponential map repeateadly. The rotation in the n=2 case is simple, because it just amounts to specifying the angle. I don't think there is a way to generalize this. Because the issue is how to generate the random rotation of the tangent space. If the dimension of the tangent space has a Lie group that you can use (for example in the case n=2, the circle group) then you can use that to generate the random rotation. The issue is that if you want to do that on the 5 sphere then you would need to generate a random rotation of the 4 dimensional subspace, but the Lie-group of rotations SO(4) is 6 dimensional so to generate a path on it using the original method would require a path on the 5-sphere so it won't work this way.
+
+	One could also try deomposing the Lie-groups as product lie groups. This method also doesn't generalize.
+	In here
+	https://en.wikipedia.org/wiki/Spin_group#Exceptional_isomorphisms
+	there is a list of isomorphisms from the spin groups (which are double covers of SO(n)) to other groups. If I understand correctly for higher n these groups are simple and not products so it doesn't generalize, because of that.
+
+	For the case of SO(4) 
+	https://en.wikipedia.org/wiki/Rotations_in_4-dimensional_Euclidean_space#Group_structure_of_SO(4
+	it's double cover is isomorphic to S^3 x S^3 that is the direct product of the unit quaterions with itself. So it should be possible to use that for generating movement on SO(4). One thing to consider is that the norm is going to be 
+	Could this cause something like gmiball lock?
+}
+
+
+{
+	Deomposition of general rotations
+	https://en.wikipedia.org/wiki/Orthogonal_group#Canonical_form
+
+	Decomposition of rotations into relfections
+	https://en.wikipedia.org/wiki/Orthogonal_group#Reflections
+}
+
+{
+	Decomposition of bivectors into commuting orthogonal bivectors.
+	https://en.wikipedia.org/wiki/Bivector#Rotations_in_higher_dimensions
+	"All bivectors can be expressed as the sum of orthogonal and commutative simple bivectors"
+	Would this cause gimball lock?
+}
+
+Another way to rotate given a 6 vector would be to move at the identity of the euler angles, but this requries an arbitrary choice of order and also it doesn't move on geodesic paths. That is we have rotateXY(a0) .... rotateZW(a6) an the we mutiply the current rotation by this.
+
+In general you can decompose a rotation matrix into rotations around planes and fixing axes, because the complex eigenvalues are conjugate, but this would like the above thing probably generate things that aren't geodesics.
+
+Generally you could use any set of generators.
+
+
+
+https://en.wikipedia.org/wiki/Exponential_map_(Lie_theory)#Elementary_properties_of_the_exponential
+exp((t + s)X) = exp(tX) exp(sX)
+
+
+https://ncatlab.org/nlab/show/sphere
+
+
+searching for "rotation an n dimensional vectro"
+
+https://legacy.cs.indiana.edu/ftp/hanson/Siggraph01QuatCourse/ggndgeom.pdf
+https://legacy.cs.indiana.edu/ftp/techreports/TR406.pdf
+These also give references to book and articles about the geometry of higher dimensions.
+
+TODO:
+Look though these: 
+https://www.realtimerendering.com/resources/GraphicsGems/
+https://www.realtimerendering.com/resources/GraphicsGems/category.html
+
+
+
+
+"The rolilng ball" Andrew J. Hanson
+https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=5ca527fa29bfe636c16fad8be6905a626d1a339e
+Talks about the decomposition of 4d rotations to 2 3d rotations.
+
+he six O (4) rotation op erators L ; ;  = f1; 2; 3; 4g ; L = L  , canb e decomp osed into O (3)  O (3) by de ning the following combinations:
+
+An alternative technique, which applies also to rotations in N-dimensional Euclidean space, is to break up the group O (4) (or O (N ) in N dimensions) into O(3) subgroups and treat each as an indep endent rolling-ball transformation.
