@@ -51,6 +51,18 @@ std::vector<Quat> cubeDirectIsometries() {
 	return result;
 }
 
+std::vector<Quat> icosahedronDirectIsometries() {
+	// If we think of the isometries as acting on a dodecahedron then the isometries can be divided into
+	// identity
+	// rotation with an axis though a face center. Pairs of faces represent an axis. There are 12 faces => 6 axes. The order of rotation is 5 so there are 4 unique rotations. (12 / 2) * 4.
+	// rotation with an axis though a vertex. There are 20 vertices => 10 axes. The oreder of rotation is 3 so there are 2 unique rotations. (20 / 2) * 2.
+	// rotation with an axis though the midpoint of an edge. There are 30 edges => 15 axes. There order of rotation is 2 so there is one unique rotation. (30 / 2) * 1.
+
+	// The vertices can be split into mirror images. Then one half of them will represent the axes.
+	// The pairs of vertices represent an edge. Again for each pair there is an opposite pair.
+	return std::vector<Quat>();
+}
+
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace) {
 	ASSERT(facesIndices.size() % verticesPerFace == 0);
 	const auto faceCount = facesIndices.size() / verticesPerFace;

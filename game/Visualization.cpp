@@ -121,7 +121,7 @@ void Visualization::sphereDrawing() {
 
 	if (currentlyDrawnLine.has_value() && Input::isMouseButtonHeld(MouseButton::LEFT) && intersection.has_value()) {
 		const auto newPoint = ray.at(*intersection);
-		if (currentlyDrawnLine->size() == 0 || currentlyDrawnLine->back().distanceTo(newPoint) > 0.01f) {
+		if (currentlyDrawnLine->size() == 0 || currentlyDrawnLine->back().distanceTo(newPoint) > 0.05f) {
 			currentlyDrawnLine->push_back(newPoint);
 		}
 	}
@@ -215,7 +215,10 @@ void Visualization::sphereDrawing() {
 				default:
 					break;
 				};
-
+				
+				up = up.normalized();
+				forward = forward.normalized();
+				right = right.normalized();
 				float sNormalized = (i * ndivs + j) / float(ndivs * ncurves);
 				//float rad = 0.1 * (1 - sNormalized);
 				//float rad = 0.1 * (1 - sNormalized);
