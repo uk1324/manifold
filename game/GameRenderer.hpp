@@ -41,6 +41,8 @@ struct GameRenderer {
 	Mat4 transform;
 	Mat4 view;
 	Mat4 projection;
+	Vec3 cameraForward;
+	Vec3 cameraPosition;
 
 	Mesh cubemapMesh;
 	ShaderProgram& cubemapShader;

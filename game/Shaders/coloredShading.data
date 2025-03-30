@@ -9,6 +9,8 @@ shader ColoredShading {
 	vertUniforms = {
 		Mat4 transform;
 		Mat4 view;
+	};
+	vertInstance = {
 		Mat4 model;
 	};
 	vertOut = {

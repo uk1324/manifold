@@ -275,3 +275,15 @@ Talks about the decomposition of 4d rotations to 2 3d rotations.
 he six O (4) rotation op erators L ; ;  = f1; 2; 3; 4g ; L = L  , canb e decomp osed into O (3)  O (3) by de ning the following combinations:
 
 An alternative technique, which applies also to rotations in N-dimensional Euclidean space, is to break up the group O (4) (or O (N ) in N dimensions) into O(3) subgroups and treat each as an indep endent rolling-ball transformation.
+
+
+Drawing on 3 sphere.
+Stereographic projection
+Project a tiling. For example the hypercube. Then draw on the faces of the hypercube. And project them back to the original shape.
+Look at the analytic formula for geodesics. Do the antipodal relations hold? 
+Always use the shortest path to connect 2 points of a tiling. Sometimes would go though infinity.
+
+
+
+Which geometries are affine?
+Are all the geometries which have a subgroup of the general linear group as the isometry group affine?

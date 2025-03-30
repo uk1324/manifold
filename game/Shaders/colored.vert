@@ -22,7 +22,7 @@ void passToFragment() {
 
 void main() {
     passToFragment();
-    interpolatedNormal = (transpose(inverse(view * model)) * vec4(vertexNormal, 0.0)).xyz;
+    interpolatedNormal = (transpose(inverse(model)) * vec4(vertexNormal, 0.0)).xyz;
     mat4 m = mat4(model);
     //m[3][3] = 1;
 	gl_Position = transform * (m * vec4(vertexPosition, 1.0));

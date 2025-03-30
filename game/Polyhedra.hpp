@@ -2,6 +2,7 @@
 
 #include <engine/Math/Vec3.hpp>
 #include <View.hpp>
+#include <engine/Math/Quat.hpp>
 /*
   1----0
  /|   /|
@@ -41,6 +42,10 @@ static i32 cubeFaces[]{
 	1, 0, 4, 5, // back 5
 };
 
+// direct and opposite isometries
+// proper and improper isometries.
+std::vector<Quat> cubeDirectIsometries();
+
 struct PolygonSoup {
 	std::vector<Vec3> positions;
 	std::vector<i32> facesVertices;
@@ -53,6 +58,7 @@ struct FlatShadingResult {
 	std::vector<Vec3> normals;
 	std::vector<i32> indices;
 };
+
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace);
 // Soup of planar convex polygons.
 FlatShadingResult flatShadeConvexPolygonSoup(View<const Vec3> vertices, View<const i32> facesIndices, View<const i32> verticesPerFace);
@@ -61,3 +67,4 @@ FlatShadingResult flatShadeConvexPolygonSoup(const PolygonSoup& polygonSoup);
 PolygonSoup regularPolyhedronPolygonSoup(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace);
 
 PolygonSoup dualPolyhedron(const PolygonSoup& polyhedron);
+

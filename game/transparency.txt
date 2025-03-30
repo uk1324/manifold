@@ -15,3 +15,12 @@ struct Vertex {
 Use depth peeling or some other technique that does per pixel sorting.
 
 Could make the surface fully transparent and make it scaffold.	
+
+
+
+
+https://gamedev.stackexchange.com/questions/26239/how-to-properly-implement-alpha-blending-in-a-complex-3d-scene
+
+
+https://gamedev.stackexchange.com/questions/35021/how-to-reconcile-depth-ordering-with-minimal-shader-context-changes
+https://stackoverflow.com/questions/12068948/how-should-i-sort-object-by-shaders-or-by-meshes

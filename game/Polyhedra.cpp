@@ -1,5 +1,55 @@
 #include "Polyhedra.hpp"
 #include <game/DoublyConnectedEdgeList.hpp>
+#include <engine/Math/Angles.hpp>
+
+std::vector<Quat> cubeDirectIsometries() {
+	std::vector<Quat> result;
+
+	result.push_back(Quat::identity);
+
+	{
+		// axes though centers of faces
+		Vec3 axes[]{
+ 			Vec3(1.0f, 0.0f, 0.0f),
+			Vec3(0.0f, 1.0f, 0.0f),
+			Vec3(0.0f, 0.0f, 1.0f),
+		};
+		for (const auto& axis : axes) {
+			result.push_back(Quat(PI<f32> / 2.0f, axis));
+			result.push_back(Quat(-PI<f32> / 2.0f, axis));
+			result.push_back(Quat(PI<f32>, axis));
+		}
+	}
+	{
+		// axes though midpoints of edges
+		Vec3 axes[]{
+			Vec3(0.0f, 1.0f, 1.0f),
+			Vec3(0.0f, -1.0f, 1.0f),
+			Vec3(1.0f, 0.0f, 1.0f),
+			Vec3(-1.0f, 0.0f, 1.0f),
+			Vec3(1.0f, 1.0f, 0.0),
+			Vec3(1.0f, -1.0f, 0.0),
+		};
+		for (const auto& axis : axes) {
+			result.push_back(Quat(PI<f32>, axis.normalized()));
+		}
+	}
+	{
+		// axes though vertices
+		Vec3 axes[]{
+			// These are just the vertices of the top face
+			Vec3(1.0f, 1.0f, 1.0f),
+			Vec3(-1.0f, 1.0f, 1.0f),
+			Vec3(-1.0f, -1.0f, 1.0f),
+			Vec3(1.0f, -1.0f, 1.0f),
+		};
+		for (const auto& axis : axes) {
+			result.push_back(Quat(TAU<f32> / 3.0f, axis.normalized()));
+			result.push_back(Quat(-TAU<f32> / 3.0f, axis.normalized()));
+		}
+	}
+	return result;
+}
 
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace) {
 	ASSERT(facesIndices.size() % verticesPerFace == 0);

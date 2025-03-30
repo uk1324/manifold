@@ -49,7 +49,7 @@ void drawMeshInstances(Mesh& mesh, View<const Instance> instances, Vbo& instance
 #include <iostream>
 
 GameRenderer GameRenderer::make() {
-	auto instancesVbo = Vbo(1024ull * 10);
+	auto instancesVbo = Vbo(1024ull * 20);
 
 	std::vector<Vertex3Pn> vertices;
 	std::vector<i32> indices;
@@ -65,11 +65,12 @@ GameRenderer GameRenderer::make() {
 	const i32 circleVertexCount = 50;
 
 	{
+		const i32 hemisphereVertexCount = 20;
 		meshClear();
-		for (i32 ui = 0; ui < circleVertexCount; ui++) {
-			for (i32 vi = 0; vi < circleVertexCount; vi++) {
-				const auto u = f32(ui) / f32(circleVertexCount) * TAU<f32>;
-				const auto v = f32(vi) / f32(circleVertexCount - 1) * (PI<f32> / 2.0f);
+		for (i32 ui = 0; ui < hemisphereVertexCount; ui++) {
+			for (i32 vi = 0; vi < hemisphereVertexCount; vi++) {
+				const auto u = f32(ui) / f32(hemisphereVertexCount) * TAU<f32>;
+				const auto v = f32(vi) / f32(hemisphereVertexCount - 1) * (PI<f32> / 2.0f);
 				const auto pos = Vec3(cos(u) * cos(v), sin(u) * cos(v), sin(v)).normalized();
 				const auto& normal = pos;
 				vertices.push_back(Vertex3Pn{ pos, normal });
@@ -77,20 +78,18 @@ GameRenderer GameRenderer::make() {
 		}
 
 		auto toIndex = [](i32 ui, i32 vi) {
-			return ui * circleVertexCount + vi;
+			return ui * hemisphereVertexCount + vi;
 		};
-		i32 previousUi = circleVertexCount - 1;
-		for (i32 ui = 0; ui < circleVertexCount; ui++) {
-			i32 previousVi = circleVertexCount - 1;
-			for (i32 vi = 0; vi < circleVertexCount; vi++) {
+		i32 previousUi = hemisphereVertexCount - 1;
+		for (i32 ui = 0; ui < hemisphereVertexCount; ui++) {
+			for (i32 vi = 0; vi < hemisphereVertexCount - 1; vi++) {
 				indicesAddQuad(
 					indices,
-					toIndex(previousUi, previousVi),
 					toIndex(previousUi, vi),
-					toIndex(ui, vi),
-					toIndex(ui, previousVi)
+					toIndex(previousUi, vi + 1),
+					toIndex(ui, vi + 1),
+					toIndex(ui, vi)
 				);
-				previousVi = vi;
 			}
 			previousUi = ui;
 		}
@@ -446,7 +445,7 @@ void GameRenderer::line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps) {
 		.model = model
 	});
 	if (caps) {
-		const auto hemisphereScale = Mat4(Mat3::scale(Vec3(radius)));
+		/*const auto hemisphereScale = Mat4(Mat3::scale(Vec3(radius)));
 		hemispheres.push_back(ColoredInstance{
 			.color = color,
 			.model = rotateTranslate * Mat4::translation(Vec3(0.0f, 0.0f, length)) * Mat4(Mat3::scale(radius))
@@ -454,7 +453,7 @@ void GameRenderer::line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps) {
 		hemispheres.push_back(ColoredInstance{
 			.color = color,
 			.model = rotateTranslate * Mat4(Mat3::scale(Vec3(radius, radius, -radius)))
-		});
+		});*/
 	}
 }
 
@@ -472,7 +471,7 @@ void GameRenderer::renderColoredShadingTriangles() {
 	shaderSetUniforms(coloredShadingShader, ColoredShadingVertUniforms{
 		.transform = transform,
 		.view = view,
-		.model = coloredShadingModel,
 	});
+	//.model = coloredShadingModel,
 	renderTriangles(coloredShadingShader, coloredShadingTriangles);
 }

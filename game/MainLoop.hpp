@@ -4,6 +4,8 @@
 #include <game/Visualization.hpp>
 
 struct MainLoop {
+	MainLoop();
+
 	void update();
 
 	Game game;
