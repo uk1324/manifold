@@ -244,6 +244,8 @@ Quat mat3ToQuatUnchecked(const Mat3& ma) {
 //	return r;
 //}
 
+#include <Put.hpp>
+
 std::vector<Mat3> icosahedronDirectIsometries() {
 	// If we think of the isometries as acting on a dodecahedron then the isometries can be divided into
 	// identity
@@ -300,7 +302,7 @@ std::vector<Mat3> icosahedronDirectIsometries() {
 		},
 		Mat3{
 			-0.5f, 1.0f / (2.0f * p), p / 2.0f,
-			1 / (2.0f * p) -p / 2.0f, 0.5f,
+			1 / (2.0f * p), -p / 2.0f, 0.5f,
 			p / 2.0f, 0.5f, 1 / (2.0f * p)
 		}
 	};
@@ -366,6 +368,10 @@ std::vector<Mat3> icosahedronDirectIsometries() {
 	// I guess you could split it into connected components, but then the generating set would need to include each element and it's inverse, because as stated in the above article there are directed Caley graphs that don't have a hamiltionial cycle.
 	// https://en.wikipedia.org/wiki/Steinhaus%E2%80%93Johnson%E2%80%93Trotter_algorithm
 
+	const auto test = 
+		Permutation::fromOneIndexed({ 3, 4, 5, 1, 2 }) * 
+		Permutation::fromOneIndexed({ 3, 5, 1, 2, 4 });
+
 	std::vector<Mat3> r;
 
 	for (const auto& [permutation, word] : generatedElements) {
@@ -375,13 +381,20 @@ std::vector<Mat3> icosahedronDirectIsometries() {
 		}
 		auto generatedQuat = generatorsQuaternions[word[0]];
 		for (i32 i = 1; i < word.size(); i++) {
-			generatedQuat = generatedQuat * generatorsQuaternions[word[i]];
+			put("% % %", generatedQuat[0].length(), generatedQuat[1].length(), generatedQuat[2].length());
+			const auto g = generatedQuat * generatedQuat.transposed();
+			//generatedQuat = generatedQuat * generatorsQuaternions[word[i]];
+			generatedQuat = generatorsQuaternions[word[i]] * generatedQuat;
 			//generatedQuat = generatedQuat.normalized();
 		}
 		r.push_back(generatedQuat);
 	}
+	put("% % %", generatorsQuaternions[0][0].length(), generatorsQuaternions[0][1].length(), generatorsQuaternions[0][2].length());
+	put("% % %", generatorsQuaternions[1][0].length(), generatorsQuaternions[1][1].length(), generatorsQuaternions[1][2].length());
+	const auto a = generatorsQuaternions[0] * generatorsQuaternions[0].transposed();
+	const auto b = generatorsQuaternions[1] * generatorsQuaternions[1].transposed();
 
-	return r;
+ 	return r;
 }
 
 FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<const i32> facesIndices, i32 verticesPerFace) {

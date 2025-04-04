@@ -140,8 +140,8 @@ void Visualization::sphereDrawing() {
 			for (const auto& isometry : cubeIsometries) {
 				for (i32 i = 0; i < line.size() - 1; i++) {
 					renderer.line(
-						isometry * (line[i] * scale), 
-						isometry * (line[i + 1] * scale), 
+						(line[i] * scale) * isometry,
+						 (line[i + 1] * scale) * isometry,
 						0.01f, 
 						Color3::RED);
 				}
@@ -310,7 +310,7 @@ void Visualization::sphereDrawing() {
 	for (const auto& scale : scales) {
 		for (const auto& isometry : cubeIsometries) {
 			instances.push_back(ColoredShadingInstance{
-				.model = Mat4(scale * isometry.toMatrix())
+				.model = Mat4(scale * isometry)
 			});
 		}
 	}
