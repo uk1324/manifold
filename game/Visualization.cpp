@@ -132,7 +132,8 @@ void Visualization::sphereDrawing() {
 		}
 	};
 
-	static const auto cubeIsometries = cubeDirectIsometries();
+	//static const auto cubeIsometries = cubeDirectIsometries();
+	static const auto cubeIsometries = icosahedronDirectIsometries();
 	auto drawLineTransformed = [&](const std::vector<Vec3>& line) {
 		f32 scales[] = {1.0f, -1.0f};
 		for (const auto& scale : scales) {
@@ -222,8 +223,8 @@ void Visualization::sphereDrawing() {
 				float sNormalized = (i * ndivs + j) / float(ndivs * ncurves);
 				//float rad = 0.1 * (1 - sNormalized);
 				//float rad = 0.1 * (1 - sNormalized);
-				//float rad = 0.01f;
-				float rad = 0.04f;
+				float rad = 0.01f;
+				//float rad = 0.04f;
 				for (uint32_t k = 0; k <= ndivs; ++k) {
 					float t = k / (float)ndivs;
 					float theta = t * 2 * PI<f32>;

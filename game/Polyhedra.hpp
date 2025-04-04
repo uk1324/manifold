@@ -45,7 +45,7 @@ static i32 cubeFaces[]{
 // direct and opposite isometries
 // proper and improper isometries.
 std::vector<Quat> cubeDirectIsometries();
-std::vector<Quat> icosahedronDirectIsometries();
+std::vector<Mat3> icosahedronDirectIsometries();
 
 struct PolygonSoup {
 	std::vector<Vec3> positions;

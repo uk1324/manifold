@@ -286,6 +286,6 @@ Always use the shortest path to connect 2 points of a tiling. Sometimes would go
 
 
 Which geometries are affine?
-Are all the geometries which have a subgroup of the general linear group as the isometry group affine?
+Are all the geometries which have a subgroup of the general linear group as the automorphism group affine?
 
 Stereographic projection.
