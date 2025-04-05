@@ -300,6 +300,40 @@ void Visualization::sphereDrawing() {
 		/*objects.push_back(std::unique_ptr<TriangleMesh>(new TriangleMesh(Matrix44f::kIdentity, numFaces, verts, vertIndices, P, N, st)));*/
 	};
 
+		{
+		for (const auto& isometry : cubeIsometries) {
+			for (const auto& line : lines) {
+				std::vector<Vec3> transformedPoints;
+				for (const auto& point : line) {
+					transformedPoints.push_back(point * isometry);
+				}
+
+				f32 scales[] = { 1.0f, -1.0f };
+				for (const auto& scale : scales) {
+					std::vector<Vec3> currentLine;
+					for (const auto& line : lines) {
+						for (const auto& point : transformedPoints) {
+							const auto stereographic = toStereographic(point * scale);
+							auto isInf = [](f32 v) {
+								return isnan(v) || isinf(v);
+							};
+
+							if (isInf(stereographic.x) || isInf(stereographic.y)) {
+								outputLine(currentLine);
+								currentLine.clear();
+								continue;
+							}
+
+							const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
+							currentLine.push_back(stereographic3);
+						}
+					}
+					outputLine(currentLine);
+				}
+			}
+		}
+	}
+
 	for (const auto& line : lines) {
 		outputLine(line);
 	}
@@ -375,40 +409,39 @@ void Visualization::sphereDrawing() {
 	//		}
 	//	}
 	//}
+	//{
+	//	f32 scales[] = { 1.0f, -1.0f };
+	//	for (const auto& scale : scales) {
+	//		for (const auto& isometry : cubeIsometries) {
+	//			std::optional<Vec3> previous;
+	//			for (const auto& line : lines) {
+	//				for (const auto& point : line) {
+	//					auto p = point;
+	//					p *= scale;
+	//					p *= isometry;
+	//					const auto stereographic = toStereographic(p);
+	//					auto isInf = [](f32 v) {
+	//						return isnan(v) || isinf(v);
+	//					};
 
-	{
-		f32 scales[] = { 1.0f, -1.0f };
-		for (const auto& scale : scales) {
-			for (const auto& isometry : cubeIsometries) {
-				std::optional<Vec3> previous;
-				for (const auto& line : lines) {
-					for (const auto& point : line) {
-						auto p = point;
-						p *= scale;
-						p *= isometry;
-						const auto stereographic = toStereographic(p);
-						auto isInf = [](f32 v) {
-							return isnan(v) || isinf(v);
-						};
+	//					if (isInf(stereographic.x) || isInf(stereographic.y)) {
+	//						previous = std::nullopt;
+	//						continue;
+	//					}
 
-						if (isInf(stereographic.x) || isInf(stereographic.y)) {
-							previous = std::nullopt;
-							continue;
-						}
+	//					const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
+	//					if (!previous.has_value()) {
+	//						previous = stereographic3;
+	//					} else {
+	//						renderer.line(*previous, stereographic3, 0.01f, Color3::GREEN, false);
+	//						previous = stereographic3;
+	//					}
+	//				}
 
-						const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
-						if (!previous.has_value()) {
-							previous = stereographic3;
-						} else {
-							renderer.line(*previous, stereographic3, 0.01f, Color3::GREEN, false);
-							previous = stereographic3;
-						}
-					}
-
-				}
-			}
-		}
-	}
+	//			}
+	//		}
+	//	}
+	//}
 	
 	/*for (const auto& line : lines) {
 		drawLine(line);
