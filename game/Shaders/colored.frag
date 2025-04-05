@@ -15,5 +15,6 @@ void main() {
 	diffuse += 0.5;
 	diffuse = clamp(diffuse, 0, 1);
 	fragColor = vec4(color * diffuse, 1.0);
+	//fragColor = vec4(color, 1.0);
 	//fragColor = vec4((normal + 1.0) / 2.0, 1.0);
 }

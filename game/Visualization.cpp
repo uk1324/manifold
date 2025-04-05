@@ -1,6 +1,7 @@
 #include "Visualization.hpp"
 #include <engine/Math/Color.hpp>
 #include <game/Constants.hpp>
+#include <game/Stereographic.hpp>
 #include <engine/Math/Sphere.hpp>
 #include <engine/Window.hpp>
 #include <imgui/imgui.h>
@@ -97,6 +98,9 @@ Vec3 evalBezierCurve(const Vec3* P, const float& t) {
 	return P[0] * b0 + P[1] * b1 + P[2] * b2 + P[3] * b3;
 }
 
+struct LineRenderer {
+
+};
 
 void Visualization::sphereDrawing() {
 	const Vec3 spherePosition = Vec3(0.0f);
@@ -121,7 +125,7 @@ void Visualization::sphereDrawing() {
 
 	if (currentlyDrawnLine.has_value() && Input::isMouseButtonHeld(MouseButton::LEFT) && intersection.has_value()) {
 		const auto newPoint = ray.at(*intersection);
-		if (currentlyDrawnLine->size() == 0 || currentlyDrawnLine->back().distanceTo(newPoint) > 0.05f) {
+		if (currentlyDrawnLine->size() == 0 || currentlyDrawnLine->back().distanceTo(newPoint) > 0.005f) {
 			currentlyDrawnLine->push_back(newPoint);
 		}
 	}
@@ -133,7 +137,7 @@ void Visualization::sphereDrawing() {
 	};
 
 	//static const auto cubeIsometries = cubeDirectIsometries();
-	static const auto cubeIsometries = icosahedronDirectIsometries();
+	static const auto cubeIsometries = generateIcosahedronDirectSymmetriesQuats();
 	auto drawLineTransformed = [&](const std::vector<Vec3>& line) {
 		f32 scales[] = {1.0f, -1.0f};
 		for (const auto& scale : scales) {
@@ -165,7 +169,8 @@ void Visualization::sphereDrawing() {
 		}
 		const auto offset = vertices.size();
 
-		uint32_t ndivs = 16;
+		//uint32_t ndivs = 16;
+		uint32_t ndivs = 8;
 		uint32_t ncurves = 1 + (curvePoints.size() - 4) / 3;
 		Vec3 pts[4];
 		std::unique_ptr<Vec3[]> P(new Vec3[(ndivs + 1) * ndivs * ncurves + 1]);
@@ -277,11 +282,14 @@ void Visualization::sphereDrawing() {
 			nf++;
 		}
 
-		for (i32 i = 0; i < (ndivs + 1) * ndivs * ncurves + 1; i++) {
+		const auto c = (ndivs + 1) * ndivs * ncurves + 1;
+		ImGui::Text("vertex count: %d", c);
+		for (i32 i = 0; i < c; i++) {
 			vertices.push_back(Vertex3Pnc{
 				.position = P[i],
 				.normal = N[i],
-				.color = Vec4(Color3::RED, 1.0f),
+				//.color = Vec4(Color3::RED, 1.0f),
+				.color = Vec4(Color3::fromHsv(f32(i) / f32(1000), 1.0f, 1.0f), 1.0f),
 			});
 		}
 		/*for (i32 i = 0; i < ndivs * ndivs * ncurves * 4 + ndivs * 3; i++) {
@@ -302,15 +310,16 @@ void Visualization::sphereDrawing() {
 
 	linesVbo.allocateData(vertices.data(), vertices.size() * sizeof(Vertex3Pnc));
 	linesIbo.allocateData(indices.data(), indices.size() * sizeof(i32));
+	ImGui::Text("triangle count: %d", indices.size() / 3);
 
 	std::vector<ColoredShadingInstance> instances;
 
-	//f32 scales[] = { 1.0f, -1.0f };
-	f32 scales[] = { 1.0f };
+	f32 scales[] = { 1.0f, -1.0f };
+	//f32 scales[] = { 1.0f };
 	for (const auto& scale : scales) {
 		for (const auto& isometry : cubeIsometries) {
 			instances.push_back(ColoredShadingInstance{
-				.model = Mat4(scale * isometry)
+				.model = Mat4(scale * isometry.toMatrix())
 			});
 		}
 	}
@@ -323,6 +332,84 @@ void Visualization::sphereDrawing() {
 		glDrawElementsInstanced(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr, instanceCount);
 	});
 
+	auto isInf = [](f32 v) {
+		return isnan(v) || isinf(v);
+	};
+
+	//// This looks cool
+	//{
+	//	f32 scales[] = { 1.0f, -1.0f };
+	//	for (const auto& scale : scales) {
+	//		for (const auto& isometry : cubeIsometries) {
+	//			for (const auto& line : lines) {
+	//				for (const auto& point : line) {
+	//					const auto stereographic = toStereographic(point);
+	//					if (isInf(stereographic.x) || isInf(stereographic.y)) {
+	//						continue;
+	//					}
+	//					const auto stereographic3 = Vec3(stereographic.x, 0.0f, stereographic.y);
+	//					renderer.sphere(stereographic3 * isometry * scale, 0.003f, Color3::RED);
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	//{
+	//	f32 scales[] = { 1.0f, -1.0f };
+	//	for (const auto& scale : scales) {
+	//		for (const auto& isometry : cubeIsometries) {
+	//			for (const auto& line : lines) {
+	//				for (const auto& point : line) {
+	//					auto p = point;
+	//					p *= scale;
+	//					p *= isometry;
+	//					const auto stereographic = toStereographic(p);
+	//					if (isInf(stereographic.x) || isInf(stereographic.y)) {
+	//						continue;
+	//					}
+	//					const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
+	//					renderer.sphere(stereographic3, 0.003f, Color3::RED);
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	{
+		f32 scales[] = { 1.0f, -1.0f };
+		for (const auto& scale : scales) {
+			for (const auto& isometry : cubeIsometries) {
+				std::optional<Vec3> previous;
+				for (const auto& line : lines) {
+					for (const auto& point : line) {
+						auto p = point;
+						p *= scale;
+						p *= isometry;
+						const auto stereographic = toStereographic(p);
+						auto isInf = [](f32 v) {
+							return isnan(v) || isinf(v);
+						};
+
+						if (isInf(stereographic.x) || isInf(stereographic.y)) {
+							previous = std::nullopt;
+							continue;
+						}
+
+						const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
+						if (!previous.has_value()) {
+							previous = stereographic3;
+						} else {
+							renderer.line(*previous, stereographic3, 0.01f, Color3::GREEN, false);
+							previous = stereographic3;
+						}
+					}
+
+				}
+			}
+		}
+	}
+	
 	/*for (const auto& line : lines) {
 		drawLine(line);
 	}
