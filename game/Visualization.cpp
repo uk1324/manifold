@@ -18,9 +18,14 @@ Visualization Visualization::make() {
 	auto linesVao = createInstancingVao<ColoredShadingShader>(linesVbo, linesIbo, renderer.instancesVbo);
 
 	Window::disableCursor();
+	
+	PolygonSoup sphere;
+	{
+		
+	}
 
 	return Visualization{
-		.noise = PerlinNoise(0),
+		.sphereMesh = std::move(sphere),
 		MOVE(linesVbo),
 		MOVE(linesIbo),
 		MOVE(linesVao),
@@ -30,7 +35,7 @@ Visualization Visualization::make() {
 
 Quat exponentialMap(Vec3 vectorPart) {
 	const auto distance = vectorPart.length();
-	const auto v = vectorPart / distance;
+	const auto v = distance == 0.0f ? Vec3(0.0f) : vectorPart / distance;
 	return Quat(v.x * sin(distance), v.y * sin(distance), v.z * sin(distance), cos(distance));
 }
 
@@ -78,34 +83,31 @@ void Visualization::renderPolygonSoup(const PolygonSoup& polygonSoup) {
 	for (i32 i = 0; i < data.indices.size(); i++) {
 		t.indices.push_back(data.indices[i]);
 	}
-	renderer.renderColoredShadingTriangles();
+	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
+		.model = Mat4::identity
+	});
 }
 
-Vec3 derivBezier(const Vec3* P, const float& t)
-{
-	return -3 * (1 - t) * (1 - t) * P[0] +
-		(3 * (1 - t) * (1 - t) - 6 * t * (1 - t)) * P[1] +
-		(6 * t * (1 - t) - 3 * t * t) * P[2] +
-		3 * t * t * P[3];
-}
-
-Vec3 evalBezierCurve(const Vec3* P, const float& t) {
-	float b0 = (1 - t) * (1 - t) * (1 - t);
-	float b1 = 3 * t * (1 - t) * (1 - t);
-	float b2 = 3 * t * t * (1 - t);
-	float b3 = t * t * t;
-
-	return P[0] * b0 + P[1] * b1 + P[2] * b2 + P[3] * b3;
-}
-
-struct LineRenderer {
-
-};
-
+// snap to endpoint of previous line.
 void Visualization::sphereDrawing() {
 	const Vec3 spherePosition = Vec3(0.0f);
 	const f32 sphereRadius = 1.0f;
 
+	ImGui::Begin("settings");
+
+	const auto g = generateTetrahedralDirectSymmetriesQuats();
+	ImGui::Combo("symmetry group", reinterpret_cast<int*>(&symmetryGroup), "identity\0tetrahedral\0octahedral\0icosahedral\0");
+	ImGui::Checkbox("rotate", &rotateRandomly);
+	if (rotateRandomly) {
+		randomRotationGenerator.settingsGui();
+	}
+	ImGui::Checkbox("draw stereographic projection", &drawStereographicProjection);
+	ImGui::End();
+
+	if (rotateRandomly) {
+		randomRotationGenerator.updateRotation();
+	}
+	const auto sphereRotation = randomRotationGenerator.getRotation();
 
 	renderer.sphere(spherePosition, sphereRadius, Color3::WHITE);
 
@@ -125,8 +127,9 @@ void Visualization::sphereDrawing() {
 
 	if (currentlyDrawnLine.has_value() && Input::isMouseButtonHeld(MouseButton::LEFT) && intersection.has_value()) {
 		const auto newPoint = ray.at(*intersection);
-		if (currentlyDrawnLine->size() == 0 || currentlyDrawnLine->back().distanceTo(newPoint) > 0.005f) {
-			currentlyDrawnLine->push_back(newPoint);
+		const auto newPointObjectSpace = sphereRotation * newPoint;
+		if (currentlyDrawnLine->size() == 0 || currentlyDrawnLine->back().distanceTo(newPointObjectSpace) > 0.001f) {
+			currentlyDrawnLine->push_back(newPointObjectSpace);
 		}
 	}
 
@@ -136,172 +139,71 @@ void Visualization::sphereDrawing() {
 		}
 	};
 
-	//static const auto cubeIsometries = cubeDirectIsometries();
-	static const auto cubeIsometries = generateIcosahedronDirectSymmetriesQuats();
-	auto drawLineTransformed = [&](const std::vector<Vec3>& line) {
-		f32 scales[] = {1.0f, -1.0f};
-		for (const auto& scale : scales) {
-			for (const auto& isometry : cubeIsometries) {
-				for (i32 i = 0; i < line.size() - 1; i++) {
-					renderer.line(
-						(line[i] * scale) * isometry,
-						 (line[i + 1] * scale) * isometry,
-						0.01f, 
-						Color3::RED);
-				}
-			}
-		}
-	};
+	const auto identitySymmetryGroup = Quat::identity;
+	auto symmetries = constView(identitySymmetryGroup);
+	switch (symmetryGroup) {
+		using enum SymmetryGroup;
+	case IDENTITY:
+		break;
+	case TETRAHEDRAL:
+		symmetries = constView(tetrahedralSymmetries);
+		break;
+	case OCTAHEDRAL:
+		symmetries = constView(octahedralSymmetries);
+		break;
+	case ICOSAHEDRAL:
+		symmetries = constView(icosahedralSymmetries);
+		break;
+	}
 
-	//for (const auto& line : lines) {
-	//	drawLineTransformed(line);
-	//}
-	//if (currentlyDrawnLine.has_value()) {
-	//	drawLineTransformed(*currentlyDrawnLine);
-	//}
+	//generateIcosahedralDirectSymmetriesQuats2();
 
-	std::vector<Vertex3Pnc> vertices;
-	std::vector<i32> indices;
-
-	auto outputLine = [&](const std::vector<Vec3>& curvePoints){
-		if (curvePoints.size() < 4) {
-			return;
-		}
-		const auto offset = vertices.size();
-
-		//uint32_t ndivs = 16;
-		uint32_t ndivs = 8;
-		uint32_t ncurves = 1 + (curvePoints.size() - 4) / 3;
-		Vec3 pts[4];
-		std::unique_ptr<Vec3[]> P(new Vec3[(ndivs + 1) * ndivs * ncurves + 1]);
-		std::unique_ptr<Vec3[]> N(new Vec3[(ndivs + 1) * ndivs * ncurves + 1]);
-		std::unique_ptr<Vec2[]> st(new Vec2[(ndivs + 1) * ndivs * ncurves + 1]);
-		for (uint32_t i = 0; i < ncurves; ++i) {
-			for (uint32_t j = 0; j < ndivs; ++j) {
-				pts[0] = curvePoints[i * 3];
-				pts[1] = curvePoints[i * 3 + 1];
-				pts[2] = curvePoints[i * 3 + 2];
-				pts[3] = curvePoints[i * 3 + 3];
-				float s = j / (float)ndivs;
-				Vec3 pt = evalBezierCurve(pts, s);
-				Vec3 tangent = derivBezier(pts, s).normalized();
-				bool swap = false;
-
-				uint8_t maxAxis;
-				if (std::abs(tangent.x) > std::abs(tangent.y))
-					if (std::abs(tangent.x) > std::abs(tangent.z))
-						maxAxis = 0;
-					else
-						maxAxis = 2;
-				else if (std::abs(tangent.y) > std::abs(tangent.z))
-					maxAxis = 1;
-				else
-					maxAxis = 2;
-
-				Vec3 up, forward, right;
-
-				switch (maxAxis) {
-				case 0:
-				case 1:
-					up = tangent;
-					forward = Vec3(0, 0, 1);
-					//right = up.crossProduct(forward);
-					right = cross(up, forward);
-					//forward = right.crossProduct(up);
-					forward = cross(right, up);
-					break;
-				case 2:
-					up = tangent;
-					right = Vec3(0, 0, 1);
-					//forward = right.crossProduct(up);
-					forward = cross(right, up);
-					//right = up.crossProduct(forward);
-					right = cross(up, forward);
-					break;
-				default:
-					break;
-				};
-				
-				up = up.normalized();
-				forward = forward.normalized();
-				right = right.normalized();
-				float sNormalized = (i * ndivs + j) / float(ndivs * ncurves);
-				//float rad = 0.1 * (1 - sNormalized);
-				//float rad = 0.1 * (1 - sNormalized);
-				float rad = 0.01f;
-				//float rad = 0.04f;
-				for (uint32_t k = 0; k <= ndivs; ++k) {
-					float t = k / (float)ndivs;
-					float theta = t * 2 * PI<f32>;
-					Vec3 pc(cos(theta) * rad, 0, sin(theta) * rad);
-					float x = pc.x * right.x + pc.y * up.x + pc.z * forward.x;
-					float y = pc.x * right.y + pc.y * up.y + pc.z * forward.y;
-					float z = pc.x * right.z + pc.y * up.z + pc.z * forward.z;
-					P[i * (ndivs + 1) * ndivs + j * (ndivs + 1) + k] = Vec3(pt.x + x, pt.y + y, pt.z + z);
-					N[i * (ndivs + 1) * ndivs + j * (ndivs + 1) + k] = Vec3(x, y, z).normalized();
-					st[i * (ndivs + 1) * ndivs + j * (ndivs + 1) + k] = Vec2(sNormalized, t);
-				}
-			}
-		}
-		P[(ndivs + 1) * ndivs * ncurves] = curvePoints[curvePoints.size() - 1];
-		N[(ndivs + 1) * ndivs * ncurves] = (curvePoints[curvePoints.size() - 2] - curvePoints[curvePoints.size() - 1]).normalized();
-		st[(ndivs + 1) * ndivs * ncurves] = Vec2(1, 0.5);
-		uint32_t numFaces = ndivs * ndivs * ncurves;
-		std::unique_ptr<uint32_t[]> verts(new uint32_t[numFaces]);
-		for (uint32_t i = 0; i < numFaces; ++i)
-			verts[i] = (i < (numFaces - ndivs)) ? 4 : 3;
-		std::unique_ptr<uint32_t[]> vertIndices(new uint32_t[ndivs * ndivs * ncurves * 4 + ndivs * 3]);
-		uint32_t nf = 0, ix = 0;
-		for (uint32_t k = 0; k < ncurves; ++k) {
-			for (uint32_t j = 0; j < ndivs; ++j) {
-				if (k == (ncurves - 1) && j == (ndivs - 1)) { break; }
-				for (uint32_t i = 0; i < ndivs; ++i) {
-					indicesAddQuad(
-						indices,
-						offset + nf,
-						offset + nf + (ndivs + 1),
-						offset + nf + (ndivs + 1) + 1,
-						offset + nf + 1
-					);
-					/*vertIndices[ix] = nf;
-					vertIndices[ix + 1] = nf + (ndivs + 1);
-					vertIndices[ix + 2] = nf + (ndivs + 1) + 1;
-					vertIndices[ix + 3] = nf + 1;*/
-					ix += 4;
-					++nf;
-				}
-				nf++;
-			}
-		}
-
-		for (uint32_t i = 0; i < ndivs; ++i) {
-			vertIndices[ix] = nf;
-			vertIndices[ix + 1] = (ndivs + 1) * ndivs * ncurves;
-			vertIndices[ix + 2] = nf + 1;
-			ix += 3;
-			nf++;
-		}
-
-		const auto c = (ndivs + 1) * ndivs * ncurves + 1;
-		ImGui::Text("vertex count: %d", c);
-		for (i32 i = 0; i < c; i++) {
+	lineGenerator.reset();
+	for (const auto& line : lines) {
+		lineGenerator.addLine(line);
+	}
+	if (currentlyDrawnLine.has_value()) {
+		lineGenerator.addLine(*currentlyDrawnLine);
+	}
+	{
+		std::vector<Vertex3Pnc> vertices;
+		for (i32 i = 0; i < lineGenerator.vertexCount(); i++) {
 			vertices.push_back(Vertex3Pnc{
-				.position = P[i],
-				.normal = N[i],
-				//.color = Vec4(Color3::RED, 1.0f),
-				.color = Vec4(Color3::fromHsv(f32(i) / f32(1000), 1.0f, 1.0f), 1.0f),
+				.position = lineGenerator.positions[i],
+				.normal = lineGenerator.normals[i],
+				.color = Vec4(Color3::GREEN, 1.0f),
 			});
 		}
-		/*for (i32 i = 0; i < ndivs * ndivs * ncurves * 4 + ndivs * 3; i++) {
-			indices.push_back(offset + vertIndices[i]);
-		}*/
+		linesVbo.allocateData(constView(vertices));
+		linesIbo.allocateData(constView(lineGenerator.indices));
+	}
+	std::vector<ColoredShadingInstance> instances;
+	f32 scales[] = { 1.0f, -1.0f };
+	for (const auto& scale : scales) {
+		for (const auto& isometry : symmetries) {
+			instances.push_back(ColoredShadingInstance{
+				.model = Mat4(scale * sphereRotation.toMatrix() * isometry.toMatrix())
+			});
+		}
+	}
+	renderer.coloredShadingShader.use();
+	shaderSetUniforms(renderer.coloredShadingShader, ColoredShadingVertUniforms{
+		.transform = renderer.transform,
+		.view = renderer.view,
+	});
+	//glEnable(GL_CULL_FACE);
+	drawInstances(linesVao, renderer.instancesVbo, constView(instances), [&](usize instanceCount) {
+		glDrawElementsInstanced(GL_TRIANGLES, lineGenerator.indices.size(), GL_UNSIGNED_INT, nullptr, instanceCount);
+	});
+	//glDisable(GL_CULL_FACE);
 
-		//for (const auto& vertex : )
-		/*objects.push_back(std::unique_ptr<TriangleMesh>(new TriangleMesh(Matrix44f::kIdentity, numFaces, verts, vertIndices, P, N, st)));*/
+	auto isInf = [](f32 v) {
+		return isnan(v) || isinf(v);
 	};
 
-		{
-		for (const auto& isometry : cubeIsometries) {
+	if (drawStereographicProjection) {
+		lineGenerator.reset();
+		for (const auto& isometry : symmetries) {
 			for (const auto& line : lines) {
 				std::vector<Vec3> transformedPoints;
 				for (const auto& point : line) {
@@ -313,13 +215,14 @@ void Visualization::sphereDrawing() {
 					std::vector<Vec3> currentLine;
 					for (const auto& line : lines) {
 						for (const auto& point : transformedPoints) {
-							const auto stereographic = toStereographic(point * scale);
+							const auto stereographic = toStereographic(sphereRotation * point * scale);
 							auto isInf = [](f32 v) {
 								return isnan(v) || isinf(v);
 							};
 
 							if (isInf(stereographic.x) || isInf(stereographic.y)) {
-								outputLine(currentLine);
+								//lineGenerator.addLine(currentLine);
+								lineGenerator.addFlatCurve(currentLine, Vec3(0.0f, 1.0f, 0.0f));
 								currentLine.clear();
 								continue;
 							}
@@ -328,127 +231,52 @@ void Visualization::sphereDrawing() {
 							currentLine.push_back(stereographic3);
 						}
 					}
-					outputLine(currentLine);
+					//lineGenerator.addLine(currentLine);
+					lineGenerator.addFlatCurve(currentLine, Vec3(0.0f, 1.0f, 0.0f));
+					currentLine.clear();
 				}
 			}
 		}
 	}
 
-	for (const auto& line : lines) {
-		outputLine(line);
-	}
-	if (currentlyDrawnLine.has_value()) {
-		outputLine(*currentlyDrawnLine);
-	}
-
-
-	linesVbo.allocateData(vertices.data(), vertices.size() * sizeof(Vertex3Pnc));
-	linesIbo.allocateData(indices.data(), indices.size() * sizeof(i32));
-	ImGui::Text("triangle count: %d", indices.size() / 3);
-
-	std::vector<ColoredShadingInstance> instances;
-
-	f32 scales[] = { 1.0f, -1.0f };
-	//f32 scales[] = { 1.0f };
-	for (const auto& scale : scales) {
-		for (const auto& isometry : cubeIsometries) {
-			instances.push_back(ColoredShadingInstance{
-				.model = Mat4(scale * isometry.toMatrix())
-			});
-		}
-	}
-	renderer.coloredShadingShader.use();
-	shaderSetUniforms(renderer.coloredShadingShader, ColoredShadingVertUniforms{
-		.transform = renderer.transform,
-		.view = renderer.view,
-	});
-	drawInstances(linesVao, renderer.instancesVbo, constView(instances), [&](usize instanceCount) {
-		glDrawElementsInstanced(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr, instanceCount);
+	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::RED);
+	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
+		.model = Mat4::identity
 	});
 
-	auto isInf = [](f32 v) {
-		return isnan(v) || isinf(v);
-	};
-
-	//// This looks cool
-	//{
-	//	f32 scales[] = { 1.0f, -1.0f };
-	//	for (const auto& scale : scales) {
-	//		for (const auto& isometry : cubeIsometries) {
-	//			for (const auto& line : lines) {
-	//				for (const auto& point : line) {
-	//					const auto stereographic = toStereographic(point);
-	//					if (isInf(stereographic.x) || isInf(stereographic.y)) {
-	//						continue;
-	//					}
-	//					const auto stereographic3 = Vec3(stereographic.x, 0.0f, stereographic.y);
-	//					renderer.sphere(stereographic3 * isometry * scale, 0.003f, Color3::RED);
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-
-	//{
-	//	f32 scales[] = { 1.0f, -1.0f };
-	//	for (const auto& scale : scales) {
-	//		for (const auto& isometry : cubeIsometries) {
-	//			for (const auto& line : lines) {
-	//				for (const auto& point : line) {
-	//					auto p = point;
-	//					p *= scale;
-	//					p *= isometry;
-	//					const auto stereographic = toStereographic(p);
-	//					if (isInf(stereographic.x) || isInf(stereographic.y)) {
-	//						continue;
-	//					}
-	//					const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
-	//					renderer.sphere(stereographic3, 0.003f, Color3::RED);
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-	//{
-	//	f32 scales[] = { 1.0f, -1.0f };
-	//	for (const auto& scale : scales) {
-	//		for (const auto& isometry : cubeIsometries) {
-	//			std::optional<Vec3> previous;
-	//			for (const auto& line : lines) {
-	//				for (const auto& point : line) {
-	//					auto p = point;
-	//					p *= scale;
-	//					p *= isometry;
-	//					const auto stereographic = toStereographic(p);
-	//					auto isInf = [](f32 v) {
-	//						return isnan(v) || isinf(v);
-	//					};
-
-	//					if (isInf(stereographic.x) || isInf(stereographic.y)) {
-	//						previous = std::nullopt;
-	//						continue;
-	//					}
-
-	//					const auto stereographic3 = Vec3(stereographic.x, -1.0f, stereographic.y);
-	//					if (!previous.has_value()) {
-	//						previous = stereographic3;
-	//					} else {
-	//						renderer.line(*previous, stereographic3, 0.01f, Color3::GREEN, false);
-	//						previous = stereographic3;
-	//					}
-	//				}
-
-	//			}
-	//		}
-	//	}
-	//}
-	
-	/*for (const auto& line : lines) {
-		drawLine(line);
+	auto vertices = View<const Vec3>::empty();
+	auto edges = View<const i32>::empty();
+	switch (symmetryGroup) {
+		using enum SymmetryGroup;
+	case IDENTITY:
+		break;
+	case TETRAHEDRAL:
+		vertices = constView(tetrahedronVertices);
+		edges = constView(tetrahedronEdges);
+		break;
+	case OCTAHEDRAL:
+		vertices = constView(cubeVertices);
+		edges = constView(cubeEdges);
+		break;
+	case ICOSAHEDRAL:
+		vertices = constView(icosahedronVertices);
+		edges = constView(icosahedronEdges);
+		break;
 	}
-	if (currentlyDrawnLine.has_value()) {
-		drawLine(*currentlyDrawnLine);
-	}*/
+	lineGenerator.reset();
+	for (i32 i = 0; i < edges.size(); i += 2) {
+		const auto a = sphereRotation * vertices[edges[i]].normalized();
+		const auto b = sphereRotation * vertices[edges[i + 1]].normalized();
+		/*renderer.sphere(a, 0.05f, Color3::BLUE);
+		renderer.sphere(b, 0.05f, Color3::BLUE);*/
+		lineGenerator.addCircularArc(a, b, Vec3(0.0f), 0.01f);
+	}
+	glEnable(GL_CULL_FACE);
+	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::RED);
+	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
+		.model = Mat4::identity
+	});
+	glDisable(GL_CULL_FACE);
 }
 
 void Visualization::renderingSetup() {
@@ -476,6 +304,36 @@ void Visualization::renderingSetup() {
 }
 
 void Visualization::render() {
-	renderer.renderHemispheres();
+ 	renderer.renderHemispheres();
 	renderer.renderCyllinders();
+}
+
+RandomSmoothRotationGenerator::RandomSmoothRotationGenerator() 
+	: noise(0) {}
+
+void RandomSmoothRotationGenerator::settingsGui() {
+	ImGui::SliderFloat("rotation speed", &rotationSpeed, 0.0f, 10.0f);
+	ImGui::SliderFloat("axis change speed", &axisChangeSpeed, 0.0f, 10.0f);
+	ImGui::SliderFloat("axis change change speed", &axisChangeChangeSpeed, 0.0f, 10.0f);
+}
+
+void RandomSmoothRotationGenerator::updateRotation() {
+	static f32 elapsed = 0.0f;
+	elapsed += Constants::dt;
+
+	const auto rotationAxis = cross(positionOnSphere, movementDirection);
+	const auto rotation = Quat(Constants::dt * axisChangeSpeed, rotationAxis);
+	positionOnSphere *= rotation;
+
+	positionOnSphere = positionOnSphere.normalized();
+	movementDirection = cross(rotationAxis, positionOnSphere).normalized();
+
+	movementDirection *= Quat(noise.value2d(Vec2(0.0f, elapsed)) * Constants::dt * axisChangeChangeSpeed, positionOnSphere);
+
+	positionOn3Sphere *= exponentialMap(positionOnSphere * Constants::dt * rotationSpeed);
+	positionOn3Sphere = positionOn3Sphere.normalized();
+}
+
+const Quat& RandomSmoothRotationGenerator::getRotation() const {
+	return positionOn3Sphere;
 }

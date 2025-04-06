@@ -24,6 +24,28 @@ void renderTriangles(ShaderProgram& shader, TriangleRenderer<Vertex>& r) {
 	r.indices.clear();
 }
 
+template<typename Vertex, typename Instance>
+void renderTriangles(ShaderProgram& shader, TriangleRenderer<Vertex>& r, Vbo& instancesVbo, const Instance& instance) {
+	if (r.vertices.size() == 0 || r.indices.size() == 0) {
+		return;
+	}
+	r.vbo.allocateData(r.vertices.data(), r.vertices.size() * sizeof(Vertex));
+	r.ibo.allocateData(r.indices.data(), r.indices.size() * sizeof(u32));
+
+	shader.use();
+	drawInstances(
+		r.vao,
+		instancesVbo,
+		constView(instance),
+		[&](usize count) {
+			glDrawElements(GL_TRIANGLES, i32(r.indices.size()), GL_UNSIGNED_INT, nullptr);
+		}
+	);
+
+	r.vertices.clear();
+	r.indices.clear();
+}
+
 
 template<typename Shader, typename Vertex>
 Mesh makeMesh(View<const Vertex> vertices, View<const i32> indices, Vbo& instancesVbo) {
@@ -467,11 +489,29 @@ void GameRenderer::renderSurfaceTriangles(f32 opacity) {
 	renderTriangles(surfaceShader, surfaceTriangles);
 }
 
-void GameRenderer::renderColoredShadingTriangles() {
+void GameRenderer::renderColoredShadingTriangles(const ColoredShadingInstance& instance) {
 	shaderSetUniforms(coloredShadingShader, ColoredShadingVertUniforms{
 		.transform = transform,
 		.view = view,
 	});
 	//.model = coloredShadingModel,
-	renderTriangles(coloredShadingShader, coloredShadingTriangles);
+	renderTriangles(coloredShadingShader, coloredShadingTriangles, instancesVbo, instance);
+}
+
+void GameRenderer::coloredShadingTrianglesAddMesh(const std::vector<Vec3>& positions, const std::vector<Vec3>& normals, const std::vector<i32>& indices, Vec3 color) {
+	const auto offset = coloredShadingTriangles.vertices.size();
+	for (i32 i = 0; i < positions.size(); i++) {
+		coloredShadingTriangles.addVertex(Vertex3Pnc{
+			.position = positions[i],
+			.normal = normals[i],
+			.color = Vec4(color, 1.0f),
+		});
+	}
+	for (const auto& index : indices) {
+		coloredShadingTriangles.indices.push_back(offset + index);
+	}
+}
+
+void GameRenderer::coloredShadingTrianglesAddMesh(const LineGenerator& lineGenerator, Vec3 color) {
+	coloredShadingTrianglesAddMesh(lineGenerator.positions, lineGenerator.normals, lineGenerator.indices, color);
 }

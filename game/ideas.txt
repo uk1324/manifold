@@ -289,3 +289,9 @@ Which geometries are affine?
 Are all the geometries which have a subgroup of the general linear group as the automorphism group affine?
 
 Stereographic projection.
+
+Ray traced tiling of 3 space.
+
+Drawing into texture mod some wallpapers groups is easy, then use shaders to render an infinite plane.
+
+In lower dimensions you rotate about the centers of edges and faces. How does that generalize to higher dimensions?

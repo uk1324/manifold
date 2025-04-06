@@ -5,6 +5,21 @@
 #include <game/FpsCamera3d.hpp>
 #include <game/Polyhedra.hpp>
 
+struct RandomSmoothRotationGenerator {
+	RandomSmoothRotationGenerator();
+	Vec3 positionOnSphere = Vec3(1.0f, 0.0f, 0.0f);
+	Vec3 movementDirection = Vec3(0.0f, 1.0f, 0.0f);
+	PerlinNoise noise;
+	Quat positionOn3Sphere = Quat(1.0f, 1.0f, 0.0f, 0.0f).normalized();
+	f32 rotationSpeed = 0.01f;
+	f32 axisChangeChangeSpeed = 1.0f;
+	f32 axisChangeSpeed = 1.0f;
+	void settingsGui();
+
+	void updateRotation();
+	const Quat& getRotation() const;
+};
+
 struct Visualization {
 	static Visualization make();
 
@@ -12,15 +27,21 @@ struct Visualization {
 
 	void renderPolygonSoup(const PolygonSoup& polygonSoup);
 
-	// Don't think it is possible to continously assign angles on a sphere, then you could create a non-vanishing vector field for example by getting all the tangent vectors with angle 0.
-	std::vector<Vec3> positions;
-	Vec3 positionOnSphere = Vec3(1.0f, 0.0f, 0.0f);
-	Vec3 movementDirection = Vec3(0.0f, 1.0f, 0.0f);
-	PerlinNoise noise;
-	Quat positionOn3Sphere = Quat(1.0f, 1.0f, 0.0f, 0.0f).normalized();
-	f32 rotationSpeed = 1.0f;
-	f32 axisChangeSpeed1 = 1.0f;
-	f32 axisChangeSpeed2 = 1.0f;
+	PolygonSoup sphereMesh;
+
+	bool rotateRandomly = false;
+	RandomSmoothRotationGenerator randomRotationGenerator;
+
+	bool drawStereographicProjection = false;
+
+	enum class SymmetryGroup {
+		IDENTITY,
+		TETRAHEDRAL,
+		OCTAHEDRAL,
+		ICOSAHEDRAL,
+	};
+	SymmetryGroup symmetryGroup = SymmetryGroup::ICOSAHEDRAL;
+	bool includeReflections = true;
 
 	void sphereDrawing();
 
@@ -32,6 +53,8 @@ struct Visualization {
 	Vbo linesVbo;
 	Ibo linesIbo;
 	Vao linesVao;
+
+	LineGenerator lineGenerator;
 
 	GameRenderer renderer;
 	FpsCamera3d camera;

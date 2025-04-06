@@ -3,8 +3,20 @@
 #include <engine/Math/Angles.hpp>
 #include <unordered_map>
 #include "Permutations.hpp"
+#include <Put.hpp>
+#include <unordered_set>
+#include <iomanip>
 
-std::vector<Quat> generateCubeDirectSymmetriesQuats() {
+void printQuaternions(std::vector<Quat> qs) {
+	put("Quat result[] {");
+	for (const auto& q : qs) {
+		put("\tQuat(%f, %f, %f, %f),", q.x, q.y, q.z, q.w);
+	}
+	std::cout << std::setprecision(std::numeric_limits<f32>::digits10);
+	put("}");
+}
+
+std::vector<Quat> generateOctahedralDirectSymmetriesQuats() {
 	std::vector<Quat> result;
 
 	result.push_back(Quat::identity);
@@ -80,9 +92,30 @@ Quat mat3ToQuatUnchecked(const Mat3& ma) {
 	return result.normalized();
 }
 
-#include <Put.hpp>
+std::vector<Quat> generateTetrahedralDirectSymmetriesQuats() {
+	std::vector<Quat> result;
+	result.push_back(Quat::identity);
+	{
+		const Vec3 axes[]{
+			(tetrahedronVertices[0] + tetrahedronVertices[1]) / 2.0f,
+			(tetrahedronVertices[0] + tetrahedronVertices[2]) / 2.0f,
+			(tetrahedronVertices[1] + tetrahedronVertices[2]) / 2.0f,
+		};
+		for (const auto& axis : axes) {
+			result.push_back(Quat(TAU<f32> / 2.0f, axis.normalized()));
+		}
+	}
+	{
+		for (const auto& vertex : tetrahedronVertices) {
+			const auto axis = vertex.normalized();
+			result.push_back(Quat(TAU<f32> / 3.0f, axis));
+			result.push_back(Quat(-TAU<f32> / 3.0f, axis));
+		}
+	}
+	return result;
+}
 
-std::vector<Mat3> generateIcosahedronDirectSymmetriesMats() {
+std::vector<Mat3> generateIcosahedralDirectSymmetriesMats() {
 	// If we think of the isometries as acting on a dodecahedron then the isometries can be divided into
 	// identity
 	// rotation with an axis though a face center. Pairs of faces represent an axis. There are 12 faces => 6 axes. The order of rotation is 5 so there are 4 unique rotations. (12 / 2) * 4.
@@ -141,11 +174,120 @@ std::vector<Mat3> generateIcosahedronDirectSymmetriesMats() {
  	return r;
 }
 
-std::vector<Quat> generateIcosahedronDirectSymmetriesQuats() {
-	const auto mats = generateIcosahedronDirectSymmetriesMats();
+std::vector<Quat> generateIcosahedralDirectSymmetriesQuats() {
+	const auto mats = generateIcosahedralDirectSymmetriesMats();
 	std::vector<Quat> result;
 	for (const auto& mat : mats) {
 		result.push_back(mat3ToQuatUnchecked(mat));
+	}
+	printQuaternions(result);
+	return result;
+}
+
+template<typename T, typename Eq>
+void vectorAddIfUnique(std::vector<T>& v, const T& toAdd, Eq equals) {
+	bool duplicate = false;
+	for (const auto& item : v) {
+		if (equals(item, toAdd)) {
+			duplicate = true;
+			break;
+		}
+	}
+	if (!duplicate) {
+		v.push_back(toAdd);
+	}
+}
+
+std::vector<Quat> generateIcosahedralDirectSymmetriesQuats2() {
+	std::vector<Quat> result;
+	result.push_back(Quat::identity);
+
+	auto equals = [](View<const Vec3> a, View<const Vec3> b) {
+		for (const auto& va : a) {
+			bool found = false;
+			for (const auto& ba : b) {
+				if (va == -ba) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) {
+				return false;
+			}
+		}
+		return true;
+	};
+
+	{
+		struct Face {
+			Vec3 v[3];
+		};
+		auto faceEquals = [&](const Face& a, const Face& b) {
+			return equals(constView(a.v), constView(b.v));
+		};
+
+		std::vector<Face> uniqueFacesModAntipodalMap;
+		for (i32 i = 0; i < std::size(icosahedronFaces); i += icosahedronVerticesPerFace) {
+			const auto newFace = Face{ .v = {
+				icosahedronVertices[icosahedronFaces[i]],
+				icosahedronVertices[icosahedronFaces[i + 1]],
+				icosahedronVertices[icosahedronFaces[i + 2]]
+			} };
+			vectorAddIfUnique(uniqueFacesModAntipodalMap, newFace, faceEquals);
+		}
+
+		std::vector<Vec3> axes;
+		for (const auto& face : uniqueFacesModAntipodalMap) {
+			const auto center = (face.v[0] + face.v[1] + face.v[2]) / 3.0f;
+			axes.push_back(center.normalized());
+		}
+		for (const auto& axis : axes) {
+			result.push_back(Quat(TAU<f32> / 3.0f, axis));
+			result.push_back(Quat(-TAU<f32> / 3.0f, axis));
+		}
+	}
+	{
+		struct Edge {
+			Vec3 v[2];
+		};
+		auto edgeEquals = [&](const Edge& a, const Edge& b) {
+			return equals(constView(a.v), constView(b.v));
+		};
+		std::vector<Edge> uniqueEdgesModAntipodalMap;
+		for (i32 i = 0; i < std::size(icosahedronEdges); i += 2) {
+			const auto newEdge = Edge{ .v = {
+				icosahedronVertices[icosahedronEdges[i]],
+				icosahedronVertices[icosahedronEdges[i + 1]],
+			} };
+			vectorAddIfUnique(uniqueEdgesModAntipodalMap, newEdge, edgeEquals);
+		}
+
+		std::vector<Vec3> axes;
+		for (const auto& edge : uniqueEdgesModAntipodalMap) {
+			const auto center = (edge.v[0] + edge.v[1]) / 2.0f;
+			axes.push_back(center.normalized());
+		}
+		for (const auto& axis : axes) {
+			result.push_back(Quat(PI<f32>, axis));
+		}
+	}
+	{
+		std::vector<Vec3> uniqueVerticesModAntipodalMap;
+		auto vertexEquals = [&](const Vec3& a, const Vec3& b) {
+			return a == -b;
+		};
+		for (const auto& vertex : icosahedronVertices) {
+			vectorAddIfUnique(uniqueVerticesModAntipodalMap, vertex, vertexEquals);
+		}
+
+		for (const auto& vertex : uniqueVerticesModAntipodalMap) {
+			const auto axis = vertex.normalized();
+			result.push_back(Quat(TAU<f32> / 5.0f, axis));
+			result.push_back(Quat(2.0f * TAU<f32> / 5.0f, axis));
+			result.push_back(Quat(-TAU<f32> / 5.0f, axis));
+			result.push_back(Quat(-2.0f * TAU<f32> / 5.0f, axis));
+		}
 	}
 	return result;
 }
@@ -261,4 +403,35 @@ PolygonSoup dualPolyhedron(const PolygonSoup& polyhedron) {
 		result.verticesPerFace.push_back(count);
 	}
 	return result;
+}
+
+void edgeListFromFaceList(View<const i32> faces, View<const i32> verticesPerFace) {
+	using EdgeId = std::pair<i32, i32>;
+	auto makeEdgeId = [](i32 a, i32 b) -> EdgeId {
+		if (a < b) {
+			return EdgeId{ a, b };
+		}
+		return EdgeId{ b, a };
+	};
+	struct EdgeIdHash {
+		usize operator()(const EdgeId& id) const {
+			return hashCombine(id.first, id.second);
+		}
+	};
+	std::unordered_set<EdgeId, EdgeIdHash> edgeList;
+	i32 offset = 0;
+	for (i32 faceI = 0; faceI < verticesPerFace.size(); faceI++) {
+		const auto verticesInFace = verticesPerFace[faceI];
+		i32 previousVertex = verticesInFace - 1;
+		for (i32 vertexI = 0; vertexI < verticesInFace; vertexI++) {
+			edgeList.insert(makeEdgeId(faces[offset + vertexI], faces[offset + previousVertex]));
+			previousVertex = vertexI;
+		}
+		offset += verticesInFace;
+	}
+	put("i32 edges[]{");
+	for (const auto& edge : edgeList) {
+		put("\t%, %,", edge.first, edge.second);
+	}
+	put("};");
 }

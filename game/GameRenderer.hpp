@@ -7,6 +7,7 @@
 #include <game/Shaders/coloredData.hpp>
 #include <game/Shaders/bulletData.hpp>
 #include <game/Shaders/coloredShadingData.hpp>
+#include <game/LineGenerator.hpp>
 #include <game/Cubemap.hpp>
 
 struct Mesh {
@@ -91,7 +92,9 @@ struct GameRenderer {
 	TriangleRenderer<Vertex3Pnc> coloredShadingTriangles;
 	ShaderProgram& coloredShadingShader;
 	Mat4 coloredShadingModel = Mat4::identity;
-	void renderColoredShadingTriangles();
+	void renderColoredShadingTriangles(const ColoredShadingInstance& instance);
+	void coloredShadingTrianglesAddMesh(const std::vector<Vec3>& positions, const std::vector<Vec3>& normals, const std::vector<i32>& indices, Vec3 color);
+	void coloredShadingTrianglesAddMesh(const LineGenerator& lineGenerator, Vec3 color);
 
 	Gfx2d gfx2d;
 
