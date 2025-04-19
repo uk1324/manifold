@@ -165,6 +165,7 @@ static const i32 icosahedronEdges[]{
 };
 
 static i32 icosahedronVerticesPerFace = 3;
+static i32 icosahedronFaceCount = std::size(icosahedronFaces) / icosahedronVerticesPerFace;
 
 // direct and opposite isometries
 // proper and improper isometries.
