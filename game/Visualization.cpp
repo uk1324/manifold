@@ -10,6 +10,7 @@
 #include <engine/Math/Angles.hpp>
 #include <StructUtils.hpp>
 
+// TODO: Add the frieze groups.
 Visualization Visualization::make() {
 	
 	auto renderer = GameRenderer::make();
@@ -20,190 +21,7 @@ Visualization Visualization::make() {
 
 	Window::disableCursor();
 	
-	PolygonSoup sphere;
-	{
-		// Number of cuts on the edge. So now there will be 2 of the original vertices and 3 in between.
-		i32 verticesOnEdge = 4;
-		i32 verticesOnEdgeWithoutEndpoints = verticesOnEdge - 2;
-
-		// Add the original vertices at the start of the list
-		for (i32 i = 0; i < std::size(icosahedronVertices); i++) {
-			sphere.positions.push_back(icosahedronVertices[i]);
-		}
-		auto getOriginalIcosahedronVertex = [&](i32 i) {
-			return i;
-		};
-
-		// Add the points on the edges.
-		for (i32 i = 0; i < std::size(icosahedronEdges); i += 2) {
-			const auto endpoint0Index = icosahedronEdges[i];
-			const auto endpoint1Index = icosahedronEdges[i + 1];
-
-			for (i32 i = 1; i <= verticesOnEdgeWithoutEndpoints; i++) {
-				const auto t = f32(i) / f32(verticesOnEdge - 1);
-				const auto v = lerp(
-					icosahedronVertices[endpoint0Index],
-					icosahedronVertices[endpoint1Index],
-					t
-				);
-				sphere.positions.push_back(v);
-			}
-		}
-
-		struct EdgeId {
-			i32 startIndex;
-			bool reversed;
-		};
-
-		auto getEdgeId = [](i32 endpoint0, i32 endpoint1) {
-			for (i32 i = 0; i < std::size(icosahedronEdges); i += 2) {
-				const auto e0 = icosahedronEdges[i];
-				const auto startIndex = i;
-				const auto e1 = icosahedronEdges[i + 1];
-				if (e0 == endpoint0 && e1 == endpoint1) {
-					return EdgeId{ startIndex, false };
-				} else if (e0 == endpoint1 && e1 == endpoint0) {
-					return EdgeId{ startIndex, true };
-				}
-			}
-			ASSERT_NOT_REACHED();
-		};
-
-		auto indexOnEdge = [&](const EdgeId& edgeId, i32 i) -> i32 {
-			if (edgeId.reversed) {
-				// 0 gets mapped to the last index = verticesOnEdge - 1
-				i = verticesOnEdge - i - 1;
-			}
-			if (i == 0) {
-				 return icosahedronEdges[edgeId.startIndex];
-			}
-			if (i == verticesOnEdge - 1) {
-				return icosahedronEdges[edgeId.startIndex + 1];
-			}
-			const auto edgeVerticesOffset = std::size(icosahedronVertices);
-			const auto edgeIndex = edgeId.startIndex / 2;
-			return edgeVerticesOffset + 
-				edgeIndex * verticesOnEdgeWithoutEndpoints +
-				(i - 1);
-		};
-
-		std::vector<i32> indices;
-		for (i32 faceOffset = 0; faceOffset < std::size(icosahedronFaces); faceOffset += icosahedronVerticesPerFace) {
-
-			const auto faceStartOffset = indices.size();
-
-			const auto v0 = icosahedronFaces[faceOffset];
-			const auto v1 = icosahedronFaces[faceOffset + 1];
-			const auto v2 = icosahedronFaces[faceOffset + 2];
-
-			const auto bottomEdge = getEdgeId(v0, v1);
-			const auto leftEdge = getEdgeId(v0, v2);
-			const auto rightEdge = getEdgeId(v1, v2);
-			/*    (9)
-			      / \
-			    (7)-(8)
- 			    / \ / \
-			  (4)-(5)-(6)
-			  / \ / \ / \
-			(0)-(1)-(2)-(3)
-
-			//Could explicitly create an array that would store the indices of the vertices in the order like this instead of trying to find the indicies using ifs.
-			*/
-			std::vector<i32> faceIndices;
-			for (i32 i = 0; i < verticesOnEdge; i++) {
-				faceIndices.push_back(indexOnEdge(bottomEdge, i));
-			}
-
-			i32 insideVerticesOnLayer = verticesOnEdgeWithoutEndpoints - 1;
-			for (i32 layer = 1; layer < verticesOnEdge - 1; layer++) {
-				const auto leftIndex = indexOnEdge(leftEdge, layer);
-				const auto rightIndex = indexOnEdge(rightEdge, layer);
-				faceIndices.push_back(leftIndex);
-				const auto verticesOnLayer = insideVerticesOnLayer + 2;
-				for (i32 i = 1; i <= insideVerticesOnLayer; i++) {
-					const auto vertex = lerp(
-						sphere.positions[leftIndex],
-						sphere.positions[rightIndex],
-						f32(i) / f32(verticesOnLayer - 1));
-					faceIndices.push_back(sphere.positions.size());
-					sphere.positions.push_back(vertex);
-				}
-				faceIndices.push_back(rightIndex);
-				insideVerticesOnLayer -= 1;
-			}
-			faceIndices.push_back(indexOnEdge(leftEdge, verticesOnEdge - 1));
-
-			i32 bottomLayerOffset = 0;
-			for (i32 bottomLayerVertexCount = verticesOnEdge; bottomLayerVertexCount > 1; bottomLayerVertexCount--) {
-				const auto topLayerOffset = bottomLayerOffset + bottomLayerVertexCount;
-				for (i32 i = 0; i < bottomLayerVertexCount - 1; i++) {
-					const auto bottom0 = faceIndices[bottomLayerOffset + i];
-					const auto bottom1 = faceIndices[bottomLayerOffset + i + 1];
-					const auto top = faceIndices[topLayerOffset + i];
-					indicesAddTri(sphere.facesVertices, bottom0, bottom1, top);
-					sphere.verticesPerFace.push_back(3);
-				}
-
-				const auto topLayerVertices = bottomLayerVertexCount - 1;
- 				for (i32 i = 0; i < topLayerVertices - 1; i++) {
-					const auto top0 = faceIndices[topLayerOffset + i];
-					const auto top1 = faceIndices[topLayerOffset + i + 1];
-					const auto bottom = faceIndices[bottomLayerOffset + 1 + i];
-					indicesAddTri(sphere.facesVertices, top1, top0, bottom);
-					sphere.verticesPerFace.push_back(3);
-				}
-
-				bottomLayerOffset += bottomLayerVertexCount;
-			}
-
-			//i32 insideVerticesOnLayer = verticesOnEdgeWithoutEndpoints - 1;
-			//for (i32 layer = 1; layer < verticesOnEdgeWithoutEndpoints - 1; layer++) {
-			//	const auto leftVertex = vertices[indexOnEdge(leftEdge, layer)];
-			//	const auto rightVertex = vertices[indexOnEdge(rightEdge, layer)];
-			//	const auto verticesOnLayer = insideVerticesOnLayer + 2;
-			//	for (i32 i = 1; i <= insideVerticesOnLayer; i++) {
-			//		const auto vertex = lerp(leftVertex, rightVertex, f32(i) / f32(insideVerticesOnLayer));
-			//		vertices.push_back(vertex);
-			//	}
-			//	insideVerticesOnLayer -= 1;
-			//}
-
-			//auto indexLayer = [&](i32 layerIndex, i32 layerStartOffset, i32 verticesPerLayer, i32 i) -> i32 {
-			//	if (i == 0) {
-			//		return indexOnEdge(leftEdge, layerIndex);
-			//	} 
-			//	if (i == verticesPerLayer - 1) {
-			//		return indexOnEdge(rightEdge, layerIndex);
-			//	}
-			//	return faceStartOffset + layerStartOffset + (i - 1);
-			//};
-
-			///*i32 layerIndex = 0;
-			//i32 bottomLayerStartOffset =;*/
-
-			//for (i32 i = 0; i < verticesOnEdge - 1; i++) {
-			//	const auto bottomIndex0 = indexOnEdge(bottomEdge, i);
-			//	const auto bottomIndex1 = indexOnEdge(bottomEdge, i + 1);
-			//	const auto topIndex = indexLayer(1, 0, verticesOnEdge - 1, i);
-			//	indicesAddTri(indices, bottomIndex0, bottomIndex1, topIndex);
-			//}
-			//i32 bottomLayerIndex = 1;
-			//i32 bottomLayerOffset = 0;
-			//i32 bottomLayerVertexCount = verticesOnEdge - 1;
-
-			//for (i32 layer = 1; layer < verticesOnEdgeWithoutEndpoints - 1; layer++) {
-			//	for (i32 i = 0; i < verticesOnEdge - 1; i++) {
-			//		const auto bottomIndex0 = indexLayer(bottomLayerIndex, bottomLayerOffset, bottomLayerVertexCount, i);
-			//		const auto bottomIndex1 = indexLayer(bottomLayerIndex, bottomLayerOffset, bottomLayerVertexCount, i + 1);
-			//		const auto topIndex = indexLayer(bottomLayerIndex + 1, , verticesOnEdge - 1, i);
-			//		indicesAddTri(indices, bottomIndex0, bottomIndex1, topIndex);
-			//	}
-			//}
-		}
-	}
-
 	return Visualization{
-		.sphereMesh = std::move(sphere),
 		MOVE(linesVbo),
 		MOVE(linesIbo),
 		MOVE(linesVao),
@@ -291,6 +109,10 @@ void Visualization::sphereDrawing() {
 
 	const Ray3 ray(renderer.cameraPosition, renderer.cameraForward);
 	const auto intersection = raySphereIntersection(ray, spherePosition, sphereRadius);
+
+	if (intersection.has_value()) {
+		renderer.sphere(ray.at(*intersection), 0.01f, Color3::RED);
+	}
 
 	if (intersection.has_value() && Input::isMouseButtonDown(MouseButton::LEFT)) {
 		currentlyDrawnLine = std::vector<Vec3>();
@@ -417,9 +239,9 @@ void Visualization::sphereDrawing() {
 		}
 	}
 
-	const auto r = flatShadeConvexPolygonSoup(sphereMesh);
-	//renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::RED);
-	renderer.coloredShadingTrianglesAddMesh(r.positions, r.normals, r.indices, Color3::GREEN);
+	//const auto r = flatShadeConvexPolygonSoup(sphereMesh);
+	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::RED);
+	//renderer.coloredShadingTrianglesAddMesh(r.positions, r.normals, r.indices, Color3::GREEN);
 	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
 		.model = Mat4::identity
 	});

@@ -14,5 +14,5 @@ void main() {
 	diffuse = clamp(diffuse, 0, 1);
 	//fragColor = vec4(interpolatedColor * diffuse, 1.0);
 	fragColor = vec4(interpolatedColor.rgb * diffuse, 1.0);
-	fragColor = vec4(interpolatedColor.rgb, 1.0);
+	//fragColor = vec4(interpolatedColor.rgb, 1.0);
 }

@@ -1,0 +1,25 @@
+struct SphericalPolygonVertex {
+	Vec3 position;
+	Vec3 normal;
+}
+
+shader SphericalPolygon {
+	vertexStruct = SphericalPolygonVertex;
+	vertUniforms = {
+		Mat4 transform;
+	};
+	fragUniforms = {
+		Vec3 cameraPosition;
+	};
+	vertInstance = {
+		Vec4 transform;
+	};
+	fragInstance = {
+		Vec4 n0;
+		Vec4 n1;
+		Vec4 n2;
+	};
+	vertOut = {
+		Vec3 interpolatedNormal;
+	};
+}

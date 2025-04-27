@@ -1,6 +1,8 @@
 #include "Polyhedra.hpp"
 #include <game/DoublyConnectedEdgeList.hpp>
 #include <engine/Math/Angles.hpp>
+#include <engine/Math/Interpolation.hpp>
+#include <game/MeshUtils.hpp>
 #include <unordered_map>
 #include "Permutations.hpp"
 #include <Put.hpp>
@@ -434,4 +436,149 @@ void edgeListFromFaceList(View<const i32> faces, View<const i32> verticesPerFace
 		put("\t%, %,", edge.first, edge.second);
 	}
 	put("};");
+}
+
+MeshTriPn makeIcosphere(i32 edgeDivisions, f32 radius) {
+	MeshTriPn result;
+
+	// Number of cuts on the edge. So now there will be 2 of the original vertices and 3 in between.
+	/*i32 verticesOnEdge = 3;
+	i32 verticesOnEdgeWithoutEndpoints = verticesOnEdge - 2;*/
+	i32 verticesOnEdgeWithoutEndpoints = edgeDivisions;
+	i32 verticesOnEdge = verticesOnEdgeWithoutEndpoints + 2;
+
+	// Add the original vertices at the start of the list
+	for (i32 i = 0; i < std::size(icosahedronVertices); i++) {
+		result.positions.push_back(icosahedronVertices[i]);
+	}
+	auto getOriginalIcosahedronVertex = [&](i32 i) {
+		return i;
+	};
+
+	// Add the points on the edges.
+	for (i32 i = 0; i < std::size(icosahedronEdges); i += 2) {
+		const auto endpoint0Index = icosahedronEdges[i];
+		const auto endpoint1Index = icosahedronEdges[i + 1];
+
+		for (i32 i = 1; i <= verticesOnEdgeWithoutEndpoints; i++) {
+			const auto t = f32(i) / f32(verticesOnEdge - 1);
+			const auto v = lerp(
+				icosahedronVertices[endpoint0Index],
+				icosahedronVertices[endpoint1Index],
+				t
+			);
+			result.positions.push_back(v);
+		}
+	}
+
+	struct EdgeId {
+		i32 startIndex;
+		bool reversed;
+	};
+
+	auto getEdgeId = [](i32 endpoint0, i32 endpoint1) {
+		for (i32 i = 0; i < std::size(icosahedronEdges); i += 2) {
+			const auto e0 = icosahedronEdges[i];
+			const auto startIndex = i;
+			const auto e1 = icosahedronEdges[i + 1];
+			if (e0 == endpoint0 && e1 == endpoint1) {
+				return EdgeId{ startIndex, false };
+			} else if (e0 == endpoint1 && e1 == endpoint0) {
+				return EdgeId{ startIndex, true };
+			}
+		}
+		ASSERT_NOT_REACHED();
+	};
+
+	auto indexOnEdge = [&](const EdgeId& edgeId, i32 i) -> i32 {
+		if (edgeId.reversed) {
+			// 0 gets mapped to the last index = verticesOnEdge - 1
+			i = verticesOnEdge - i - 1;
+		}
+		if (i == 0) {
+			return icosahedronEdges[edgeId.startIndex];
+		}
+		if (i == verticesOnEdge - 1) {
+			return icosahedronEdges[edgeId.startIndex + 1];
+		}
+		const auto edgeVerticesOffset = std::size(icosahedronVertices);
+		const auto edgeIndex = edgeId.startIndex / 2;
+		return edgeVerticesOffset +
+			edgeIndex * verticesOnEdgeWithoutEndpoints +
+			(i - 1);
+	};
+
+	std::vector<i32> indices;
+	for (i32 faceOffset = 0; faceOffset < std::size(icosahedronFaces); faceOffset += icosahedronVerticesPerFace) {
+
+		const auto faceStartOffset = indices.size();
+
+		const auto v0 = icosahedronFaces[faceOffset];
+		const auto v1 = icosahedronFaces[faceOffset + 1];
+		const auto v2 = icosahedronFaces[faceOffset + 2];
+
+		const auto bottomEdge = getEdgeId(v0, v1);
+		const auto leftEdge = getEdgeId(v0, v2);
+		const auto rightEdge = getEdgeId(v1, v2);
+		/*    (9)
+			  / \
+			(7)-(8)
+			/ \ / \
+		  (4)-(5)-(6)
+		  / \ / \ / \
+		(0)-(1)-(2)-(3)
+
+		//Could explicitly create an array that would store the indices of the vertices in the order like this instead of trying to find the indicies using ifs.
+		*/
+		std::vector<i32> faceIndices;
+		for (i32 i = 0; i < verticesOnEdge; i++) {
+			faceIndices.push_back(indexOnEdge(bottomEdge, i));
+		}
+
+		i32 insideVerticesOnLayer = verticesOnEdgeWithoutEndpoints - 1;
+		for (i32 layer = 1; layer < verticesOnEdge - 1; layer++) {
+			const auto leftIndex = indexOnEdge(leftEdge, layer);
+			const auto rightIndex = indexOnEdge(rightEdge, layer);
+			faceIndices.push_back(leftIndex);
+			const auto verticesOnLayer = insideVerticesOnLayer + 2;
+			for (i32 i = 1; i <= insideVerticesOnLayer; i++) {
+				const auto vertex = lerp(
+					result.positions[leftIndex],
+					result.positions[rightIndex],
+					f32(i) / f32(verticesOnLayer - 1));
+				faceIndices.push_back(result.positions.size());
+				result.positions.push_back(vertex);
+			}
+			faceIndices.push_back(rightIndex);
+			insideVerticesOnLayer -= 1;
+		}
+		faceIndices.push_back(indexOnEdge(leftEdge, verticesOnEdge - 1));
+
+		i32 bottomLayerOffset = 0;
+		for (i32 bottomLayerVertexCount = verticesOnEdge; bottomLayerVertexCount > 1; bottomLayerVertexCount--) {
+			const auto topLayerOffset = bottomLayerOffset + bottomLayerVertexCount;
+			for (i32 i = 0; i < bottomLayerVertexCount - 1; i++) {
+				const auto bottom0 = faceIndices[bottomLayerOffset + i];
+				const auto bottom1 = faceIndices[bottomLayerOffset + i + 1];
+				const auto top = faceIndices[topLayerOffset + i];
+				indicesAddTri(result.indices, bottom0, bottom1, top);
+			}
+
+			const auto topLayerVertices = bottomLayerVertexCount - 1;
+			for (i32 i = 0; i < topLayerVertices - 1; i++) {
+				const auto top0 = faceIndices[topLayerOffset + i];
+				const auto top1 = faceIndices[topLayerOffset + i + 1];
+				const auto bottom = faceIndices[bottomLayerOffset + 1 + i];
+				indicesAddTri(result.indices, top0, top1, bottom);
+			}
+
+			bottomLayerOffset += bottomLayerVertexCount;
+		}
+	}
+
+	for (auto& vertex : result.positions) {
+		vertex = vertex.normalized() * radius;
+		result.normals.push_back(vertex.normalized());
+	}
+	return result;
 }

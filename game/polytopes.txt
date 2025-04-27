@@ -1,0 +1,56 @@
+Coexter regular poyhedra
+
+on page 121
+
+The number of simplexes in a n cross polytope.
+
+/*
+The cross polytope is a bipiramid so the number of simplexes you get when you make a bipramid is the number of simplexes in the base of the previous dimensional cross polytope N'_k plus the number of new simplexes created. A simplex is created by making a pyramid with a base being a lower dimensional simplex. So the new simplexes are created in the process of making the bipiramid come from connecting the N'_(k-1) simplexes to the 2 new vertices so that in total
+N_k = N'_k + 2 * N'_(k-1) 
+Where N_k is the number of k dimensional simplexes in a k+1 polytope and N'_k is the number of k dimensional simplexes in a k polytope and N'_(k-1) is the number of k-1 dimensional simplexes in the k polytope
+*/
+
+
+
+For example the 4 dimensional cross polytope is a bypiramid made from a octahedral (3 dimensional cross polytope) base.
+The bypiramid is formed by connecting all the vertices to one vertex and repeating it for the other vertex. In this process we get all the single vertices, pairs of vertices and triplets of vertices.
+By connecting a vertex from the base to one of the apexes we get a 1 simplex. Similarly any pair of vertices also gets connected to the apex creating a 2 simplex. Similarly any triplet of vertices gets connected to the apex creating a 3 simplex.
+
+So the total number of k simplexes in an n dimensional cross polytope is 
+the number of k simplexes in the n-1 dimensional cross polytope + 
+the number of k simplexes formed by connecting k-1 simplexes to the apexes of the bypiramid
+
+Let S(n, k) be the number of k-simplexes in a n-dimensional cross polytope.
+Then S(n, k) = S(n-1, k) + 2 * S(n-1, k-1)
+The number of simplex formed in the bypiramid process is S(n-1, k-1). This is true, because each k-1 simplex creates a k-simplex by being connected to an apex.
+
+Because the vertices of a cross polytope are formed by going in all the principal directions in n-space we get that
+the number of vertices of a n-dimensional cross polytope = S(n, 0) = 2 * n
+
+It can be proven (for example using induction) that the solution of this recurence relation is
+S(n, k) = 2^(k+1) (n choose k + 1)
+
+By constructing a n cross polytope you also find the coordinates of a n-1 simplex. The vertices are the permutations of (1, 0, ..., 0) and the simplex lies in the hyperplane sum xi = 1
+In the case of n = 3 we get a triangle (1, 0, 0), (0, 1, 0), (0, 0, 1).
+The edge lengths of these simplexes are always equal to sqrt(2).
+
+This gives a method for getting the vertices of a regular n-simplex. You construct the vertices that are permutations of (1, 0, ..., 0) then you get an orthonormal basis for the space sum xi = 1. 
+
+
+The n dimensional parallelotope may be constructed by starting with a n-1 dimensional parallelotope and translating it. The vertices of the original trace out lines, the lines of the original trace out faces and so on.
+This construction can be used to give a recurence relation for the number of k dimensional paralleltopes in an n dimensional parallelotope.
+S(n, k) = 2 * S(n - 1, k) + S(n - 1, k - 1)
+We have 2 * S(n - 1, k), because in the end we end up with 2 copies of the n-1 dimensional parallelogram. And then we have S(n - 1, k - 1), because each k-1 parallelotope traces out a k dimensional parallelotope.
+We also have S(n, 0) = 2^n
+Solving this we get that S(n, k) = 2^(n-k) (n choose k)
+
+Because the paralleotopes are reciprocal to the cross polytopes it is true that
+S(n, n - j) = S(n, j - 1)
+
+The vertices of one are the poles of the other and then there are also intersections of tangent planes at points. The vertices are reciprocated into planes and so on. This is described in detail on page 126.
+
+The generailization of this procedure is similar to the procedure for making a prism. That is we translate a n-1 dimensional figure along an perpendicular nth dimension.
+
+Equivalently we can regard this as translating a line segment along the n-1 dimensional parallelogram. This sugests a further generailization called the polytope product, which takes 2 figures in perpendicular spaces and produces a new figure.
+
+https://polytope.miraheze.org/wiki/Polytope_product

@@ -305,3 +305,11 @@ PolygonSoup regularPolyhedronPolygonSoup(View<const Vec3> vertices, View<const i
 PolygonSoup dualPolyhedron(const PolygonSoup& polyhedron);
 
 void edgeListFromFaceList(View<const i32> faces, View<const i32> verticesPerFace);
+
+struct MeshTriPn {
+    std::vector<Vec3> positions;
+    std::vector<Vec3> normals;
+    std::vector<i32> indices;
+};
+
+MeshTriPn makeIcosphere(i32 edgeDivisions, f32 radius);

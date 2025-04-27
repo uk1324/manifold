@@ -8,6 +8,7 @@
 #include <game/Shaders/bulletData.hpp>
 #include <game/Shaders/coloredShadingData.hpp>
 #include <game/LineGenerator.hpp>
+#include <game/Shaders/sphericalPolygonData.hpp>
 #include <game/Cubemap.hpp>
 
 struct Mesh {
@@ -44,6 +45,10 @@ struct GameRenderer {
 	Mat4 projection;
 	Vec3 cameraForward;
 	Vec3 cameraPosition;
+
+	
+	Mesh sphereMesh;
+	ShaderProgram& sphericalPolygonShader;
 
 	Mesh cubemapMesh;
 	ShaderProgram& cubemapShader;

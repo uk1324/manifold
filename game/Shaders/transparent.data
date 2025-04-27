@@ -1,0 +1,19 @@
+struct VertexTransparent {
+	Vec3 position;
+	Vec3 normal;
+}
+
+shader Transparent {
+	vertexStruct = VertexTransparent;
+	vertUniforms = {
+		Mat4 transform;
+		Mat4 view;
+	};
+	vertInstance = {
+		Mat4 model;
+	};
+	vertOut = {
+		Vec3 interpolatedNormal;
+		Vec4 interpolatedColor;
+	};
+}

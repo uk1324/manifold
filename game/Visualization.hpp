@@ -27,9 +27,6 @@ struct Visualization {
 
 	void renderPolygonSoup(const PolygonSoup& polygonSoup);
 
-	PolygonSoup sphereMesh;
-	std::vector<Vec3> sphereMeshNormals;
-
 	bool rotateRandomly = false;
 	RandomSmoothRotationGenerator randomRotationGenerator;
 

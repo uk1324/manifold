@@ -242,6 +242,10 @@ void LineGenerator::addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRa
 
 void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius) {
 
+	velocityOutOfA = velocityOutOfA.normalized() * aRelativeToCenter.length();
+	const auto t0 = aRelativeToCenter.length();
+	const auto t1 = velocityOutOfA.length();
+
 	std::vector<Vec2> circlePoints;
 	const i32 circlePointCount = 10;
 	for (i32 i = 0; i < circlePointCount; i++) {

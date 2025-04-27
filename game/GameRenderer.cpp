@@ -73,10 +73,13 @@ void drawMeshInstances(Mesh& mesh, View<const Instance> instances, Vbo& instance
 GameRenderer GameRenderer::make() {
 	auto instancesVbo = Vbo(1024ull * 20);
 
+	auto makeColoredShadedMesh = [&instancesVbo](const std::vector<Vertex3Pn>& vertices, const std::vector<i32>& indices) {
+		return makeMesh<ColoredShader>(constView(vertices), constView(indices), instancesVbo);
+	};
 	std::vector<Vertex3Pn> vertices;
 	std::vector<i32> indices;
-	auto coloredShaderMesh = [&vertices, &indices, &instancesVbo]() -> Mesh {
-		return makeMesh<ColoredShader>(constView(vertices), constView(indices), instancesVbo);
+	auto coloredShaderMesh = [&vertices, &indices, &makeColoredShadedMesh]() -> Mesh {
+		return makeColoredShadedMesh(vertices, indices);
 	};
 
 	auto meshClear = [&]() {
@@ -269,6 +272,16 @@ GameRenderer GameRenderer::make() {
 
 	auto gfx2d = Gfx2d::make();
 
+
+	const auto icosphere = makeIcosphere(10, 1.0f);
+	std::vector<SphericalPolygonVertex> icosphereVertices;
+	for (i32 i = 0; i < icosphere.positions.size(); i++) {
+		icosphereVertices.push_back(SphericalPolygonVertex{
+			.position = icosphere.positions[i],
+			.normal = icosphere.normals[i]
+		});
+	}
+	auto sphereMesh = makeMesh<SphericalPolygonShader>(constView(icosphereVertices), constView(icosphere.indices), instancesVbo);
 	/*auto quadPtVao = Vao::generate();
 	quadPtVao.bind();
 	createInstancingVao<TexturedFullscreenQuadShader>(gfx2d.quad2dPtVbo, gfx2d.quad2dPtIbo, instancesVbo);
@@ -292,6 +305,8 @@ GameRenderer GameRenderer::make() {
 		.transform = Mat4::identity,
 		.view = Mat4::identity,
 		.projection = Mat4::identity,
+		MOVE(sphereMesh),
+		.sphericalPolygonShader = MAKE_GENERATED_SHADER(SPHERICAL_POLYGON),
 		MOVE(cubemapMesh),
 		.cubemapShader = MAKE_GENERATED_SHADER(CUBEMAP),
 		MOVE(bulletRectMesh),
@@ -467,7 +482,7 @@ void GameRenderer::line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps) {
 		.model = model
 	});
 	if (caps) {
-		/*const auto hemisphereScale = Mat4(Mat3::scale(Vec3(radius)));
+		const auto hemisphereScale = Mat4(Mat3::scale(Vec3(radius)));
 		hemispheres.push_back(ColoredInstance{
 			.color = color,
 			.model = rotateTranslate * Mat4::translation(Vec3(0.0f, 0.0f, length)) * Mat4(Mat3::scale(radius))
@@ -475,7 +490,7 @@ void GameRenderer::line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps) {
 		hemispheres.push_back(ColoredInstance{
 			.color = color,
 			.model = rotateTranslate * Mat4(Mat3::scale(Vec3(radius, radius, -radius)))
-		});*/
+		});
 	}
 }
 

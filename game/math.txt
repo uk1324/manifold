@@ -1,0 +1,43 @@
+Finding the image of a circular arc.
+If you have 2 points on a 3 sphere then the geodesics connecting them is a great circle though them.
+A great circle is the intersection of a plane though the origin with the 3 sphere.
+
+To find the shortest circular arc between the 2 points you can just think about the 2d subspace.
+Then for example using orthonormalization you can find the velocity vector out of a point. And the arclength can be calculating using the arccos of the dot product. This gives 
+initial position
+initial velocity
+arclength
+which is enough the draw the arc in 4D.
+
+The simplest thing to do would be to just evalute points on the arc in 4D and connected the stereographically projected points, but because the image is also an arc it might be better to actually find the image arc parameters.
+
+
+The image of a vector can be calculated using the jacobian.
+Then the issue is finding the arclength. One way would be to evaluate this integral, but sympy can't find it's value.
+
+x0, x1, x2, x3 = symbols('x0 x1 x2 x3')
+v0, v1, v2, v3 = symbols('v0 v1 v2 v3')
+x = Matrix([[x0], [x1], [x2], [x3]])
+v = Matrix([[v0], [v1], [v2], [v3]])
+t = symbols('t')
+r = cos(t) * x + sin(t) * v
+display(r)
+
+def stereographic_projection(r):
+    w = r[3]
+    a = 1 - w
+    return Matrix([r[0] / a, r[1] / a, r[2] / a])
+
+p = simplify(stereographic_projection(r))
+display(p)
+dp = simplify(diff(p, t))
+display(dp)
+ds = simplify(norm(dp))
+display(ds)
+integrate(ds, t)
+
+A geometrical way to solve this integral might be to evaluate the midpoint of the arc and the calculate the 2 shorter arclengths.
+That is first find the image of the circle. To do this find the images of the start end and mid points and the calculate the center. 
+From the center you can calculate the arclength.
+
+Then the positions are going to be r(t) = cos(t) * initial + sin(t) * velocity, t in [0, arclength].

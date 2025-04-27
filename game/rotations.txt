@@ -1,0 +1,107 @@
+If you want to bring the 5 vertices of a 4-simplex you might try using reflections.
+
+To map a point to another point you can make a plane of points equidistant to both points and reflect it.
+
+In 2d you can continue this process. That is do a 
+
+The set of points equdistant to 2 points at the same time is the intersection of 2 n-1 speres with a center at the points and passing though the opposite points.
+
+
+
+Let n+1 vertices of an n-simplex be transformed by an isometry so that the distances between correspoding points (pi, p'i) are equal.
+
+We do induction based on the number of points that match up. Without loss of generality we may assume that the points pi = p'i where i in { 1, ..., k-1 }
+We now want to make the k-th point using a reflection while leaving the matched points unchanged.
+Let h be the hyperplane of points equdistant to both pk and p'k. We want to show that the points p'i, i in { 1, ..., k-1 } are contained in this hyperplane. Do do this we will show that the distance from pk to pi = p'i is equal to the distance from pi = p'i to p'k, i in { 1, ..., k-1 }. This is true, because the vertices were transformed by an isometry so that d(pi, pk) = d(p'i, p'k).
+
+If this proof is correct then this also means that proper transformations require less or more reflections to get to depending on the parity of the dimension of the space = n.
+
+If a single vertex is already fixed the we don't need any translations only a rotation by definition.
+What if a point inside the simplex is fixed? Does this method do a rotation or a translation then?
+
+
+
+If you have an orthogonal basis e1, e2, e3, e4
+
+Then you can create a rotation leaving span{ e1, e2 } fixed by doing a reflection in 2 3-planes in intersecting in the span. Then if you do a rotation in span{ e1, e3 } then you might expect that only e1 remains fixed, but the decomposition theorem tells us if it's a proper rotation then a a 2d either a 2d subspace remains fixed or only the center of rotation remains fixed.
+
+A similar thing applies in 3D. That is every isometry fixing a point fixes a line. This isn't obvious. You can prove it using the deomposition theorem or some fixed point theorem for the sphere. For example you could use the Poincare-Hopf theorem.
+
+How could you prove that a if a 4 rotation fixes a line it fixes a plane.
+How could you synthetically construct another non-colinear point that is also fixed?
+What if you used the above procedure to make every point to the original position and then if this is a simple rotation then that fixes a plane so that the original transformation would also need to fix a plane.
+
+If you have a fixed axis then you can make a simplex that has 2 vertices on this axis. Then using the above procedure we need 2 reflections to make it to the original simplex. This transforms 4 vectors (any 4 of the vertices of the 5 vertices of the simplex, they form a basis) into themselves and this uniquely determines a linear transformation so this transformation is the identity. This transformation fixed at least a 2d subspace, because each reflection fixed a 3 plane and the intersection of 2 3 planes is a 2 plane. Because this new transformation didn't modify a plane all of the points in this plane have the position before the reflection transformation, so that the original points also had to be untransformed.
+
+
+Could you do something about showing that great circles are mapped to great circle and they have 2 intersections or something like that. Then these are the fixed points.
+
+
+
+https://en.wikipedia.org/wiki/Orthogonal_group
+A product of up to n elementary reflections always suffices to generate any element of O(n). This results immediately from the above canonical form and the case of dimension two. 
+
+https://en.wikipedia.org/wiki/Cartan%E2%80%93Dieudonn%C3%A9_theorem
+
+
+Let R be a rotation (member of SO(4)) that fixes a line though the origin. Then the transformation fixes a plane.
+
+Proof:
+Let v0 be the spanning vector of fixed line (the line is of the form t * v0). Using the () theorem complete v0 to a basis v0, v1, v2, v3. Let v'i = R vi.
+
+if v1 = v'1 then continue
+else let p1 be the 3 plane equidistant from v1 and v'1
+For convinience lets call v0 = v'0 as qi
+d(v1', v0) = because v0 = v'0
+d(v1', v'0) = because R is an isometry
+d(v1, v0)
+
+Similarly using an another reflection we can map v2' to v2
+
+I guess there are only 2 options for the position of v'3 after these 2 reflections, but we know that it has to be positively oriented, because 2 reflection form a proper isometry so that v3 = v'3
+
+or
+
+Let's assume that v3 != v'3 then using an another reflection we can map them to themselves. But then the positively ordered basis (v'0, v'1, v'2, v'3) can be mapped using an orientation reversing isometrint into the basis (v0, v1, v2, v3) using R1 R2 and also mapped into a to the same basis using the orientation preserving isometry using R^(-1)
+
+
+
+
+
+Let R be a rotation (member of SO(4)) that fixes a line though the origin. Then the transformation fixes a plane.
+
+Proof:
+Let v0 be the spanning vector of fixed line (the line is of the form t * v0). Using the () theorem complete v0 to a basis v0, v1, v2, v3. Let v'i = R vi.
+
+{
+Let the space be n dimensional
+Let v0, ..., vn be points not lying in the same n-1 plane and R an isometry fixing v0, ..., v{k-1} and not fixing the rest. Then there exists a reflection mapping R vk to vk that fixes v0, ..., v{k-1}.
+Proof:
+Let h be the n-1 plane of points equidistant to vk and R vk (it is a plane, because these points are not fixed by R so they are distinct).
+Let's call the reflection in h M. Then by the definition of reflection M maps R vk to vk.
+A reflection fixes all the points in h.
+We want to show that v1, ..., v{k-1} all lie in the plane. That is 
+d(vk, vi) = d(R vk, vi)
+This is true, because vi = R vi and, because R is an isometry.
+}
+
+Lets use the lemma to create to reflections M1 and M2 that map R v1 and R v2 to v1 and v2 respectively.
+Let M = M2 M1
+Now we want to show that M R v3 = v3.
+
+Lets assume this is false. That is M R v3 != v3. Then using the lemma we can map R v3 to v3 using M3. Then 
+M3 M2 M1 R vi = vi for all i in { 1, ..., 4 }, but that means that M3 M2 M1 R = I, but this can't be true, because it's orientation reversing, thus we arrive at a contradiction so that M R v3 = v3.
+
+Then M R = I. M is a composition of M2 and M1, which both fix some hyperplanes h2 and h1. So M has to fix at least they intersection of these hyperplanes which is a 2 plane, let's call this plane p.
+
+Therefore for each element p0 in p we p = I p = M R p = R p. That is R fixes p.
+
+The cases with something matching before have not been handled.
+{
+Let's consider 
+The case where more than one vector is fixed R. This implies that R fixes at least a plane.
+The case where after M1 we have that M1 R vi = vi for i in range{ 0, ..., 2 }
+if M1 R v3 = v3 then we again have an issue with the orientation of the basis.
+if M1 R v3 != v3 then we can again reflect it some 3 plane to move it to v3.
+The other cases are the ones handled in the above proof.
+}
