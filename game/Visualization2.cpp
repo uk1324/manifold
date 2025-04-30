@@ -2,6 +2,7 @@
 #include <engine/Window.hpp>
 #include <StructUtils.hpp>
 #include <engine/Math/Color.hpp>
+#include <engine/Math/Plane.hpp>
 #include <engine/Math/Sphere.hpp>
 #include <engine/Input/Input.hpp>
 #include <imgui/imgui.h>
@@ -165,6 +166,14 @@ f32 det(
 		- m10 * det(m01, m21, m02, m22)
 		+ m20 * det(m01, m11, m02, m12);
 }
+f32 det(Vec3 v0, Vec3 v1, Vec3 v2) {
+	return det(
+		v0.x, v0.y, v0.z,
+		v1.x, v1.y, v1.z,
+		v2.x, v2.y, v2.z
+	);
+}
+
 // Vector perpendicular the plane spanned by v0, v1, v2
 Vec4 crossProduct(Vec4 v0, Vec4 v1, Vec4 v2) {
 	/*
@@ -248,7 +257,9 @@ std::array<Vec4, 3> orthonormalBasisFor3Space(Vec4 normal) {
 bool pointsNearlyCoplanar(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, f32 epsilon) {
 	// https://math.stackexchange.com/questions/405966/if-i-have-three-points-is-there-an-easy-way-to-tell-if-they-are-collinear
 	// https://stackoverflow.com/questions/65396833/testing-three-points-for-collinearity-in-a-numerically-robust-way
-	f32 basesSquaredAreas[]{
+
+	// Using areas or volumes makes it independent of the order of points, but it's probably better to have the biggest or the furthest distance of a point.
+	/*f32 basesSquaredAreas[]{
 		cross(p0, p1).lengthSquared(),
 		cross(p0, p2).lengthSquared(),
 		cross(p0, p3).lengthSquared(),
@@ -257,23 +268,42 @@ bool pointsNearlyCoplanar(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, f32 epsilon) {
 		cross(p1, p3).lengthSquared(),
 
 		cross(p2, p3).lengthSquared(),
+	};*/
+
+	/*const auto p = Plane::fromPoints(p0, p1, p2);
+	return abs(p.signedDistance(p3)) <= epsilon;*/
+	const auto v0 = p0 - p3;
+	const auto v1 = p1 - p3;
+	const auto v2 = p2 - p3;
+	f32 basesSquaredAreas[]{
+		cross(v0, v1).lengthSquared(),
+		cross(v0, v2).lengthSquared(),
+		cross(v1, v2).lengthSquared(),
 	};
-	const auto aSq0 = cross(p0, p1).lengthSquared();
-	const auto aSq0 = cross(p0, p1).lengthSquared();
-	/*const auto l0 = p0.distanceTo(p1);
-	const auto l1 = p0.distanceTo(p2);
-	const auto l2 = p1.distanceTo(p2);*/
-	/*const auto longestSide = std::max(l0, std::max(l1, l2));
-	const auto parallelogramArea = abs(det(p1 - p0, p2 - p0));
-	const auto parallelogramHeight = parallelogramArea / longestSide;*/
-	return parallelogramHeight < epsilon;
+	const auto biggestBaseArea = sqrt(std::ranges::max(basesSquaredAreas));
+	const auto volume = abs(det(v0, v1, v2));
+	const auto parallelepipedHeight = volume / biggestBaseArea;
+	return parallelepipedHeight <= epsilon;
+
+	// Assumes that the plane goes though p3
+	//const auto v0 = p0 - p3;
+	//const auto v1 = p1 - p3;
+	//const auto v2 = p2 - p3;
+	//const auto volume = abs(det(v0, v1, v2));
+	//f32 distances[]{
+	//	volume / sqrt(cross(v0, v1).lengthSquared()),
+	//	volume / sqrt(cross(v0, v2).lengthSquared()),
+	//	volume / sqrt(cross(v1, v2).lengthSquared()),
+	//};
+	//const auto biggestDistance = std::ranges::max(distances);
+	//return biggestDistance <= epsilon;
 }
 
 #include <engine/Math/Circle.hpp>
 
 void Visualization2::update() {
 	//const auto result = crossPolytope(3);
-	//togglableCursorUpdate();
+	togglableCursorUpdate();
 
 	if (Input::isKeyDown(KeyCode::X)) {
 		Window::close();
@@ -301,7 +331,11 @@ void Visualization2::update() {
 	switch (selectedCamera) {
 		using enum CameraType;
 	case NORMAL:
-		camera.update(Constants::dt);
+		if (Input::isKeyHeld(KeyCode::LEFT_CONTROL)) {
+			stereographicCamera.update(Constants::dt);
+		} else {
+			camera.update(Constants::dt);
+		}
 		view = camera.viewMatrix();
 		cameraPosition = camera.position;
 		break;
@@ -452,13 +486,13 @@ void Visualization2::update() {
 	}
 
 
-	for (i32 i = 0; i < vertices.size(); i++) {
+	/*for (i32 i = 0; i < vertices.size(); i++) {
 		const auto v = stereographicProjection(apply(t, vertices[i]));
 		if (isPointAtInfinity(v)) {
 			continue;
 		}
 		renderer.sphere(v, width * 3.0f, verticesColors[i]);
-	}
+	}*/
 	for (const auto& edge : edges) {
 		auto e0 = vertices[edge.vertices[0]];
 		auto e1 = vertices[edge.vertices[1]];
@@ -510,48 +544,42 @@ void Visualization2::update() {
 
 
 		std::vector<SphericalPolygonInstance> instances;
-		const auto& face = faces[1];
-		const auto& p0 = transformedVertices4[face.vertices[0]];
-		const auto& p1 = transformedVertices4[face.vertices[1]];
-		const auto& p2 = transformedVertices4[face.vertices[2]];
-		const auto p3 = -p0;
+		//const auto& face = faces[1];
+		//const auto& p0 = transformedVertices4[face.vertices[0]];
+		//const auto& p1 = transformedVertices4[face.vertices[1]];
+		//const auto& p2 = transformedVertices4[face.vertices[2]];
+		//const auto p3 = -p0;
 		/*const auto& p0 = transformedVertices4[face.vertices[0]];
 		const auto& p1 = transformedVertices4[face.vertices[1]];
 		const auto& p2 = transformedVertices4[face.vertices[2]];*/
-		//const auto& p0 = apply(t, Vec4(1.0f, 0.0f, 0.0f, 0.0f));
-		//const auto& p1 = apply(t, Vec4(0.0f, 1.0f, 0.0f, 0.0f));
-		//const auto& p2 = apply(t, Vec4(0.0f, 0.0f, 1.0f, 0.0f));
-		//const auto p3 = -p0;
-		const auto sphere = Sphere::thoughPoints(
-			stereographicProjection(p0),
-			stereographicProjection(p1),
-			stereographicProjection(p2),
-			stereographicProjection(p3)
-		);
+		const auto& p0 = apply(t, Vec4(1.0f, 0.0f, 0.0f, 0.0f));
+		const auto& p1 = apply(t, Vec4(0.0f, 1.0f, 0.0f, 0.0f));
+		const auto& p2 = apply(t, Vec4(0.0f, 0.0f, 1.0f, 0.0f));
+		const auto p3 = -p0;
+		const auto sp0 = stereographicProjection(p0);
+		const auto sp1 = stereographicProjection(p1);
+		const auto sp2 = stereographicProjection(p2);
+		const auto sp3 = stereographicProjection(p3);
 
-		renderer.sphere(stereographicProjection(p0), 0.03f, Color3::MAGENTA);
-		renderer.sphere(stereographicProjection(p1), 0.03f, Color3::MAGENTA);
-		renderer.sphere(stereographicProjection(p2), 0.03f, Color3::MAGENTA);
-		renderer.sphere(stereographicProjection(p3), 0.03f, Color3::MAGENTA);
-		/*
-		Finding if a point on a sphere belongs to a polyhedron.
-		I don't think the lines projected liens are geodesics of the projected sphere.
+		renderer.sphere(sp0, width * 3.0f, Color3::RED);
+		renderer.sphere(sp1, width * 3.0f, Color3::RED);
+		renderer.sphere(sp2, width * 3.0f, Color3::RED);
+		renderer.sphere(sp3, width * 3.0f, Color3::GREEN);
+		//renderer.sphere(sp3, width * 3.0f, Color3::RED);
 
-		It is probably simplest to work in R^4 for this.
-		An intersection of a 3-plane going though 0 with the 3 sphere is a sphere that has it's center at 0.
-		Then on that sphere we have the vertices of a polygon.
-		If we consider jsut the 3-plane subspace then we can calculate 2-planes going though the origin and pairs of vertices. To check on which side a point is we just need to calculate the dot product with it's normal. We can extend the normal from the 3 space to the whole 4 space and then it will define a 3-plane that still bounds the polygon. Then to check if a point lies on the polygon we just need to calculate the dot products of the points with the normals of the spheres.
-
-		Could probably find an approximate solution by calculating the distance from the plane spanned by the vectors that are the vertices of the plane (there is probably an alaogous formula as for the distance from a line in 3-space). This will only be approximate because it will be the linear distance and not the spherical distance. This is kind of similar what I did with the endpoints in the 2d stereographic line rendering code.
-		*/
-		const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
-		{
-			// These should be 0, because the plane should pass though 0.
-			const auto t0 = dot(p0, plane3Normal);
-			const auto t1 = dot(p1, plane3Normal);
-			const auto t2 = dot(p2, plane3Normal);
-			const auto t3 = dot(p3, plane3Normal);
+		const Vec3 points[]{ sp0, sp1, sp2, sp3 };
+		std::vector<Vec3> finitePoints;
+		for (const auto& point : points) {
+			if (!isPointAtInfinity(point)) {
+				finitePoints.push_back(point);
+			}
 		}
+		struct PlaneData {
+			Plane plane;
+			f32 distanceTo4thPoint;
+		};
+		std::vector<PlaneData> possiblePlanes;
+		//if (finitePoints.size() == 2) // add 0 
 
 		Vec4 orthonormalBasisFor3SpaceContainingPolygon[]{
 			p0 - p3, p1 - p3, p2 - p3
@@ -565,32 +593,185 @@ void Visualization2::update() {
 			const auto normalIn4Space = linearCombination(orthonormalBasisFor3SpaceContainingPolygon, plane2Normal);
 			return normalIn4Space;
 		};
-		/*
-		It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
-		*/
-		instances.push_back(SphericalPolygonInstance{
-			.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),
-			.n0 = planeThoughPoints(p0, p1),
-			.n1 = planeThoughPoints(p1, p2),
-			.n2 = planeThoughPoints(p2, p0)
-		});
-		renderer.sphericalPolygonShader.use();
-		shaderSetUniforms(
-			renderer.sphericalPolygonShader,
-			SphericalPolygonVertUniforms{
-				.transform = renderer.transform
+		const auto n0 = planeThoughPoints(p0, p1);
+		const auto n1 = planeThoughPoints(p1, p2);
+		const auto n2 = planeThoughPoints(p2, p0);
+		static bool test = false;
+		ImGui::Checkbox("test", &test);
+		if (finitePoints.size() == 4) {
+			for (i32 i = 0; i < 4; i++) {
+				const auto plane = Plane::fromPoints(
+					finitePoints[(i + 1) % 4],
+					finitePoints[(i + 2) % 4],
+					finitePoints[(i + 3) % 4]
+				);
+				possiblePlanes.push_back(PlaneData{
+					.plane = plane,
+					.distanceTo4thPoint = plane.distance(finitePoints[i])
+				});
 			}
-		);
-		shaderSetUniforms(
-			renderer.sphericalPolygonShader,
-			SphericalPolygonFragUniforms{
-				.cameraPosition = Vec3(0.0f)
-			}
-		);
+			const auto& bestFitPlane = std::ranges::min_element(
+				possiblePlanes, 
+				[](const PlaneData& a, const PlaneData& b) -> bool {
+					return a.distanceTo4thPoint < b.distanceTo4thPoint;
+				}
+			);
+			if (bestFitPlane->distanceTo4thPoint < 0.01f || test) {
+				Vec3 untransformedInfinitePlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
+				////const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
+				/*const auto wantedPlane = bestFitPlane->plane;*/
+				const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
+				auto rotationAxis = cross(untransformedInfinitePlaneMeshNormal, wantedPlane.n).normalized();
+				auto rotationAngle = acos(std::clamp(dot(wantedPlane.n.normalized(),
+					untransformedInfinitePlaneMeshNormal.normalized()), -1.0f, 1.0f));
 
-		drawInstances(renderer.sphereMesh.vao, renderer.instancesVbo, constView(instances), [&](usize count) {
-			glDrawElementsInstanced(GL_TRIANGLES, renderer.sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
-		});
+				{
+					const auto t0 = wantedPlane.signedDistance(sp0);
+					const auto t1 = wantedPlane.signedDistance(sp1);
+					const auto t2 = wantedPlane.signedDistance(sp2);
+					const auto t3 = wantedPlane.signedDistance(sp3);
+					const auto t4 = wantedPlane.signedDistance(Vec3(0.0f));
+					const auto t5 = 0.0f;
+				}
+
+				/*auto rotationAxis = Vec3(0.0f, 0.0f, 1.0f);
+				auto rotationAngle = PI<f32> / 2.0f; */
+
+				if (std::abs(rotationAngle) < 0.01f) {
+					rotationAngle = 0.0f;
+					rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
+				}
+				const auto rotation = Quat(rotationAngle, rotationAxis);
+				{
+					const auto t0 = rotation * untransformedInfinitePlaneMeshNormal;
+					const auto t1 = t0.distanceTo(wantedPlane.n);
+					const auto t2 = 0.0f;
+				}
+				renderer.infinitePlanes.push_back(HomogenousInstance{
+					.transform = 
+						Mat4::translation(wantedPlane.d * wantedPlane.n) * 
+						Mat4(rotation.inverseIfNormalized().toMatrix()),
+					.n0 = n0,
+					.n1 = n1,
+					.n2 = n2
+				});
+				//renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
+				/*renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
+				renderer.line(sp0, sp0 + untransformedInfinitePlaneMeshNormal, 0.1f, Color3::BLUE);
+				renderer.line(sp0, sp0 + rotationAxis, 0.1f, Color3::YELLOW);*/
+				//renderer.homogenousTriangleRenderer.addTri()
+			} else {
+				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
+
+				/*renderer.sphere(stereographicProjection(p0), 0.03f, Color3::MAGENTA);
+				renderer.sphere(stereographicProjection(p1), 0.03f, Color3::MAGENTA);
+				renderer.sphere(stereographicProjection(p2), 0.03f, Color3::MAGENTA);
+				renderer.sphere(stereographicProjection(p3), 0.03f, Color3::MAGENTA);*/
+				{
+					const auto t0 = sphere.center.distanceSquaredTo(sp0);
+					const auto t1 = sphere.center.distanceSquaredTo(sp1);
+					const auto t2 = sphere.center.distanceSquaredTo(sp2);
+					const auto t3 = sphere.center.distanceSquaredTo(sp3);
+					const auto t4 = 0.0f;
+				}
+				/*
+				Finding if a point on a sphere belongs to a polyhedron.
+				I don't think the lines projected liens are geodesics of the projected sphere.
+
+				It is probably simplest to work in R^4 for this.
+				An intersection of a 3-plane going though 0 with the 3 sphere is a sphere that has it's center at 0.
+				Then on that sphere we have the vertices of a polygon.
+				If we consider jsut the 3-plane subspace then we can calculate 2-planes going though the origin and pairs of vertices. To check on which side a point is we just need to calculate the dot product with it's normal. We can extend the normal from the 3 space to the whole 4 space and then it will define a 3-plane that still bounds the polygon. Then to check if a point lies on the polygon we just need to calculate the dot products of the points with the normals of the spheres.
+
+				Could probably find an approximate solution by calculating the distance from the plane spanned by the vectors that are the vertices of the plane (there is probably an alaogous formula as for the distance from a line in 3-space). This will only be approximate because it will be the linear distance and not the spherical distance. This is kind of similar what I did with the endpoints in the 2d stereographic line rendering code.
+				*/
+				const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
+				{
+					// These should be 0, because the plane should pass though 0.
+					const auto t0 = dot(p0, plane3Normal);
+					const auto t1 = dot(p1, plane3Normal);
+					const auto t2 = dot(p2, plane3Normal);
+					const auto t3 = dot(p3, plane3Normal);
+				}
+				/*
+				It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
+				*/
+				instances.push_back(SphericalPolygonInstance{
+					.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),
+					.n0 = n0,
+					.n1 = n1,
+					.n2 = n2
+				});
+				renderer.sphericalPolygonShader.use();
+				shaderSetUniforms(
+					renderer.sphericalPolygonShader,
+					SphericalPolygonVertUniforms{
+						.transform = renderer.transform
+					}
+				);
+				shaderSetUniforms(
+					renderer.sphericalPolygonShader,
+					SphericalPolygonFragUniforms{
+						.cameraPosition = Vec3(0.0f)
+					}
+				);
+
+				drawInstances(renderer.sphereMesh.vao, renderer.instancesVbo, constView(instances), [&](usize count) {
+					glDrawElementsInstanced(GL_TRIANGLES, renderer.sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
+				});
+			}
+		}
+
+		//{
+		//	const auto v0 = p0 - p3;
+		//	const auto v1 = p1 - p3;
+		//	const auto v2 = p2 - p3;
+		//	const auto volume = abs(det(v0, v1, v2));
+		//	f32 distances[]{
+		//		volume / sqrt(cross(v0, v1).lengthSquared()),
+		//		volume / sqrt(cross(v0, v2).lengthSquared()),
+		//		volume / sqrt(cross(v1, v2).lengthSquared()),
+		//	};
+		//	const auto biggestDistance = std::ranges::max(distances);
+		//	return biggestDistance <= epsilon;
+		//}
+
+		if (isPointAtInfinity(sp0) ||
+			isPointAtInfinity(sp1) ||
+			isPointAtInfinity(sp2) ||
+			isPointAtInfinity(sp3) ||
+			pointsNearlyCoplanar(sp0, sp1, sp2, sp3, 0.1f)) {
+
+			//Vec3 untransformedInfinitePlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
+
+			////const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
+			//const auto wantedPlane = Plane::fromPoints(Vec3(0.0f), sp1, sp2);
+			//auto rotationAxis = cross(untransformedInfinitePlaneMeshNormal, wantedPlane.n).normalized();
+			//auto rotationAngle = acos(std::clamp(dot(wantedPlane.n, 
+			//	untransformedInfinitePlaneMeshNormal), 0.0f, 1.0f));
+
+			//{
+			//	const auto t0 = wantedPlane.signedDistance(sp0);
+			//	const auto t1 = wantedPlane.signedDistance(sp1);
+			//	const auto t2 = wantedPlane.signedDistance(sp2);
+			//	const auto t3 = wantedPlane.signedDistance(sp3);
+			//	const auto t4 = 0.0f;
+			//}
+
+			///*auto rotationAxis = Vec3(0.0f, 0.0f, 1.0f);
+			//auto rotationAngle = PI<f32> / 2.0f; */
+
+			//if (std::abs(rotationAngle) < 0.01f) {
+			//	rotationAngle = 0.0f;
+			//	rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
+			//}
+			//renderer.infinitePlanes.push_back(HomogenousInstance{
+			//	.transform = 
+			//		Mat4::translation(wantedPlane.d * wantedPlane.n) * 
+			//		Mat4(Quat(-rotationAngle, rotationAxis).toMatrix())
+			//});
+			//renderer.homogenousTriangleRenderer.addTri()
+		}
 	}
 	/*for (const auto& cell : .cellsOfDimension(1)) {
 		renderer.line(Vec3(0.0f), Vec3(1.0f), 0.01f, Color3::GREEN);
@@ -599,6 +780,7 @@ void Visualization2::update() {
 	//lineGenerator.addCircularArc(Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f), Vec3(0.0f), 0.01f);
 	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::WHITE);
 	lineGenerator.reset();
+	renderer.renderInfinitePlanes();
 
 	/*const auto r = makeIcosphere(2, 1.0f);
 	renderer.coloredShadingTrianglesAddMesh(r.positions, r.normals, r.indices, Color3::GREEN);*/

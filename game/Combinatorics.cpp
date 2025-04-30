@@ -70,3 +70,7 @@ auto CombinationsIter::begin() -> decltype(values.begin()) {
 auto CombinationsIter::end() -> decltype(values.end()) {
 	return values.end();
 }
+
+i32 CombinationsIter::operator[](i32 i) const {
+	return values[i];
+}

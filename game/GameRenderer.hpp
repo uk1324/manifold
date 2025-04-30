@@ -9,6 +9,7 @@
 #include <game/Shaders/coloredShadingData.hpp>
 #include <game/LineGenerator.hpp>
 #include <game/Shaders/sphericalPolygonData.hpp>
+#include <game/Shaders/homogenousData.hpp>
 #include <game/Cubemap.hpp>
 
 struct Mesh {
@@ -100,6 +101,11 @@ struct GameRenderer {
 	void renderColoredShadingTriangles(const ColoredShadingInstance& instance);
 	void coloredShadingTrianglesAddMesh(const std::vector<Vec3>& positions, const std::vector<Vec3>& normals, const std::vector<i32>& indices, Vec3 color);
 	void coloredShadingTrianglesAddMesh(const LineGenerator& lineGenerator, Vec3 color);
+
+	ShaderProgram& homogenousShader;
+	Mesh infinitePlaneMesh;
+	std::vector<HomogenousInstance> infinitePlanes;
+	void renderInfinitePlanes();
 
 	Gfx2d gfx2d;
 

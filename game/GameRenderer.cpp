@@ -70,6 +70,25 @@ void drawMeshInstances(Mesh& mesh, View<const Instance> instances, Vbo& instance
 #include <game/DoublyConnectedEdgeList.hpp>
 #include <iostream>
 
+// Uses homogeneous coordinates
+// The only difference between trasforming a normal point and a point at infinity is that points at infinity don't get translated, because the w basis in the matrix gets multiplied by zero.
+// When using a perspective matrix the w coorindate of the output vector is indepentent of the w coorindate of the input vector. The projection matrix just copies the the z value. So setting w = 0 doesn't cause division by zero.
+HomogenousVertex infinitePlaneVertices[]{
+	// I don't think it's possible to draw an infinite plane using only 2 triangles. I think that might be because the vertices don't get translated so the same thing is rendered no matter the camera position. If you actually try it you will see something like a flickering 1D checkboard. This might be because the view direction is always parallel with the plane.
+	{ Vec4(0, 0, 0, 1) },
+	{ Vec4(1, 0, 0, 0) },
+	{ Vec4(0, 0, 1, 0) },
+	{ Vec4(-1, 0, 0, 0) },
+	{ Vec4(0, 0, -1, 0) },
+};
+
+i32 infinitePlaneIndices[]{
+	0, 1, 2,
+	0, 2, 3,
+	0, 3, 4,
+	0, 4, 1
+};
+
 GameRenderer GameRenderer::make() {
 	auto instancesVbo = Vbo(1024ull * 20);
 
@@ -273,7 +292,8 @@ GameRenderer GameRenderer::make() {
 	auto gfx2d = Gfx2d::make();
 
 
-	const auto icosphere = makeIcosphere(10, 1.0f);
+	//const auto icosphere = makeIcosphere(10, 1.0f);
+	const auto icosphere = makeIcosphere(12, 1.0f);
 	std::vector<SphericalPolygonVertex> icosphereVertices;
 	for (i32 i = 0; i < icosphere.positions.size(); i++) {
 		icosphereVertices.push_back(SphericalPolygonVertex{
@@ -321,6 +341,8 @@ GameRenderer GameRenderer::make() {
 		.surfaceShader = MAKE_GENERATED_SHADER(SURFACE),
 		.coloredShadingTriangles = TriangleRenderer<Vertex3Pnc>::make<ColoredShadingShader>(instancesVbo),
 		.coloredShadingShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
+		.homogenousShader = MAKE_GENERATED_SHADER(HOMOGENOUS),
+		.infinitePlaneMesh = makeMesh<HomogenousShader>(constView(infinitePlaneVertices), constView(infinitePlaneIndices), instancesVbo),
 		MOVE(gfx2d),
 		MOVE(instancesVbo),
 	};
@@ -529,4 +551,24 @@ void GameRenderer::coloredShadingTrianglesAddMesh(const std::vector<Vec3>& posit
 
 void GameRenderer::coloredShadingTrianglesAddMesh(const LineGenerator& lineGenerator, Vec3 color) {
 	coloredShadingTrianglesAddMesh(lineGenerator.positions, lineGenerator.normals, lineGenerator.indices, color);
+}
+
+void GameRenderer::renderInfinitePlanes() {
+	homogenousShader.use();
+	shaderSetUniforms(
+		homogenousShader,
+		HomogenousVertUniforms{
+			.transform = transform
+		}
+	);
+
+	shaderSetUniforms(
+		homogenousShader,
+		HomogenousFragUniforms{
+			.screenSize = Window::size(),
+			.inverseTransform = transform.inversed(),
+		}
+	);
+	drawMeshInstances(infinitePlaneMesh, constView(infinitePlanes), instancesVbo);
+	infinitePlanes.clear();
 }

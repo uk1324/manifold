@@ -11,16 +11,9 @@ out vec4 fragColor;
 
 /*generated end*/
 
-vec4 inverseStereographicProjection(vec3 p) {
-	float s = p.x * p.x + p.y * p.y + p.z * p.z;
-	float a = 2.0f / (s + 1.0f);
-	return vec4(
-		p.x * a,
-		p.y * a,
-		p.z * a,
-		(s - 1.0f) / (s + 1.0f)
-	);
-}
+#include "stereographic.glsl"
+
+#include "fog.glsl"
 
 in vec3 worldPos;
 
@@ -30,18 +23,17 @@ void main() {
 	diffuse = max(0, diffuse);
 	diffuse += 0.5;
 	diffuse = clamp(diffuse, 0, 1);
+	diffuse = 1.0;
 	//fragColor = vec4(interpolatedColor * diffuse, 1.0);
 
 	vec4 pos4 = inverseStereographicProjection(worldPos);
-	if (dot(pos4, n0) > 0.0) discard;
-	if (dot(pos4, n1) > 0.0) discard;
-	if (dot(pos4, n2) > 0.0) discard;
+	if (dot(pos4, n0) < 0.0) discard;
+	if (dot(pos4, n1) < 0.0) discard;
+	if (dot(pos4, n2) < 0.0) discard;
 	
-	float d = length(worldPos);
-	float fogNear = 10.0;
-	float fogFar = 60.0;
-	d = (fogFar - d) / (fogFar - fogNear);
 	//d = smoothstep(110.0, 10.0, d);
-	fragColor = vec4(vec3(1.0, 1.0, 0.0) * diffuse * d, 1.0);
+	fragColor = vec4(vec3(1.0, 1.0, 0.0) * diffuse * fogScale(worldPos), 1.0);
+//	fragColor = vec4((worldPos + 1.0) / 2.0, 1.0);
+//	fragColor = vec4((pos4.xyz + 1.0) / 2.0, 1.0);
 	//fragColor = vec4(interpolatedColor.rgb, 1.0);
 }

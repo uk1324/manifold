@@ -27,7 +27,6 @@ struct Visualization2 {
 	Vbo linesVbo;
 	Ibo linesIbo;
 	Vao linesVao;
-
 	//Polytope crossPolytope;
 	enum class CameraType {
 		NORMAL,

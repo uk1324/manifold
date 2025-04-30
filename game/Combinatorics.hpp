@@ -16,6 +16,7 @@ struct CombinationsIter {
 
 	auto begin() -> decltype(values.begin());
 	auto end() -> decltype(values.end());
+	i32 operator[](i32 i) const;
 
 	i32 setSize;
 	i32 subsetSize;

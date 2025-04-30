@@ -1,0 +1,26 @@
+`
+#include <engine/Math/Mat4.hpp>
+`
+
+struct HomogenousVertex {
+	Vec4 position;
+}
+
+shader Homogenous {
+	vertexStruct = HomogenousVertex;
+	vertInstance = {
+		Mat4 transform;
+	};
+	vertUniforms = {
+		Mat4 transform;
+	};
+	fragInstance = {
+		Vec4 n0;
+		Vec4 n1;
+		Vec4 n2;
+	};
+	fragUniforms = {
+		Vec2 screenSize;
+		Mat4 inverseTransform;
+	};
+}
