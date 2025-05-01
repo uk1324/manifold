@@ -26,6 +26,6 @@ void main() {
 	if (dot(pos4, n0) < 0.0) discard;
 	if (dot(pos4, n1) < 0.0) discard;
 	if (dot(pos4, n2) < 0.0) discard;
-	fragColor = shade(worldPos, cameraPos, quatMultiply(quatInverseIfNormalized(cameraPos), pos4), planeNormal);
+	fragColor = shade(worldPos, cameraPos, quatMultiply(-cameraPos, pos4), planeNormal);
 	//fragColor = shade(worldPos, cameraPos, pos4, planeNormal);
 }

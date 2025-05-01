@@ -144,6 +144,41 @@ Vec4 inverseStereographicProjection(Vec3 p) {
 }
 
 /*
+[ f1_x, f1_y, f1_z ]
+[ f2_x, f2_y, f2_z ]
+[ f3_x, f3_y, f3_z ]
+[ f4_x, f4_y, f4_z ]
+*/
+Vec4 inverseStereographicProjectionJacobian(Vec3 at, Vec3 of) {
+	const auto x2 = at.x * at.x;
+	const auto y2 = at.y * at.y;
+	const auto z2 = at.z * at.z;
+
+	const auto s = x2 + y2 + z2 + 1.0f;
+	const auto s1 = 2.0f / (s * s);
+
+	const auto m00 = (s - 2.0f * x2) * s1;
+	const auto m11 = (s - 2.0f * y2) * s1;
+	const auto m22 = (s - 2.0f * z2) * s1;
+	const auto m10 = (-2.0f * at.x * at.y * s1);
+	const auto& m01 = m10;
+	const auto m20 = (-2.0f * at.x * at.z * s1);
+	const auto& m02 = m20;
+	const auto m21 = (-2.0f * at.y * at.z * s1);
+	const auto& m12 = m21;
+	const auto m03 = at.x * s1;
+	const auto m13 = at.y * s1;
+	const auto m23 = at.z * s1;
+
+	return Vec4(
+		m00 * of.x + m10 * of.y + m20 * of.z,
+		m01 * of.x + m11 * of.y + m21 * of.z,
+		m02 * of.x + m12 * of.y + m22 * of.z,
+		m03 * of.x + m13 * of.y + m23 * of.z
+	);
+}
+
+/*
 The geodesics are parts of great circles passing though S3. If you have a point p then the point -p also passes though it.
 Any great circle can be written as the intersection dot(p, p) = 1 and dot(n, p) = 0.
 dot(-p, -p) = (-1)^2 dot(p, p) = 1
@@ -521,7 +556,8 @@ void Visualization2::update() {
 	renderer.projection = projection;
 	renderer.cameraForward = cameraForward;
 	renderer.cameraPosition = cameraPosition;
-	renderer.cameraPos4 = Vec4(stereographicCamera.position.x, stereographicCamera.position.y, stereographicCamera.position.z, stereographicCamera.position.w);
+	const auto pos4 = stereographicCamera.position();
+	renderer.cameraPos4 = Vec4(pos4.x, pos4.y, pos4.z, pos4.w);
 
 	renderer.resizeBuffers(Vec2T<i32>(Window::size()));
 	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
@@ -531,7 +567,6 @@ void Visualization2::update() {
 	glDepthMask(GL_TRUE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_BLEND);
-
 
 	const auto width = 0.02f;
 	auto stereographicDraw = [&](Vec4 e0, Vec4 e1) {
@@ -574,7 +609,15 @@ void Visualization2::update() {
 		return Vec4(r.x, r.y, r.z, r.w);
 	};
 	//auto t = stereographicCamera.position.inverseIfNormalized();
-	auto t = stereographicCamera.position;
+	// Maps position into 0.
+	static bool test1 = false;
+	ImGui::Checkbox("test1", &test1);
+	auto t = stereographicCamera.p;
+	/*if (test1) {
+		t = stereographicCamera.position.inverseIfNormalized();
+	}*/
+	//const auto a = t * stereographicCamera.position;
+	//auto t = stereographicCamera.position.inverseIfNormalized();
 
 	std::vector<Vec4> transformedVertices4;
 	for (const auto& vertex : vertices) {
@@ -596,7 +639,7 @@ void Visualization2::update() {
 			const auto r = q * Quat(v.x, v.y, v.z, v.w);
 			return Vec4(r.x, r.y, r.z, r.w);
 		};
-		auto t = stereographicCamera.position;
+		//auto t = stereographicCamera.position;
 		e0 = apply(t, e0);
 		e1 = apply(t, e1);
 		stereographicDraw(e0, e1);
@@ -866,6 +909,20 @@ void Visualization2::update() {
 	//renderFace(3);
 	//ImGui::InputInt("faceI", &faceI);
 	
+	const auto v = inverseStereographicProjectionJacobian(Vec3(0.0f), stereographicCamera.forward());
+	//apply(t, Vec3(stereographicCamera.pos))
+	//renderer.line(Vec3(0.0f), v, 0.01f, Color3::YELLOW);
+	/*const auto q = -stereographicCamera.position.inverseIfNormalized();
+	const auto p = Vec4(q.x, q.y, q.z, q.w);*/
+	/*const auto q = stereographicCamera.position();
+	const auto p = Vec4(q.x, q.y, q.z, q.w);
+	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);*/
+	/*
+	The player moves along the curve
+	r(t) = p * exp(t * foward)
+	r'(t) = p * forward * exp(t * foward)
+	where p is the initial position
+	*/
 
 	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::WHITE);
 	lineGenerator.reset();

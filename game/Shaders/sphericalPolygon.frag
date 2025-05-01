@@ -24,6 +24,8 @@ void main() {
 	if (dot(pos4, n0) < 0.0) discard;
 	if (dot(pos4, n1) < 0.0) discard;
 	if (dot(pos4, n2) < 0.0) discard;
-	fragColor = shade(worldPos, cameraPos, quatMultiply(quatInverseIfNormalized(cameraPos), pos4), planeNormal);
+	//fragColor = shade(worldPos, cameraPos, quatMultiply(quatInverseIfNormalized(cameraPos), pos4), planeNormal);
+	// vertices get transformed by stereographicCamera.p and cameraPos = -inverseIfNormalized(stereographicCamera.p) so multipying by -cameraPos gives back the original position.
+	fragColor = shade(worldPos, cameraPos, quatMultiply(-cameraPos, pos4), planeNormal);
 	//fragColor = shade(worldPos, cameraPos, pos4, planeNormal);
 }

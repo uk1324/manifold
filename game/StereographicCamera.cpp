@@ -9,6 +9,9 @@ static Quat exp(Vec3 vectorPart) {
 	return Quat(v.x * sin(distance), v.y * sin(distance), v.z * sin(distance), cos(distance));
 }
 #include <imgui/imgui.h>
+Quat StereographicCamera::position() const {
+	return -p.inverseIfNormalized();
+}
 void StereographicCamera::update(float dt) {
 	if (Window::isCursorEnabled()) {
 		lastMousePosition = std::nullopt;
@@ -66,8 +69,8 @@ void StereographicCamera::update(float dt) {
 	//const auto forwardMovement = forward();
 	/*if (Input::isKeyHeld(KeyCode::W)) movement += forwardMovement;
 	if (Input::isKeyHeld(KeyCode::S)) movement -= forwardMovement;*/
-	position *= exp(movement * movementSpeed * dt);
-	position = position.normalized();
+	p = exp(movement * movementSpeed * dt) * p;
+	p = p.normalized();
 }
 
 //Quat StereographicCamera::cameraForwardRotation() const {

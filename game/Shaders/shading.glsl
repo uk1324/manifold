@@ -53,7 +53,7 @@ vec3 shade(vec4 lightPos, vec4 fragmentPos, vec4 fragmentNormal, vec4 cameraPos,
     vec3 result = (ambient + diffuse + specular) * objectColor;
     //result = vec3(fragmentNormal.xyz);
     result = vec3(diff);
-    //result = vec3(distance(cameraPos, fragmentPos) / 4.0);
+    result = vec3(distance(cameraPos, fragmentPos) / 4.0);
     // could attenuate based on geodesic distance
     return result;
 
@@ -67,7 +67,7 @@ vec3 shade(vec4 lightPos, vec4 fragmentPos, vec4 fragmentNormal, vec4 cameraPos,
 }
 
 vec4 shade(vec3 worldPos, vec4 cameraPos4, vec4 pos4, vec4 normal4) {
-    cameraPos4 = -quatInverseIfNormalized(cameraPos4);
+    //cameraPos4 = -quatInverseIfNormalized(cameraPos4);
     //cameraPos4 = -cameraPos4;
     vec3 color = vec3(0.0);
 //    color += shade(vec4(2.0, 0.0, 0.0, 0.0), pos4, normal4, cameraPos4, vec3(1.0, 0.0, 0.0));
