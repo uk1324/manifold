@@ -54,6 +54,7 @@ vec3 shade(vec4 lightPos, vec4 fragmentPos, vec4 fragmentNormal, vec4 cameraPos,
     //result = vec3(fragmentNormal.xyz);
     result = vec3(diff);
     result = vec3(distance(cameraPos, fragmentPos) / 4.0);
+    result = vec3(distance(vec4(1.0, 0.0, 0.0, 0.0), fragmentPos) / 4.0);
     // could attenuate based on geodesic distance
     return result;
 

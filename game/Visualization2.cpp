@@ -613,6 +613,7 @@ void Visualization2::update() {
 	static bool test1 = false;
 	ImGui::Checkbox("test1", &test1);
 	auto t = stereographicCamera.p;
+	//auto t = stereographicCamera.testP;
 	/*if (test1) {
 		t = stereographicCamera.position.inverseIfNormalized();
 	}*/
@@ -623,6 +624,7 @@ void Visualization2::update() {
 	for (const auto& vertex : vertices) {
 		transformedVertices4.push_back(apply(t, vertex));
 	}
+
 
 	/*for (i32 i = 0; i < vertices.size(); i++) {
 		const auto v = stereographicProjection(apply(t, vertices[i]));
@@ -901,15 +903,24 @@ void Visualization2::update() {
 		//renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.01f, Color3::MAGENTA);
 	};
 	auto& cell = cells[0];
-	for (const auto& face : cell.faces) {
-		renderFace(face, cell);
-		//renderFace(1);
-	}
+	//for (const auto& face : cell.faces) {
+	//	renderFace(face, cell);
+	//	//renderFace(1);
+	//}
+	renderFace(cell.faces[0], cell);
 	//renderFace(3);
 	//renderFace(3);
 	//ImGui::InputInt("faceI", &faceI);
+	const auto v0 = vertices[faces[cell.faces[0]].vertices[0]];
+	renderer.sphere(stereographicProjection(apply(t, v0)), 0.1f, Color3::RED);
 	
-	const auto v = inverseStereographicProjectionJacobian(Vec3(0.0f), stereographicCamera.forward());
+	Vec4 p(1.0f, 0.0f, 0.0f, 0.0f);
+	auto q = stereographicCamera.position();
+	f32 dist = Vec4(p.x - q.x, p.y - q.y, p.z - q.z, p.w - q.w).length();
+	ImGui::InputFloat("dist", &dist);
+	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);
+
+	//const auto v = inverseStereographicProjectionJacobian(Vec3(0.0f), stereographicCamera.forward());
 	//apply(t, Vec3(stereographicCamera.pos))
 	//renderer.line(Vec3(0.0f), v, 0.01f, Color3::YELLOW);
 	/*const auto q = -stereographicCamera.position.inverseIfNormalized();

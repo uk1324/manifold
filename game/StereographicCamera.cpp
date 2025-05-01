@@ -71,6 +71,9 @@ void StereographicCamera::update(float dt) {
 	if (Input::isKeyHeld(KeyCode::S)) movement -= forwardMovement;*/
 	p = exp(movement * movementSpeed * dt) * p;
 	p = p.normalized();
+
+	testP = exp(movement * (-testP * movementSpeed) * dt) * testP;
+	testP = testP.normalized();
 }
 
 //Quat StereographicCamera::cameraForwardRotation() const {
