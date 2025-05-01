@@ -293,7 +293,7 @@ GameRenderer GameRenderer::make() {
 
 
 	//const auto icosphere = makeIcosphere(10, 1.0f);
-	const auto icosphere = makeIcosphere(12, 1.0f);
+	const auto icosphere = makeIcosphere(30, 1.0f);
 	std::vector<SphericalPolygonVertex> icosphereVertices;
 	for (i32 i = 0; i < icosphere.positions.size(); i++) {
 		icosphereVertices.push_back(SphericalPolygonVertex{

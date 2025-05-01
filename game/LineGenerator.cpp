@@ -255,7 +255,7 @@ void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, 
 
 	const auto offset = vertexCount();
 
-	const auto count = 25;
+	const auto count = 100;
 	const auto curveBinormal = cross(aRelativeToCenter, velocityOutOfA).normalized();
 	for (i32 curveI = 0; curveI < count; curveI++) {
 		const auto curveAngle = lerp(0.0f, arclength, f32(curveI) / f32(count - 1));

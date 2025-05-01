@@ -23,14 +23,21 @@ void StereographicCamera::update(float dt) {
 
 	lastMousePosition = Input::cursorPosWindowSpace();
 
-	// x+ is right both in window space and in the used coordinate system.
-	// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.
-	angleAroundUpAxis += mouseOffset.x * rotationSpeed * dt;
-	// Down is positive in window space and a positive rotation around the x axis rotates down.
-	angleAroundRightAxis += mouseOffset.y * rotationSpeed * dt;
 
-	angleAroundUpAxis = normalizeAngleZeroToTau(angleAroundUpAxis);
-	angleAroundRightAxis = std::clamp(angleAroundRightAxis, -degToRad(89.0f), degToRad(89.0f));
+	//// x+ is right both in window space and in the used coordinate system.
+	//// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.
+	//angleAroundUpAxis += mouseOffset.x * rotationSpeed * dt;
+	//// Down is positive in window space and a positive rotation around the x axis rotates down.
+	//angleAroundRightAxis += mouseOffset.y * rotationSpeed * dt;
+	Quat rotation = Quat::identity;
+	rotation *= Quat(mouseOffset.x * rotationSpeed * dt, up);
+	rotation *= Quat(mouseOffset.y * rotationSpeed * dt, right);
+
+	right *= rotation;
+	up *= rotation;
+
+	/*angleAroundUpAxis = normalizeAngleZeroToTau(angleAroundUpAxis);
+	angleAroundRightAxis = std::clamp(angleAroundRightAxis, -degToRad(89.0f), degToRad(89.0f));*/
 
 	Vec3 movementDirection(0.0f);
 
@@ -44,29 +51,32 @@ void StereographicCamera::update(float dt) {
 	Vec3 movement(0.0f);
 	movementDirection = movementDirection.normalized();
 
-	Quat rotationAroundYAxis(angleAroundUpAxis, Vec3::UP);
-	const auto dir = rotationAroundYAxis * movementDirection;
-	movement += dir;
+	/*Quat rotationAroundYAxis(angleAroundUpAxis, Vec3::UP);
+	const auto dir = rotationAroundYAxis * movementDirection;*/
+	
+	const auto f = forward();
 
-
-	const auto forwardMovement = forward();
+	movement += right * movementDirection.x + up * movementDirection.y + f * movementDirection.z;
+	//const auto forwardMovement = forward();
 	/*if (Input::isKeyHeld(KeyCode::W)) movement += forwardMovement;
 	if (Input::isKeyHeld(KeyCode::S)) movement -= forwardMovement;*/
 	position *= exp(movement * movementSpeed * dt);
 	position = position.normalized();
 }
 
-Quat StereographicCamera::cameraForwardRotation() const {
-	return Quat(angleAroundUpAxis, Vec3::UP) * Quat(angleAroundRightAxis, Vec3::RIGHT);
-}
+//Quat StereographicCamera::cameraForwardRotation() const {
+//	return Quat(angleAroundUpAxis, Vec3::UP) * Quat(angleAroundRightAxis, Vec3::RIGHT);
+//}
 
 Vec3 StereographicCamera::forward() const {
-	return cameraForwardRotation() * Vec3::FORWARD;
+	return cross(right, up);
+	//return cameraForwardRotation() * Vec3::FORWARD;
 }
 
 Mat4 StereographicCamera::viewMatrix() const {
 	auto target = pos3d() + forward();
-	return Mat4::lookAt(pos3d(), target, Vec3::UP);
+	/*return Mat4::lookAt(pos3d(), target, Vec3::UP);*/
+	return Mat4::lookAt(pos3d(), target, up);
 }
 
 Vec3 StereographicCamera::pos3d() const {

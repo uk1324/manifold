@@ -42,6 +42,7 @@ Visualization2 Visualization2::make() {
 			r.faces.push_back(Face{ .vertices = std::vector<i32>(face) });
 		}
 	}
+	//r.stereographicCamera.movementSpeed = 0.2f;
 	return r;
 }
 
@@ -301,6 +302,167 @@ bool pointsNearlyCoplanar(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, f32 epsilon) {
 
 #include <engine/Math/Circle.hpp>
 
+struct CircularSegment {
+	CircularSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)
+		: start(start)
+		, initialVelocity(initialVelocity)
+		, center(center)
+		, angle(angle) {}
+
+	Vec3 start;
+	Vec3 initialVelocity;
+	Vec3 center;
+	f32 angle;
+
+	Vec3 sample(f32 angle) const;
+};
+
+struct LineSegment {
+	LineSegment(Vec3 e0, Vec3 e1)
+		: e{ e0, e1 } {}
+	Vec3 e[2];
+};
+
+struct StereographicSegment {
+private:
+	StereographicSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle);
+	StereographicSegment(Vec3 e0, Vec3 e1);
+public:
+	static StereographicSegment fromCircular(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle) {
+		return StereographicSegment(start, initialVelocity, center, angle);
+	}
+	static StereographicSegment fromLine(Vec3 e0, Vec3 e1) {
+		return StereographicSegment(e0, e1);
+	}
+
+	static StereographicSegment fromEndpoints(Vec4 e0, Vec4 e1) {
+		const auto p0 = stereographicProjection(e0);
+		const auto p1 = stereographicProjection(e1);
+		if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
+			return StereographicSegment::fromLine(p0, p1);
+		}
+		if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
+			auto atInfinity = p0;
+			auto finite = p1;
+			if (isPointAtInfinity(finite)) {
+				std::swap(atInfinity, finite);
+			}
+			const auto direction = finite.normalized();
+
+		} else {
+			auto p2 = antipodalPoint(p0);
+			if (isPointAtInfinity(p2)) {
+				p2 = antipodalPoint(p1);
+				if (isPointAtInfinity(p2)) {
+					ASSERT_NOT_REACHED();
+					return StereographicSegment::fromLine(p0, p1);
+				}
+			}
+
+			const auto velocity4 = (e1 - dot(e1, e0.normalized()) * e0.normalized()).normalized();
+			const auto velocity3 = stereographicProjectionJacobian(e0, velocity4);
+
+			const auto origin = p0;
+			Vec3 v0 = p2 - origin;
+			Vec3 v1 = p1 - origin;
+			const auto b0 = v0.normalized();
+			const auto b1 = (v1 - dot(v1, b0) * b0).normalized();
+			const auto t0 = dot(b0, b1);
+			auto coordinatesInBasis = [&b0, &b1](Vec3 v) -> Vec2 {
+				return Vec2(dot(v, b0), dot(v, b1));
+			};
+			auto fromCoordinatesInBasis = [&b0, &b1, &origin](Vec2 v) -> Vec3 {
+				return v.x * b0 + v.y * b1 + origin;
+			};
+			const auto c0 = Vec2(0.0f);
+			const auto c1 = coordinatesInBasis(v0);
+			const auto c2 = coordinatesInBasis(v1);
+			const auto circle = Circle::thoughPoints(c0, c1, c2);
+			Vec3 center = fromCoordinatesInBasis(circle.center);
+			const auto radius = circle.radius;
+
+			//const auto midpoint = ((p2 - center) + (p1 - center)).normalized() + center;
+
+			auto circularDistance = [](Vec3 a, Vec3 b) {
+				return acos(std::clamp(dot(a.normalized(), b.normalized()), -1.0f, 1.0f));
+				};
+			/*
+			Wanted to try calculating the arclength by calculating it normally between p0, p1 then checking the the endpoint is correct (by checking the distance of the evavluated curve endpoint to the correct endpoint) and
+			*/
+
+			/*i32 stepCount = 10;
+			const auto arclength4 = acos(std::clamp(dot(e0, e1), -1.0f, 1.0f));
+			auto previous = e0;
+			f32 d = 0.0f;
+			for (i32 i = 1; i < stepCount; i++) {
+				const auto t = f32(i) / f32(stepCount - 1);
+				const auto a = t * arclength4;
+				const auto current = cos(a) * e0 + sin(a) * velocity4;
+				d += circularDistance(
+					stereographicProjection(previous) - center,
+					stereographicProjection(current) - center);
+				previous = current;
+			}*/
+			f32 d = circularDistance(p0 - center, p1 - center);
+			const auto p = (p0 - center);
+			const auto v = velocity3.normalized() * p.length();
+			{
+				const auto calculatedEndpoint = center + p * cos(d) + v * sin(d);
+				//renderer.sphere(calculatedEndpoint, width * 3, Color3::CYAN);
+				const auto correctEndpoint = p1;
+				if (calculatedEndpoint.distanceTo(correctEndpoint) > 0.01f) {
+					d = TAU<f32> -d;
+				}
+			}
+			// This isn't actually the midpoint so there can the correct between this and p0 and p1 might not be the shortest.
+
+			//const auto midpoint = stereographicProjection((e0 + e1).normalized());
+			// 
+			/*const auto d =
+				circularDistance(p0 - center, midpoint - center) +
+				circularDistance(p1 - center, midpoint - center);*/
+
+				//lineGenerator.addCircularArc(p0 - center, velocity3, center, d, width);
+			return StereographicSegment::fromCircular(p, v, center, d);
+			//lineGenerator.addCircularArc(p0 - center, velocity3, center, TAU<f32>, width);
+			const auto t1 = p0.distanceTo(center);
+			const auto t2 = p1.distanceTo(center);
+			//const auto t3 = midpoint.distanceTo(center);
+			/*renderer.sphere(p0, width * 3, Color3::RED);
+			renderer.sphere(p1, width * 3, Color3::RED);
+			renderer.sphere(midpoint, width * 3, Color3::BLUE);
+			renderer.sphere(center, width * 3, Color3::GREEN);
+			renderer.line(p0, p0 + velocity3.normalized() * 0.5f, 0.01f, Color3::MAGENTA);*/
+			//renderer.line(p0, p1, width, Color3::WHITE);
+			/*renderer.sphere(p0, width * 3, Color3::RED);
+			renderer.sphere(p1, width * 3, Color3::RED);*/
+			//renderer.sphere(midpoint, width * 3, Color3::BLUE);
+		}
+	}
+
+	enum class Type {
+		LINE, CIRCULAR
+	};
+	Type type;
+	union {
+		CircularSegment circular;
+		LineSegment line;
+	};
+};
+
+// a and b are points on the unit sphere
+Quat unitSphereRotateAToB(Vec3 a, Vec3 b) {
+	auto rotationAxis = cross(a, b).normalized();
+	auto rotationAngle = acos(std::clamp(dot(a,
+		b.normalized()), -1.0f, 1.0f));
+
+	if (std::abs(rotationAngle) < 0.01f) {
+		rotationAngle = 0.0f;
+		rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
+	}
+	return Quat(rotationAngle, rotationAxis);
+}
+
 void Visualization2::update() {
 	//const auto result = crossPolytope(3);
 	togglableCursorUpdate();
@@ -367,111 +529,39 @@ void Visualization2::update() {
 
 	const auto width = 0.02f;
 	auto stereographicDraw = [&](Vec4 e0, Vec4 e1) {
-		const auto p0 = stereographicProjection(e0);
-		const auto p1 = stereographicProjection(e1);
-		if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
-			CHECK_NOT_REACHED();
-			return;
+		const auto segment = StereographicSegment::fromEndpoints(e0, e1);
+		switch (segment.type) {
+			using enum StereographicSegment::Type;
+
+		case LINE: {
+			const auto& p0 = segment.line.e[0];
+			const auto& p1 = segment.line.e[1];
+			if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
+				CHECK_NOT_REACHED();
+				return;
+			}
+			if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
+				auto atInfinity = p0;
+				auto finite = p1;
+				if (isPointAtInfinity(finite)) {
+					std::swap(atInfinity, finite);
+				}
+				const auto direction = finite.normalized();
+				renderer.line(Vec3(0.0f), direction * 1000.0f, width, Color3::WHITE);
+				renderer.line(Vec3(0.0f), -direction * 1000.0f, width, Color3::WHITE);
+			}
+			break;
 		}
-		if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
-			auto atInfinity = p0;
-			auto finite = p1;
-			if (isPointAtInfinity(finite)) {
-				std::swap(atInfinity, finite);
-			}
-			const auto direction = finite.normalized();
-			renderer.line(Vec3(0.0f), direction * 1000.0f, width, Color3::WHITE);
-			renderer.line(Vec3(0.0f), -direction * 1000.0f, width, Color3::WHITE);
-		} else {
-			auto p2 = antipodalPoint(p0);
-			if (isPointAtInfinity(p2)) {
-				p2 = antipodalPoint(p1);
-				if (isPointAtInfinity(p2)) {
-					CHECK_NOT_REACHED();
-					return;
-				}
-			}
 
-			const auto velocity4 = (e1 - dot(e1, e0.normalized()) * e0.normalized()).normalized();
-			const auto velocity3 = stereographicProjectionJacobian(e0, velocity4);
+		case CIRCULAR: {
+			auto& s = segment.circular;
+			lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
+			break;
+		}
 
-			const auto origin = p0;
-			Vec3 v0 = p2 - origin;
-			Vec3 v1 = p1 - origin;
-			const auto b0 = v0.normalized();
-			const auto b1 = (v1 - dot(v1, b0) * b0).normalized();
-			const auto t0 = dot(b0, b1);
-			auto coordinatesInBasis = [&b0, &b1](Vec3 v) -> Vec2 {
-				return Vec2(dot(v, b0), dot(v, b1));
-			};
-			auto fromCoordinatesInBasis = [&b0, &b1, &origin](Vec2 v) -> Vec3 {
-				return v.x * b0 + v.y * b1 + origin;
-			};
-			const auto c0 = Vec2(0.0f);
-			const auto c1 = coordinatesInBasis(v0);
-			const auto c2 = coordinatesInBasis(v1);
-			const auto circle = Circle::thoughPoints(c0, c1, c2);
-			Vec3 center = fromCoordinatesInBasis(circle.center);
-			const auto radius = circle.radius;
-
-			//const auto midpoint = ((p2 - center) + (p1 - center)).normalized() + center;
-
-			auto circularDistance = [](Vec3 a, Vec3 b) {
-				return acos(std::clamp(dot(a.normalized(), b.normalized()), -1.0f, 1.0f));
-			};
-			/*
-			Wanted to try calculating the arclength by calculating it normally between p0, p1 then checking the the endpoint is correct (by checking the distance of the evavluated curve endpoint to the correct endpoint) and 
-			*/
-
-			/*i32 stepCount = 10;
-			const auto arclength4 = acos(std::clamp(dot(e0, e1), -1.0f, 1.0f));
-			auto previous = e0;
-			f32 d = 0.0f;
-			for (i32 i = 1; i < stepCount; i++) {
-				const auto t = f32(i) / f32(stepCount - 1);
-				const auto a = t * arclength4;
-				const auto current = cos(a) * e0 + sin(a) * velocity4;
-				d += circularDistance(
-					stereographicProjection(previous) - center,
-					stereographicProjection(current) - center);
-				previous = current;
-			}*/
-			f32 d = circularDistance(p0 - center, p1 - center);
-			{
-				const auto p = (p0 - center);
-				const auto v = velocity3.normalized() * p.length();
-				const auto calculatedEndpoint = center + p * cos(d) + v * sin(d);
-				//renderer.sphere(calculatedEndpoint, width * 3, Color3::CYAN);
-				const auto correctEndpoint = p1;
-				if (calculatedEndpoint.distanceTo(correctEndpoint) > 0.01f) {
-					d = TAU<f32> - d;
-				}
-			}
-			// This isn't actually the midpoint so there can the correct between this and p0 and p1 might not be the shortest.
-
-			//const auto midpoint = stereographicProjection((e0 + e1).normalized());
-			// 
-			/*const auto d = 
-				circularDistance(p0 - center, midpoint - center) +
-				circularDistance(p1 - center, midpoint - center);*/
-
-			//lineGenerator.addCircularArc(p0 - center, velocity3, center, d, width);
-			lineGenerator.addCircularArc(p0 - center, velocity3, center, d, width);
-			//lineGenerator.addCircularArc(p0 - center, velocity3, center, TAU<f32>, width);
-			const auto t1 = p0.distanceTo(center);
-			const auto t2 = p1.distanceTo(center);
-			//const auto t3 = midpoint.distanceTo(center);
-			/*renderer.sphere(p0, width * 3, Color3::RED);
-			renderer.sphere(p1, width * 3, Color3::RED);
-			renderer.sphere(midpoint, width * 3, Color3::BLUE);
-			renderer.sphere(center, width * 3, Color3::GREEN);
-			renderer.line(p0, p0 + velocity3.normalized() * 0.5f, 0.01f, Color3::MAGENTA);*/
-			//renderer.line(p0, p1, width, Color3::WHITE);
-			/*renderer.sphere(p0, width * 3, Color3::RED);
-			renderer.sphere(p1, width * 3, Color3::RED);*/
-			//renderer.sphere(midpoint, width * 3, Color3::BLUE);
 		}
 	};
+
 
 	auto apply = [](Quat q, Vec4 v) {
 		const auto r = q * Quat(v.x, v.y, v.z, v.w);
@@ -616,7 +706,48 @@ void Visualization2::update() {
 					return a.distanceTo4thPoint < b.distanceTo4thPoint;
 				}
 			);
-			if (bestFitPlane->distanceTo4thPoint < 0.01f || test) {
+			// Theoretically it would make sense to switch to a plane if the max change along the side curves is smaller than epsilon, but I doubt there is a closed form formula for this. You would also need to define what the deviation from the plane at the sides is. Could calculate the distance from the points on the side curves to the plane.
+			//auto deviationFromLine = [](Vec4 e0, Vec4 e1) -> f32 {
+			//	const auto s = StereographicSegment::fromEndpoints(e0, e1);
+			//	switch (s.type) {
+			//		using enum StereographicSegment::Type;
+			//	case LINE:
+			//		return 0.0f;
+			//	case CIRCULAR:
+			//		const auto p0 = s.circular.sample(0.0f);
+			//		const auto p1 = s.circular.sample(s.circular.angle);
+			//		const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
+			//		const auto linearMid = (p0 + p1) / 2.0f;
+			//		return circularMid.distanceTo(linearMid);
+			//	}
+			//};
+			//const auto deviation = std::max(
+			//	deviationFromLine(p0, p1), 
+			//	std::max(
+			//		deviationFromLine(p1, p2), deviationFromLine(p2, p0)
+			//	)
+			//);
+
+			const auto testPlane = Plane::fromPoints(sp0, sp1, sp2);
+			auto deviationFromPlane = [&testPlane](Vec4 e0, Vec4 e1) -> f32 {
+				const auto s = StereographicSegment::fromEndpoints(e0, e1);
+				switch (s.type) {
+					using enum StereographicSegment::Type;
+				case LINE:
+					return 0.0f;
+				case CIRCULAR:
+					const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
+					return testPlane.distance(circularMid);
+				}
+			};
+			const auto deviation = std::max(
+				deviationFromPlane(p0, p1),
+				std::max(
+					deviationFromPlane(p1, p2), deviationFromPlane(p2, p0)
+				)
+			);
+
+			if (deviation < 0.03f || test) {
 				Vec3 untransformedInfinitePlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
 				////const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
 				/*const auto wantedPlane = bestFitPlane->plane;*/
@@ -696,8 +827,16 @@ void Visualization2::update() {
 				/*
 				It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
 				*/
+				const auto anyVertex = icosahedronVertices[0];
+				const auto rotation = unitSphereRotateAToB(
+					(sp0 - sphere.center).normalized(), 
+					anyVertex.normalized());
 				instances.push_back(SphericalPolygonInstance{
-					.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),
+					/*.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),*/
+					.transform = 
+						Mat4::translation(sphere.center) *
+						Mat4(rotation.toMatrix()) *
+						Mat4(Mat3::scale(sphere.radius)),
 					.n0 = n0,
 					.n1 = n1,
 					.n2 = n2
@@ -716,9 +855,13 @@ void Visualization2::update() {
 					}
 				);
 
+				static bool wireframe = false;
+				ImGui::Checkbox("wireframe", &wireframe);
+				if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 				drawInstances(renderer.sphereMesh.vao, renderer.instancesVbo, constView(instances), [&](usize count) {
 					glDrawElementsInstanced(GL_TRIANGLES, renderer.sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
 				});
+				if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			}
 		}
 
@@ -793,4 +936,16 @@ void Visualization2::update() {
 
 	renderer.renderCyllinders();
 	renderer.renderHemispheres();
+}
+
+StereographicSegment::StereographicSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)
+	: circular(start, initialVelocity, center, angle)
+	, type(Type::CIRCULAR) {}
+
+StereographicSegment::StereographicSegment(Vec3 e0, Vec3 e1) 
+	: line(e0, e1)
+	, type(Type::LINE) {}
+
+Vec3 CircularSegment::sample(f32 angle) const {
+	return center + cos(angle) * start + sin(angle) * initialVelocity;
 }
