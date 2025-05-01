@@ -35,11 +35,16 @@ Visualization2 Visualization2::make() {
 		}
 		/*for (const auto& vertex : c.vertices) {
 		}*/
-		for (const auto& edge : c.cells[0]) {
+		for (const auto& edge : c.cellsOfDimension(1)) {
 			r.edges.push_back(Edge{ edge[0], edge[1] });
 		}
-		for (const auto& face : c.cells[1]) {
-			r.faces.push_back(Face{ .vertices = std::vector<i32>(face) });
+		for (const auto& face : c.cellsOfDimension(2)) {
+			auto vertices = faceVertices(c, face);
+			r.faces.push_back(Face{ .vertices = std::move(vertices) });
+			//r.faces.push_back(Face{ .vertices = std::vector<i32>(face) });
+		}
+		for (const auto& cell : c.cellsOfDimension(3)) {
+			r.cells.push_back(Cell{ .faces = cell });
 		}
 	}
 	//r.stereographicCamera.movementSpeed = 0.2f;
@@ -189,7 +194,7 @@ Vec4 crossProduct(Vec4 v0, Vec4 v1, Vec4 v2) {
 			v1.y, v1.z, v1.w,
 			v2.y, v2.z, v2.w
 		),
-		det(
+		-det(
 			v0.x, v0.z, v0.w,
 			v1.x, v1.z, v1.w,
 			v2.x, v2.z, v2.w
@@ -199,7 +204,7 @@ Vec4 crossProduct(Vec4 v0, Vec4 v1, Vec4 v2) {
 			v1.x, v1.y, v1.w,
 			v2.x, v2.y, v2.w
 		),
-		det(
+		-det(
 			v0.x, v0.y, v0.z,
 			v1.x, v1.y, v1.z,
 			v2.x, v2.y, v2.z
@@ -255,50 +260,50 @@ std::array<Vec4, 3> orthonormalBasisFor3Space(Vec4 normal) {
 	};
 }
 
-bool pointsNearlyCoplanar(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, f32 epsilon) {
-	// https://math.stackexchange.com/questions/405966/if-i-have-three-points-is-there-an-easy-way-to-tell-if-they-are-collinear
-	// https://stackoverflow.com/questions/65396833/testing-three-points-for-collinearity-in-a-numerically-robust-way
-
-	// Using areas or volumes makes it independent of the order of points, but it's probably better to have the biggest or the furthest distance of a point.
-	/*f32 basesSquaredAreas[]{
-		cross(p0, p1).lengthSquared(),
-		cross(p0, p2).lengthSquared(),
-		cross(p0, p3).lengthSquared(),
-
-		cross(p1, p2).lengthSquared(),
-		cross(p1, p3).lengthSquared(),
-
-		cross(p2, p3).lengthSquared(),
-	};*/
-
-	/*const auto p = Plane::fromPoints(p0, p1, p2);
-	return abs(p.signedDistance(p3)) <= epsilon;*/
-	const auto v0 = p0 - p3;
-	const auto v1 = p1 - p3;
-	const auto v2 = p2 - p3;
-	f32 basesSquaredAreas[]{
-		cross(v0, v1).lengthSquared(),
-		cross(v0, v2).lengthSquared(),
-		cross(v1, v2).lengthSquared(),
-	};
-	const auto biggestBaseArea = sqrt(std::ranges::max(basesSquaredAreas));
-	const auto volume = abs(det(v0, v1, v2));
-	const auto parallelepipedHeight = volume / biggestBaseArea;
-	return parallelepipedHeight <= epsilon;
-
-	// Assumes that the plane goes though p3
-	//const auto v0 = p0 - p3;
-	//const auto v1 = p1 - p3;
-	//const auto v2 = p2 - p3;
-	//const auto volume = abs(det(v0, v1, v2));
-	//f32 distances[]{
-	//	volume / sqrt(cross(v0, v1).lengthSquared()),
-	//	volume / sqrt(cross(v0, v2).lengthSquared()),
-	//	volume / sqrt(cross(v1, v2).lengthSquared()),
-	//};
-	//const auto biggestDistance = std::ranges::max(distances);
-	//return biggestDistance <= epsilon;
-}
+//bool pointsNearlyCoplanar(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, f32 epsilon) {
+//	// https://math.stackexchange.com/questions/405966/if-i-have-three-points-is-there-an-easy-way-to-tell-if-they-are-collinear
+//	// https://stackoverflow.com/questions/65396833/testing-three-points-for-collinearity-in-a-numerically-robust-way
+//
+//	// Using areas or volumes makes it independent of the order of points, but it's probably better to have the biggest or the furthest distance of a point.
+//	/*f32 basesSquaredAreas[]{
+//		cross(p0, p1).lengthSquared(),
+//		cross(p0, p2).lengthSquared(),
+//		cross(p0, p3).lengthSquared(),
+//
+//		cross(p1, p2).lengthSquared(),
+//		cross(p1, p3).lengthSquared(),
+//
+//		cross(p2, p3).lengthSquared(),
+//	};*/
+//
+//	/*const auto p = Plane::fromPoints(p0, p1, p2);
+//	return abs(p.signedDistance(p3)) <= epsilon;*/
+//	const auto v0 = p0 - p3;
+//	const auto v1 = p1 - p3;
+//	const auto v2 = p2 - p3;
+//	f32 basesSquaredAreas[]{
+//		cross(v0, v1).lengthSquared(),
+//		cross(v0, v2).lengthSquared(),
+//		cross(v1, v2).lengthSquared(),
+//	};
+//	const auto biggestBaseArea = sqrt(std::ranges::max(basesSquaredAreas));
+//	const auto volume = abs(det(v0, v1, v2));
+//	const auto parallelepipedHeight = volume / biggestBaseArea;
+//	return parallelepipedHeight <= epsilon;
+//
+//	// Assumes that the plane goes though p3
+//	//const auto v0 = p0 - p3;
+//	//const auto v1 = p1 - p3;
+//	//const auto v2 = p2 - p3;
+//	//const auto volume = abs(det(v0, v1, v2));
+//	//f32 distances[]{
+//	//	volume / sqrt(cross(v0, v1).lengthSquared()),
+//	//	volume / sqrt(cross(v0, v2).lengthSquared()),
+//	//	volume / sqrt(cross(v1, v2).lengthSquared()),
+//	//};
+//	//const auto biggestDistance = std::ranges::max(distances);
+//	//return biggestDistance <= epsilon;
+//}
 
 #include <engine/Math/Circle.hpp>
 
@@ -516,6 +521,7 @@ void Visualization2::update() {
 	renderer.projection = projection;
 	renderer.cameraForward = cameraForward;
 	renderer.cameraPosition = cameraPosition;
+	renderer.cameraPos4 = Vec4(stereographicCamera.position.x, stereographicCamera.position.y, stereographicCamera.position.z, stereographicCamera.position.w);
 
 	renderer.resizeBuffers(Vec2T<i32>(Window::size()));
 	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
@@ -575,7 +581,6 @@ void Visualization2::update() {
 		transformedVertices4.push_back(apply(t, vertex));
 	}
 
-
 	/*for (i32 i = 0; i < vertices.size(); i++) {
 		const auto v = stereographicProjection(apply(t, vertices[i]));
 		if (isPointAtInfinity(v)) {
@@ -591,71 +596,85 @@ void Visualization2::update() {
 			const auto r = q * Quat(v.x, v.y, v.z, v.w);
 			return Vec4(r.x, r.y, r.z, r.w);
 		};
-		//auto t = stereographicCamera.position.inverseIfNormalized();
 		auto t = stereographicCamera.position;
 		e0 = apply(t, e0);
 		e1 = apply(t, e1);
-		//auto project = [](Vec4 v) -> Vec3 {
-		//	const auto planeNormal = Vec4(0.0f, 0.0f, 0.0f, 2.0f);
-		//	const auto planeD = 0.0f;
-		//	const auto rayOrigin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		//	const auto rayDirection = v - rayOrigin;
-		//	const auto intersectionT = planeRayIntersection(planeNormal, planeD, rayOrigin, rayDirection);
-		//	const auto intersection = rayOrigin + rayDirection * intersectionT;
-		//	return Vec3(intersection.x, intersection.y, intersection.z);
-		//	/*return Vec3(
-		//		p.x,
-		//		p.y,
-		//		p.z
-		//	);*/
-
-		//	/*const auto p = v.normalized();
-		//	return Vec3(
-		//		p.x,
-		//		p.y,
-		//		p.z
-		//	);*/
-		//	/*return Vec3(
-		//		v.x,
-		//		v.y,
-		//		v.z
-		//	);*/
-		//	/*return Vec3(
-		//		v.x / v.w,
-		//		v.y / v.w,
-		//		v.z / v.w
-		//	);*/
-		//};
-		//renderer.line(project(e0), project(e1), 0.01f, Color3::GREEN);
 		stereographicDraw(e0, e1);
-		//break;
 	}
-	{
+	auto renderPlaneTriangle = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+		Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
+		const auto rotation = unitSphereRotateAToB(untransformedPlaneMeshNormal, wantedPlane.n);
+		/*auto rotationAxis = cross(untransformedPlaneMeshNormal, wantedPlane.n).normalized();
+		auto rotationAngle = acos(
+			std::clamp(
+				dot(wantedPlane.n.normalized(), untransformedPlaneMeshNormal.normalized()), 
+				-1.0f, 
+				1.0f
+			)
+		);*/
 
+		{
+			/*const auto t0 = wantedPlane.signedDistance(sp0);
+			const auto t1 = wantedPlane.signedDistance(sp1);
+			const auto t2 = wantedPlane.signedDistance(sp2);
+			const auto t3 = wantedPlane.signedDistance(sp3);
+			const auto t4 = wantedPlane.signedDistance(Vec3(0.0f));
+			const auto t5 = 0.0f;*/
+		}
 
-		std::vector<SphericalPolygonInstance> instances;
-		//const auto& face = faces[1];
+		/*auto rotationAxis = Vec3(0.0f, 0.0f, 1.0f);
+		auto rotationAngle = PI<f32> / 2.0f; */
+
+		//if (std::abs(rotationAngle) < 0.01f) {
+		//	rotationAngle = 0.0f;
+		//	rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
+		//}
+		//const auto rotation = Quat(rotationAngle, rotationAxis);
+		{
+			const auto t0 = rotation * untransformedPlaneMeshNormal;
+			const auto t1 = t0.distanceTo(wantedPlane.n);
+			const auto t2 = 0.0f;
+		}
+		renderer.infinitePlanes.push_back(HomogenousInstance{
+			.transform =
+				Mat4::translation(wantedPlane.d * wantedPlane.n) *
+				Mat4(rotation.inverseIfNormalized().toMatrix()),
+			.n0 = n0,
+			.n1 = n1,
+			.n2 = n2,
+			.planeNormal = planeNormal,
+		});
+		//renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
+		/*renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
+		renderer.line(sp0, sp0 + untransformedInfinitePlaneMeshNormal, 0.1f, Color3::BLUE);
+		renderer.line(sp0, sp0 + rotationAxis, 0.1f, Color3::YELLOW);*/
+		//renderer.homogenousTriangleRenderer.addTri()
+	};
+
+	auto renderTriangle = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4) {
+		//static i32 faceI = 0;
+		//ImGui::InputInt("faceI", &faceI);
+		//const auto& face = faces[faceI];
+		////const auto& p0 = transformedVertices4[face.vertices[0]];
+		////const auto& p1 = transformedVertices4[face.vertices[1]];
+		////const auto& p2 = transformedVertices4[face.vertices[2]];
+		////const auto p3 = -p0;
 		//const auto& p0 = transformedVertices4[face.vertices[0]];
 		//const auto& p1 = transformedVertices4[face.vertices[1]];
 		//const auto& p2 = transformedVertices4[face.vertices[2]];
-		//const auto p3 = -p0;
-		/*const auto& p0 = transformedVertices4[face.vertices[0]];
-		const auto& p1 = transformedVertices4[face.vertices[1]];
-		const auto& p2 = transformedVertices4[face.vertices[2]];*/
-		const auto& p0 = apply(t, Vec4(1.0f, 0.0f, 0.0f, 0.0f));
-		const auto& p1 = apply(t, Vec4(0.0f, 1.0f, 0.0f, 0.0f));
-		const auto& p2 = apply(t, Vec4(0.0f, 0.0f, 1.0f, 0.0f));
+		////const auto& p0 = apply(t, Vec4(1.0f, 0.0f, 0.0f, 0.0f));
+		////const auto& p1 = apply(t, Vec4(0.0f, 1.0f, 0.0f, 0.0f));
+		////const auto& p2 = apply(t, Vec4(0.0f, 0.0f, 1.0f, 0.0f));
 		const auto p3 = -p0;
 		const auto sp0 = stereographicProjection(p0);
 		const auto sp1 = stereographicProjection(p1);
 		const auto sp2 = stereographicProjection(p2);
 		const auto sp3 = stereographicProjection(p3);
 
-		renderer.sphere(sp0, width * 3.0f, Color3::RED);
+		/*renderer.sphere(sp0, width * 3.0f, Color3::RED);
 		renderer.sphere(sp1, width * 3.0f, Color3::RED);
 		renderer.sphere(sp2, width * 3.0f, Color3::RED);
-		renderer.sphere(sp3, width * 3.0f, Color3::GREEN);
-		//renderer.sphere(sp3, width * 3.0f, Color3::RED);
+		renderer.sphere(sp3, width * 3.0f, Color3::GREEN);*/
 
 		const Vec3 points[]{ sp0, sp1, sp2, sp3 };
 		std::vector<Vec3> finitePoints;
@@ -669,8 +688,6 @@ void Visualization2::update() {
 			f32 distanceTo4thPoint;
 		};
 		std::vector<PlaneData> possiblePlanes;
-		//if (finitePoints.size() == 2) // add 0 
-
 		Vec4 orthonormalBasisFor3SpaceContainingPolygon[]{
 			p0 - p3, p1 - p3, p2 - p3
 		};
@@ -686,50 +703,22 @@ void Visualization2::update() {
 		const auto n0 = planeThoughPoints(p0, p1);
 		const auto n1 = planeThoughPoints(p1, p2);
 		const auto n2 = planeThoughPoints(p2, p0);
-		static bool test = false;
-		ImGui::Checkbox("test", &test);
+		//static bool test = false;
+		//ImGui::Checkbox("test", &test);
 		if (finitePoints.size() == 4) {
-			for (i32 i = 0; i < 4; i++) {
-				const auto plane = Plane::fromPoints(
-					finitePoints[(i + 1) % 4],
-					finitePoints[(i + 2) % 4],
-					finitePoints[(i + 3) % 4]
-				);
-				possiblePlanes.push_back(PlaneData{
-					.plane = plane,
-					.distanceTo4thPoint = plane.distance(finitePoints[i])
-				});
-			}
-			const auto& bestFitPlane = std::ranges::min_element(
-				possiblePlanes, 
-				[](const PlaneData& a, const PlaneData& b) -> bool {
-					return a.distanceTo4thPoint < b.distanceTo4thPoint;
-				}
-			);
-			// Theoretically it would make sense to switch to a plane if the max change along the side curves is smaller than epsilon, but I doubt there is a closed form formula for this. You would also need to define what the deviation from the plane at the sides is. Could calculate the distance from the points on the side curves to the plane.
-			//auto deviationFromLine = [](Vec4 e0, Vec4 e1) -> f32 {
-			//	const auto s = StereographicSegment::fromEndpoints(e0, e1);
-			//	switch (s.type) {
-			//		using enum StereographicSegment::Type;
-			//	case LINE:
-			//		return 0.0f;
-			//	case CIRCULAR:
-			//		const auto p0 = s.circular.sample(0.0f);
-			//		const auto p1 = s.circular.sample(s.circular.angle);
-			//		const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
-			//		const auto linearMid = (p0 + p1) / 2.0f;
-			//		return circularMid.distanceTo(linearMid);
-			//	}
-			//};
-			//const auto deviation = std::max(
-			//	deviationFromLine(p0, p1), 
-			//	std::max(
-			//		deviationFromLine(p1, p2), deviationFromLine(p2, p0)
-			//	)
-			//);
+			/*
+			Tried computing all the planes by choosing triples of points and then comparing the distance to the 4th point to find the best one and the rendering a plane if the 4th points is close enough. This isn't really a good metric, because the plane can still be far away from the edges of the polygon even if it's close to the vertices.
 
-			const auto testPlane = Plane::fromPoints(sp0, sp1, sp2);
-			auto deviationFromPlane = [&testPlane](Vec4 e0, Vec4 e1) -> f32 {
+			Could use an alternative fitting method like least squares, but it also probably doesn't make sense, because the user doesn't see the 4th point with relation to the other points. The 4th point is only a helper point to construct the sphere. It doesn't lie on the polygon.
+
+			So it seems like a good metric might finding the maximum deviation of the edges from a plane. 
+			Not sure if this is correct, but is seems to me that the maximum distance would happen at the midpoint of the circle curve. So it would make sense to calculate the max of the distances of these midpoints to the plane.
+
+			It might also be good to scale the importance based on the distance from the camera, because objects further away appear smaller so errors are less noticible.
+			*/
+
+			const auto planeThoughPolygonVertices = Plane::fromPoints(sp0, sp1, sp2);
+			auto deviationFromPlane = [&planeThoughPolygonVertices](Vec4 e0, Vec4 e1) -> f32 {
 				const auto s = StereographicSegment::fromEndpoints(e0, e1);
 				switch (s.type) {
 					using enum StereographicSegment::Type;
@@ -737,7 +726,7 @@ void Visualization2::update() {
 					return 0.0f;
 				case CIRCULAR:
 					const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
-					return testPlane.distance(circularMid);
+					return planeThoughPolygonVertices.distance(circularMid);
 				}
 			};
 			const auto deviation = std::max(
@@ -746,51 +735,9 @@ void Visualization2::update() {
 					deviationFromPlane(p1, p2), deviationFromPlane(p2, p0)
 				)
 			);
-
-			if (deviation < 0.03f || test) {
-				Vec3 untransformedInfinitePlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
-				////const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
-				/*const auto wantedPlane = bestFitPlane->plane;*/
-				const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
-				auto rotationAxis = cross(untransformedInfinitePlaneMeshNormal, wantedPlane.n).normalized();
-				auto rotationAngle = acos(std::clamp(dot(wantedPlane.n.normalized(),
-					untransformedInfinitePlaneMeshNormal.normalized()), -1.0f, 1.0f));
-
-				{
-					const auto t0 = wantedPlane.signedDistance(sp0);
-					const auto t1 = wantedPlane.signedDistance(sp1);
-					const auto t2 = wantedPlane.signedDistance(sp2);
-					const auto t3 = wantedPlane.signedDistance(sp3);
-					const auto t4 = wantedPlane.signedDistance(Vec3(0.0f));
-					const auto t5 = 0.0f;
-				}
-
-				/*auto rotationAxis = Vec3(0.0f, 0.0f, 1.0f);
-				auto rotationAngle = PI<f32> / 2.0f; */
-
-				if (std::abs(rotationAngle) < 0.01f) {
-					rotationAngle = 0.0f;
-					rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
-				}
-				const auto rotation = Quat(rotationAngle, rotationAxis);
-				{
-					const auto t0 = rotation * untransformedInfinitePlaneMeshNormal;
-					const auto t1 = t0.distanceTo(wantedPlane.n);
-					const auto t2 = 0.0f;
-				}
-				renderer.infinitePlanes.push_back(HomogenousInstance{
-					.transform = 
-						Mat4::translation(wantedPlane.d * wantedPlane.n) * 
-						Mat4(rotation.inverseIfNormalized().toMatrix()),
-					.n0 = n0,
-					.n1 = n1,
-					.n2 = n2
-				});
-				//renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
-				/*renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
-				renderer.line(sp0, sp0 + untransformedInfinitePlaneMeshNormal, 0.1f, Color3::BLUE);
-				renderer.line(sp0, sp0 + rotationAxis, 0.1f, Color3::YELLOW);*/
-				//renderer.homogenousTriangleRenderer.addTri()
+			// Could check if the deviation is less than the radius of the tubes.
+			if (deviation < 0.03f) {
+				renderPlaneTriangle(planeThoughPolygonVertices, n0, n1, n2, planeNormal4);
 			} else {
 				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
 
@@ -831,7 +778,7 @@ void Visualization2::update() {
 				const auto rotation = unitSphereRotateAToB(
 					(sp0 - sphere.center).normalized(), 
 					anyVertex.normalized());
-				instances.push_back(SphericalPolygonInstance{
+				renderer.sphericalPolygonInstances.push_back(SphericalPolygonInstance{
 					/*.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),*/
 					.transform = 
 						Mat4::translation(sphere.center) *
@@ -839,99 +786,95 @@ void Visualization2::update() {
 						Mat4(Mat3::scale(sphere.radius)),
 					.n0 = n0,
 					.n1 = n1,
-					.n2 = n2
+					.n2 = n2,
+					.planeNormal = planeNormal4
 				});
-				renderer.sphericalPolygonShader.use();
-				shaderSetUniforms(
-					renderer.sphericalPolygonShader,
-					SphericalPolygonVertUniforms{
-						.transform = renderer.transform
-					}
-				);
-				shaderSetUniforms(
-					renderer.sphericalPolygonShader,
-					SphericalPolygonFragUniforms{
-						.cameraPosition = Vec3(0.0f)
-					}
-				);
-
-				static bool wireframe = false;
-				ImGui::Checkbox("wireframe", &wireframe);
-				if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-				drawInstances(renderer.sphereMesh.vao, renderer.instancesVbo, constView(instances), [&](usize count) {
-					glDrawElementsInstanced(GL_TRIANGLES, renderer.sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
-				});
-				if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			}
 		}
+	};
 
-		//{
-		//	const auto v0 = p0 - p3;
-		//	const auto v1 = p1 - p3;
-		//	const auto v2 = p2 - p3;
-		//	const auto volume = abs(det(v0, v1, v2));
-		//	f32 distances[]{
-		//		volume / sqrt(cross(v0, v1).lengthSquared()),
-		//		volume / sqrt(cross(v0, v2).lengthSquared()),
-		//		volume / sqrt(cross(v1, v2).lengthSquared()),
-		//	};
-		//	const auto biggestDistance = std::ranges::max(distances);
-		//	return biggestDistance <= epsilon;
-		//}
+	//static i32 faceI = 0;
+	auto renderFace = [&](i32 faceI, const Cell& cell) {
+		const auto& face = faces[faceI];
+		const auto& p0 = transformedVertices4[face.vertices[0]];
+		const auto& p1 = transformedVertices4[face.vertices[1]];
+		const auto& p2 = transformedVertices4[face.vertices[2]];
+		auto normal = crossProduct(
+			vertices[face.vertices[0]], 
+			vertices[face.vertices[1]], 
+			vertices[face.vertices[2]]).normalized();
+		for (const auto& i : cell.faces) {
+			if (i == faceI) {
+				continue;
+			}
+			const auto& someOtherFace = faces[i];
+			for (const auto& vertexI : someOtherFace.vertices) {
+				bool foundVertexNotBelongingToFace = true;
+				for (const auto& vertexJ : face.vertices) {
+					if (vertexI == vertexJ) {
+						foundVertexNotBelongingToFace = false;
+						break;
+					}
+				}
+				if (foundVertexNotBelongingToFace) {
+					if (dot(vertices[vertexI], normal) > 0.0f) {
+						normal = -normal;
+					}
 
-		if (isPointAtInfinity(sp0) ||
-			isPointAtInfinity(sp1) ||
-			isPointAtInfinity(sp2) ||
-			isPointAtInfinity(sp3) ||
-			pointsNearlyCoplanar(sp0, sp1, sp2, sp3, 0.1f)) {
-
-			//Vec3 untransformedInfinitePlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
-
-			////const auto wantedPlane = Plane::fromPoints(sp0, sp1, sp2);
-			//const auto wantedPlane = Plane::fromPoints(Vec3(0.0f), sp1, sp2);
-			//auto rotationAxis = cross(untransformedInfinitePlaneMeshNormal, wantedPlane.n).normalized();
-			//auto rotationAngle = acos(std::clamp(dot(wantedPlane.n, 
-			//	untransformedInfinitePlaneMeshNormal), 0.0f, 1.0f));
-
-			//{
-			//	const auto t0 = wantedPlane.signedDistance(sp0);
-			//	const auto t1 = wantedPlane.signedDistance(sp1);
-			//	const auto t2 = wantedPlane.signedDistance(sp2);
-			//	const auto t3 = wantedPlane.signedDistance(sp3);
-			//	const auto t4 = 0.0f;
-			//}
-
-			///*auto rotationAxis = Vec3(0.0f, 0.0f, 1.0f);
-			//auto rotationAngle = PI<f32> / 2.0f; */
-
-			//if (std::abs(rotationAngle) < 0.01f) {
-			//	rotationAngle = 0.0f;
-			//	rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
-			//}
-			//renderer.infinitePlanes.push_back(HomogenousInstance{
-			//	.transform = 
-			//		Mat4::translation(wantedPlane.d * wantedPlane.n) * 
-			//		Mat4(Quat(-rotationAngle, rotationAxis).toMatrix())
-			//});
-			//renderer.homogenousTriangleRenderer.addTri()
+					goto done;
+				}
+			}
 		}
+		done:
+		renderTriangle(p0, p1, p2, normal);
+		
+		const auto a = ((p0 + p1 + p2) / 3.0f).normalized();
+		//const auto a = p0;
+		const auto transformedNormal = stereographicProjectionJacobian(a, apply(t, normal));
+		//const auto t0 = dot(m, p1 - p0);
+		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
+		renderer.sphere(stereographicProjection(a), 0.03f, Color3::RED);
+		renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);
+
+		/*auto a = vertices[face.vertices[0]];
+		a = apply(t, a);*/
+		//const auto a = p0;
+		//const auto m = crossProduct(p0, p1, p2).normalized();
+		////const auto m = crossProduct(Vec4(0.0f) - p0, p1 - p0, p2 - p0);
+		//{
+		//	const auto a = p0.length();
+		//	const auto b = p1.length();
+		//	const auto c = p2.length();
+
+		//	const auto t0 = dot(p0, m);
+		//	const auto t1 = dot(p1, m);
+		//	const auto t2 = dot(p2, m);
+		//	const auto t3 = dot(p1 - p0, m);
+		//}
+		///*const auto transformedNormal = stereographicProjectionJacobian(a, apply(t.inverseIfNormalized(), normal));*/
+		//const auto transformedNormal = stereographicProjectionJacobian(a, m);
+		//const auto t0 = dot(m, p1 - p0);
+		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
+		//renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.01f, Color3::MAGENTA);
+	};
+	auto& cell = cells[0];
+	for (const auto& face : cell.faces) {
+		renderFace(face, cell);
+		//renderFace(1);
 	}
-	/*for (const auto& cell : .cellsOfDimension(1)) {
-		renderer.line(Vec3(0.0f), Vec3(1.0f), 0.01f, Color3::GREEN);
-	}*/
-	//glEnable(GL_CULL_FACE);
-	//lineGenerator.addCircularArc(Vec3(1.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f), Vec3(0.0f), 0.01f);
+	//renderFace(3);
+	//renderFace(3);
+	//ImGui::InputInt("faceI", &faceI);
+	
+
 	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::WHITE);
 	lineGenerator.reset();
 	renderer.renderInfinitePlanes();
-
-	/*const auto r = makeIcosphere(2, 1.0f);
-	renderer.coloredShadingTrianglesAddMesh(r.positions, r.normals, r.indices, Color3::GREEN);*/
+	renderer.renderSphericalPolygons();
 
 	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
 		.model = Mat4::identity
 	});
-	//glDisable(GL_CULL_FACE);
 
 
 	renderer.renderCyllinders();

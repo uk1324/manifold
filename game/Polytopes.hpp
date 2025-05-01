@@ -12,7 +12,12 @@ struct Polytope {
 	std::vector<CellsN> cells;
 
 	CellsN& cellsOfDimension(i32 n);
+	const CellsN& cellsOfDimension(i32 n) const;
 };
 
 Polytope crossPolytope(i32 dimension);
 i32 crossPolytopeSimplexCount(i32 dimensionOfCrossPolytope, i32 dimensionOfSimplex);
+
+// a face is a 2 cell.
+std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex);
+std::vector<i32> faceVertices(const Polytope& p, const Polytope::CellN& face);

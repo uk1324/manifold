@@ -21,8 +21,12 @@ struct Visualization2 {
 	struct Face {
 		std::vector<i32> vertices;
 	};
+	struct Cell {
+		std::vector<i32> faces;
+	};
 	std::vector<Edge> edges;
 	std::vector<Face> faces;
+	std::vector<Cell> cells;
 
 	Vbo linesVbo;
 	Ibo linesIbo;

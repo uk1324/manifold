@@ -107,7 +107,12 @@ struct GameRenderer {
 	std::vector<HomogenousInstance> infinitePlanes;
 	void renderInfinitePlanes();
 
+	std::vector<SphericalPolygonInstance> sphericalPolygonInstances;
+	void renderSphericalPolygons();
+
 	Gfx2d gfx2d;
+
+	Vec4 cameraPos4 = Vec4(0.0f);
 
 	Vbo instancesVbo;
 };

@@ -2,10 +2,12 @@
 
 uniform vec2 screenSize; 
 uniform mat4 inverseTransform; 
+uniform vec4 cameraPos; 
 
 in vec4 n0; 
 in vec4 n1; 
 in vec4 n2; 
+in vec4 planeNormal; 
 out vec4 fragColor;
 
 /*generated end*/
@@ -16,7 +18,7 @@ uniform mat4 transform;
 
 #include "Utils/posFromDepth.glsl"
 #include "stereographic.glsl"
-#include "fog.glsl"
+#include "shading.glsl"
 
 void main() {
 	vec3 worldPos = posFromDepth(gl_FragCoord.xy / screenSize, gl_FragCoord.z, inverseTransform);
@@ -24,9 +26,6 @@ void main() {
 	if (dot(pos4, n0) < 0.0) discard;
 	if (dot(pos4, n1) < 0.0) discard;
 	if (dot(pos4, n2) < 0.0) discard;
-
-	//d = smoothstep(110.0, 10.0, d);
-	fragColor = vec4(vec3(1.0, 1.0, 0.0) * fogScale(worldPos), 1.0);
-	//fragColor = vec4((worldPos + 1.0) / 2.0, 1.0);
-	//fragColor = vec4((pos4.xyz + 1.0) / 2.0, 1.0);
+	fragColor = shade(worldPos, cameraPos, quatMultiply(quatInverseIfNormalized(cameraPos), pos4), planeNormal);
+	//fragColor = shade(worldPos, cameraPos, pos4, planeNormal);
 }

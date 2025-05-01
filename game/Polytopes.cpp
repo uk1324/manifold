@@ -104,6 +104,33 @@ i32 crossPolytopeSimplexCount(i32 dimensionOfCrossPolytope, i32 dimensionOfSimpl
 	return integerToNonNegativePower(2, k + 1) * nChoosek(n, k + 1);
 }
 
+std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex) {
+	return faceVertices(p, p.cellsOfDimension(2)[faceIndex]);
+}
+
+std::vector<i32> faceVertices(const Polytope& p, const Polytope::CellN& face) {
+	const auto& faceEdgesIdxs = face;
+	const auto& edges = p.cellsOfDimension(1);
+
+	i32 startIndex = 0;
+	std::vector<i32> vertices;
+
+	vertices.push_back(edges[faceEdgesIdxs[0]][0]);
+	for (i32 i = 1; i < faceEdgesIdxs.size(); i++) {
+		const auto& edge = edges[faceEdgesIdxs[i]];
+		if (vertices.back() == edge[0]) {
+			vertices.push_back(edge[1]);
+		} else {
+			vertices.push_back(edge[0]);
+		}
+	}
+	return vertices;
+}
+
 Polytope::CellsN& Polytope::cellsOfDimension(i32 n) {
+	return cells[n - 1];
+}
+
+const Polytope::CellsN& Polytope::cellsOfDimension(i32 n) const {
 	return cells[n - 1];
 }

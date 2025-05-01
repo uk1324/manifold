@@ -8,7 +8,7 @@ static Quat exp(Vec3 vectorPart) {
 	const auto v = distance == 0.0f ? Vec3(0.0f) : vectorPart / distance;
 	return Quat(v.x * sin(distance), v.y * sin(distance), v.z * sin(distance), cos(distance));
 }
-
+#include <imgui/imgui.h>
 void StereographicCamera::update(float dt) {
 	if (Window::isCursorEnabled()) {
 		lastMousePosition = std::nullopt;
@@ -57,6 +57,12 @@ void StereographicCamera::update(float dt) {
 	const auto f = forward();
 
 	movement += right * movementDirection.x + up * movementDirection.y + f * movementDirection.z;
+	ImGui::Text("stereographic movement basis det: %g", dot(cross(up, right), f));
+	const auto nR = cross(up, f).normalized();
+	const auto nU = cross(f, nR).normalized();
+	right = nR;
+	up = nU;
+	
 	//const auto forwardMovement = forward();
 	/*if (Input::isKeyHeld(KeyCode::W)) movement += forwardMovement;
 	if (Input::isKeyHeld(KeyCode::S)) movement -= forwardMovement;*/

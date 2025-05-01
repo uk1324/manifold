@@ -1,6 +1,7 @@
 #include "GameRenderer.hpp"
 #include <gfx/ShaderManager.hpp>
 #include <engine/Window.hpp>
+#include <imgui/imgui.h>
 #include <engine/Math/Interpolation.hpp>
 #include <game/Polyhedra.hpp>
 #include <StructUtils.hpp>
@@ -567,8 +568,35 @@ void GameRenderer::renderInfinitePlanes() {
 		HomogenousFragUniforms{
 			.screenSize = Window::size(),
 			.inverseTransform = transform.inversed(),
+			.cameraPos = cameraPos4
 		}
 	);
 	drawMeshInstances(infinitePlaneMesh, constView(infinitePlanes), instancesVbo);
 	infinitePlanes.clear();
+}
+
+void GameRenderer::renderSphericalPolygons() {
+	sphericalPolygonShader.use();
+	shaderSetUniforms(
+		sphericalPolygonShader,
+		SphericalPolygonVertUniforms{
+			.transform = transform
+		}
+	);
+	shaderSetUniforms(
+		sphericalPolygonShader,
+		SphericalPolygonFragUniforms{
+			.cameraPosition = Vec3(0.0f),
+			.cameraPos = cameraPos4
+		}
+	);
+
+	static bool wireframe = false;
+	ImGui::Checkbox("wireframe", &wireframe);
+	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	drawInstances(sphereMesh.vao, instancesVbo, constView(sphericalPolygonInstances), [&](usize count) {
+		glDrawElementsInstanced(GL_TRIANGLES, sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
+	});
+	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	sphericalPolygonInstances.clear();
 }
