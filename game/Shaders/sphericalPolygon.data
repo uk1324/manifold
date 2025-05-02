@@ -9,8 +9,8 @@ shader SphericalPolygon {
 		Mat4 transform;
 	};
 	fragUniforms = {
-		Vec3 cameraPosition;
 		Vec4 cameraPos;
+		Mat4 viewInverse4;
 	};
 	vertInstance = {
 		Mat4 transform;

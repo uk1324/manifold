@@ -32,7 +32,7 @@ vec4 quatMultiply(vec4 l, vec4 r){
 
 
 vec3 shade(vec4 lightPos, vec4 fragmentPos, vec4 fragmentNormal, vec4 cameraPos, vec3 lightColor) {
-    //return vec3(0.2);
+    return vec3(0.2);
     float ambientStrength = 0.1;
     vec3 ambient = ambientStrength * lightColor;
     

@@ -102,6 +102,47 @@ i32 crossPolytopeSimplexCount(i32 dimensionOfCrossPolytope, i32 dimensionOfSimpl
 	// Solution:
 	// S(n, k) = 2^(k+1) (n choose k + 1)
 	return integerToNonNegativePower(2, k + 1) * nChoosek(n, k + 1);
+
+	//for (i32 dimensionOfPolytope = 2; dimensionOfPolytope < 10; dimensionOfPolytope++) {
+	//	const auto polytope = crossPolytope(dimensionOfPolytope);
+	//	for (i32 i = 0; i < polytope.cells.size(); i++) {
+	//		const auto dimensionOfSimplex = i + 1;
+	//		const auto expectedSize = crossPolytopeSimplexCount(dimensionOfPolytope, dimensionOfSimplex);
+	//		if (polytope.cells[i].size() != expectedSize) {
+	//			ASSERT_NOT_REACHED();
+	//		}
+	//	}
+	//}
+}
+
+Polytope hypercube(i32 dimension) {
+	ASSERT(dimension >= 2);
+	if (dimension == 2) {
+		Polytope result;
+		result.vertices.push_back({ 1.0f, 0.0f }); // 0
+		result.vertices.push_back({ 0.0f, 1.0f }); // 1
+		result.vertices.push_back({ -1.0f, 0.0f }); // 2
+		result.vertices.push_back({ 0.0f, -1.0f }); // 3
+		result.cells.push_back(Polytope::CellsN{});
+		auto& cells1 = result.cells[0];
+		cells1.push_back({ 0, 1 });
+		cells1.push_back({ 1, 2 });
+		cells1.push_back({ 2, 3 });
+		cells1.push_back({ 3, 0 });
+		return result;
+	}
+
+	auto base = crossPolytope(dimension - 1);
+	Polytope result;
+	for (auto& vertex : base.vertices) {
+		result.vertices.push_back(vertex);
+		result.vertices.back().push_back(-1.0f);
+		result.vertices.push_back(vertex);
+		result.vertices.back().push_back(1.0f);
+	}
+	for (i32 dimension = 1; dimension < dimension - 1; dimension) {
+		const auto& cells = result.cellsOfDimension(dimension);
+	}
 }
 
 std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex) {

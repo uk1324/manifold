@@ -2,12 +2,17 @@
 #include <engine/Window.hpp>
 #include <StructUtils.hpp>
 #include <engine/Math/Color.hpp>
+#include <game/Math.hpp>
 #include <engine/Math/Plane.hpp>
 #include <engine/Math/Sphere.hpp>
 #include <engine/Input/Input.hpp>
 #include <imgui/imgui.h>
 #include <game/Constants.hpp>
 #include <engine/Math/Angles.hpp>
+#include <game/Polytopes.hpp>
+#include <engine/Math/GramSchmidt.hpp>
+#include <game/Stereographic.hpp>
+#include <iostream>
 
 Visualization2 Visualization2::make() {
 	auto renderer = GameRenderer::make();
@@ -19,34 +24,169 @@ Visualization2 Visualization2::make() {
 	Window::disableCursor();
 
 	auto r = Visualization2{
-		//.crossPolytope = ::crossPolytope(4),
 		MOVE(linesVbo),
 		MOVE(linesIbo),
 		MOVE(linesVao),
 		MOVE(renderer),
 	};
-	{
-		const auto c = crossPolytope(4);
-		for (i32 i = 0; i < c.vertices.size(); i++) {
-			const auto t = f32(i) / f32(c.vertices.size() - 1);
-			const auto& vertex = c.vertices[i];
-			r.vertices.push_back(Vec4(vertex[0], vertex[1], vertex[2], vertex[3]));
-			r.verticesColors.push_back(Color3::fromHsv(t, 1.0f, 1.0f));
+
+	auto outwardPointingFaceNormal = [&](const std::vector<Vec4>& vertices, const std::vector<Face>& faces, const std::vector<i32>& cellFaces, i32 faceI) {
+		const auto& face = faces[faceI];
+
+		auto normal = crossProduct(
+			vertices[face.vertices[0]],
+			vertices[face.vertices[1]],
+			vertices[face.vertices[2]]
+		).normalized();
+		// The normal should point outward of the cell, that is every vertex of the cell not belonging to the face shuld have a negative dot product with the normal, the code below negates the normal if that is not the case. This is analogous to the case of a sphere. If we have 2 vertices on the sphere we can take their cross product to get the normal of the plane that intersects those 2 vertices. 
+		for (const auto& someOtherFaceI : cellFaces) {
+			if (someOtherFaceI == faceI) {
+				continue;
+			}
+			const auto& someOtherFace = faces[someOtherFaceI];
+			for (const auto& someOtherFaceVertexI : someOtherFace.vertices) {
+				bool foundVertexNotBelongingToFace = true;
+				for (const auto& faceVertexI : face.vertices) {
+					if (someOtherFaceVertexI == faceVertexI) {
+						foundVertexNotBelongingToFace = false;
+						break;
+					}
+				}
+				if (foundVertexNotBelongingToFace) {
+					if (dot(vertices[someOtherFaceVertexI], normal) > 0.0f) {
+						normal = -normal;
+					}
+					return normal;
+				}
+			}
 		}
-		/*for (const auto& vertex : c.vertices) {
-		}*/
-		for (const auto& edge : c.cellsOfDimension(1)) {
-			r.edges.push_back(Edge{ edge[0], edge[1] });
-		}
-		for (const auto& face : c.cellsOfDimension(2)) {
-			auto vertices = faceVertices(c, face);
-			r.faces.push_back(Face{ .vertices = std::move(vertices) });
-			//r.faces.push_back(Face{ .vertices = std::vector<i32>(face) });
-		}
-		for (const auto& cell : c.cellsOfDimension(3)) {
-			r.cells.push_back(Cell{ .faces = cell });
-		}
+		CHECK_NOT_REACHED();
+		return normal;
+	};
+
+	const auto c = crossPolytope(4);
+	for (i32 i = 0; i < c.vertices.size(); i++) {
+		const auto t = f32(i) / f32(c.vertices.size() - 1);
+		const auto& vertex = c.vertices[i];
+		r.vertices.push_back(Vec4(vertex[0], vertex[1], vertex[2], vertex[3]));
+		r.verticesColors.push_back(Color3::fromHsv(t, 1.0f, 1.0f));
 	}
+	for (const auto& edge : c.cellsOfDimension(1)) {
+		r.edges.push_back(Edge{ edge[0], edge[1] });
+	}
+	for (const auto& face : c.cellsOfDimension(2)) {
+		auto vertices = faceVertices(c, face);
+		r.faces.push_back(Face{ 
+			.vertices = std::move(vertices) 
+		});
+	}
+	for (const auto& cell : c.cellsOfDimension(3)) {
+		std::vector<Vec4> faceNormals;
+		for (i32 faceI : cell) {
+			const auto normal = outwardPointingFaceNormal(r.vertices, r.faces, cell, faceI);
+			faceNormals.push_back(normal);
+		}
+		r.cells.push_back(Cell{ .faces = cell, .faceNormals = std::move(faceNormals) });
+	}
+	/*r.lodLevelsSettings = {
+		{ 0.0f, 5 },
+		{ 2.5f, 8 },
+		{ 5.0f, 10 },
+		{ 10.0f, 15 },
+	};*/
+	r.lodLevelsSettings = {
+		{ 1.0f, 5 },
+		{ 5.0f, 8 },
+		{ 10.0f, 10 },
+		{ 10.0f, 10 },
+		{ 40.0f, 15 },
+		{ 80.0f, 15 },
+	};
+	//r.lodLevelsSettings.clear();
+	//const f32 radii[]{
+	//	1,
+	//	5,
+	//	10,
+	//	20,
+	//	40,
+	//	80,
+	//};
+	//for (i32 i = 0; i < std::size(radii); i++) {
+	//	const auto radius = radii[i];
+	//	const auto unsubdividedEdgeLength = icosahedronVertices[icosahedronEdges[0]].normalized().distanceSquaredTo(icosahedronVertices[icosahedronEdges[1]].normalized());
+	//	const auto wantedEdgeSize = 0.2f;
+	//	/*
+	//	(unsubdividedEdgeLength * radius) / divisionCount < wantedEdgeSize
+	//	(unsubdividedEdgeLength * radius) / wantedEdgeSize < divisionCount
+	//	*/
+	//	const auto divisionCount = i32(std::ceil((unsubdividedEdgeLength * radius) / wantedEdgeSize));
+	//	r.lodLevelsSettings.push_back(GameRenderer::SphereLodSetting{
+	//		.minRadius = radius,
+	//		.divisionCount = divisionCount,
+	//	});
+	//}
+
+
+	r.lodLevelsSettings.clear();
+	const f32 radii[]{
+		1,
+		2,
+		3,
+		5,
+		10,
+		20,
+		40,
+		80,
+	};
+	r.lodLevelsSettings.clear();
+	for (i32 i = 0; i < std::size(radii); i++) {
+		const auto& radius = radii[i];
+		// If I approximate a circle by subdividing it n times then I can calculate the maximum deviation from a cicrcle by calculating (radius - distance of midpoint of segment from center).
+		// midpoint 
+		//	= (r * (cos(tau/n), sin(tau/n)) + r * (1, 0)) / 2 =
+		//	= ((cos(tau/n) + 1, sin(tau/n))) * (r / 2)
+		//  length(midpoint) = (r/2) * sqrt((cos(tau/n) + 1)^2 + sin(tau/n)^2) = (*1)
+		// (cos(tau/n) + 1)^2 + sin(tau/n)^2 =
+		// cos(tau/n)^2 + 2 cos(tau/n) + 1 + sin(tau/n)^2 =
+		// 2 cos(tau/n) + 2
+		// (*1) = (r/2) * sqrt(2 cos(tau/n) + 2)
+		// So the deviation is
+		// r - (r/2) * sqrt(2 cos(tau/n) + 2)
+
+		// I want to solve the inequality
+		// x in range (0, pi / 2)
+		// r - (r/2) * sqrt(2 cos(x) + 2) < a
+		//
+		// The solution found in desmos is
+		// x < arccos(2(a/r - 1)^2 - 1)
+		// 
+		const auto v0 = icosahedronVertices[icosahedronEdges[0]].normalized();
+		const auto v1 = icosahedronVertices[icosahedronEdges[1]].normalized();
+		const auto unsubdividedAngleBetweenVertices = v0.shortestAngleTo(v1);
+		// x = unsubdividedAngleBetweenVertices / n
+		// unsubdividedAngleBetweenVertices / n < arccos(2(a/r - 1)^2 - 1)
+		// 1 / n < arccos(2(a/r - 1)^2 - 1) / unsubdividedAngleBetweenVertices
+		// n > unsubdividedAngleBetweenVertices / arccos(2(a/r - 1)^2 - 1)
+		//const auto desiredDeviation = 0.01f;
+		//const auto desiredDeviation = 0.005f;
+		const auto desiredDeviation = 0.007f;
+		const auto k = acos(2.0f * pow(desiredDeviation / radius - 1.0f, 2.0f) - 1.0f);
+		const auto n = i32(std::ceil(unsubdividedAngleBetweenVertices / k));
+
+		// Assuming that the triangles on the sphere are equilateral. You can calculate the maximum deviation from the sphere by calcualting (radius - height of the tetrahedron with vertices being the center of sphere and the vertices of the triangle.
+		r.lodLevelsSettings.push_back(GameRenderer::SphereLodSetting{
+			.minRadius = radius,
+			.divisionCount = n,
+		});
+	}
+
+	r.renderer.generateSphereLods(r.lodLevelsSettings);
+	/*r.renderer.generateSphereLods({
+		{ 0.0f, 5 },
+		{ 10.0f, 8 },
+		{ 20.0f, 10 },
+		{ 40.0f, 15 },
+	});*/
 	//r.stereographicCamera.movementSpeed = 0.2f;
 	return r;
 }
@@ -68,433 +208,8 @@ void togglableCursorUpdate() {
 	}
 }
 
-#include <game/Polytopes.hpp>
-#include <game/Combinatorics.hpp>
-#include <iostream>
-
-f32 planeRayIntersection(Vec4 planeNormal, f32 planeD, Vec4 rayOrigin, Vec4 rayDirection) {
-	// p = p0 + vt
-	// <p, n> = d
-	// <p0 + vt, n> = d
-	// <p0, n> + t<v, n> = d
-	// t<v, n> = d - <p0, n>
-	// t = (d - <p0, n>) / <v, n>
-	const auto t = (planeD - dot(rayOrigin, planeNormal)) / dot(rayDirection, planeNormal);
-	/*if (isinf(t) || isnan(t)) {
-		return std::nullopt;
-	}*/
-	return t;
-}
-
-/*
-Projects from a point on dot(p, p) = 1 to 3D.
-*/
-
-bool isPointAtInfinity(Vec3 v) {
-	return isinf(v.x);
-}
-
-// https://en.wikipedia.org/wiki/Stereographic_projection
-Vec3 stereographicProjection(Vec4 p) {
-	const auto a = 1.0f / (1.0f - p.w);
-	if (isnan(a) || isinf(a)) {
-		return Vec3(INFINITY, INFINITY, INFINITY);
-	}
-	// p.x, p.y, p.z are all <= 1 so they shouldn't overlflow when multiplied by a finite constant a.
-	return Vec3(
-		p.x * a,
-		p.y * a,
-		p.z * a
-	);
-};
-/*
-f(x, y, z, w) -> (x / (1 - w), y / (1 - w), z / (1 - w))
-
-The jacobian is
-[ f1_x, f1_y, f1_z, f1_w ]
-[ f2_x, f2_y, f2_z, f2_w ]
-[ f3_x, f3_y, f3_z, f3_w ]
-
-[ 1/(1 - w) 0         0         x/(1-w)^2 ]
-[ 0         1/(1 - w) 0         y/(1-w)^2 ]
-[ 0         0         1/(1 - w) z/(1-w)^2 ]
-*/
-Vec3 stereographicProjectionJacobian(Vec4 atPoint, Vec4 onVector) {
-	const auto s = 1.0f / (1.0f - atPoint.w);
-	const auto s2 = s * s;
-	return Vec3(
-		s * onVector.x + atPoint.x * s2 * onVector.w,
-		s * onVector.y + atPoint.y * s2 * onVector.w,
-		s * onVector.z + atPoint.z * s2 * onVector.w
-	);
-}
-
-Vec4 inverseStereographicProjection(Vec3 p) {
-	if (isPointAtInfinity(p)) {
-		return Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	}
-	const auto s = p.x * p.x + p.y * p.y + p.z * p.z;
-	const auto a = 2.0f / (s + 1.0f);
-	return Vec4(
-		p.x * a,
-		p.y * a,
-		p.z * a,
-		(s - 1.0f) / (s + 1.0f)
-	);
-}
-
-/*
-[ f1_x, f1_y, f1_z ]
-[ f2_x, f2_y, f2_z ]
-[ f3_x, f3_y, f3_z ]
-[ f4_x, f4_y, f4_z ]
-*/
-Vec4 inverseStereographicProjectionJacobian(Vec3 at, Vec3 of) {
-	const auto x2 = at.x * at.x;
-	const auto y2 = at.y * at.y;
-	const auto z2 = at.z * at.z;
-
-	const auto s = x2 + y2 + z2 + 1.0f;
-	const auto s1 = 2.0f / (s * s);
-
-	const auto m00 = (s - 2.0f * x2) * s1;
-	const auto m11 = (s - 2.0f * y2) * s1;
-	const auto m22 = (s - 2.0f * z2) * s1;
-	const auto m10 = (-2.0f * at.x * at.y * s1);
-	const auto& m01 = m10;
-	const auto m20 = (-2.0f * at.x * at.z * s1);
-	const auto& m02 = m20;
-	const auto m21 = (-2.0f * at.y * at.z * s1);
-	const auto& m12 = m21;
-	const auto m03 = at.x * s1;
-	const auto m13 = at.y * s1;
-	const auto m23 = at.z * s1;
-
-	return Vec4(
-		m00 * of.x + m10 * of.y + m20 * of.z,
-		m01 * of.x + m11 * of.y + m21 * of.z,
-		m02 * of.x + m12 * of.y + m22 * of.z,
-		m03 * of.x + m13 * of.y + m23 * of.z
-	);
-}
-
-/*
-The geodesics are parts of great circles passing though S3. If you have a point p then the point -p also passes though it.
-Any great circle can be written as the intersection dot(p, p) = 1 and dot(n, p) = 0.
-dot(-p, -p) = (-1)^2 dot(p, p) = 1
-and
-dot(n, -p) = 0 = -dot(n, p) = 0
-*/
-Vec3 antipodalPoint(Vec3 p) {
-	if (isPointAtInfinity(p)) {
-		return Vec3(0.0f);
-	}
-	return stereographicProjection(-inverseStereographicProjection(p));
-}
-
-f32 det(
-	f32 m00, f32 m10,
-	f32 m01, f32 m12) {
-	return m00 * m12 - m10 * m01;
-}
-
-f32 det(
-	f32 m00, f32 m10, f32 m20,
-	f32 m01, f32 m11, f32 m21,
-	f32 m02, f32 m12, f32 m22) {
-	return 
-		+ m00 * det(m11, m21, m12, m22)
-		- m10 * det(m01, m21, m02, m22)
-		+ m20 * det(m01, m11, m02, m12);
-}
-f32 det(Vec3 v0, Vec3 v1, Vec3 v2) {
-	return det(
-		v0.x, v0.y, v0.z,
-		v1.x, v1.y, v1.z,
-		v2.x, v2.y, v2.z
-	);
-}
-
-// Vector perpendicular the plane spanned by v0, v1, v2
-Vec4 crossProduct(Vec4 v0, Vec4 v1, Vec4 v2) {
-	/*
-	| e0   e1   e2   e3   |
-	| v0.x v0.y v0.z v0.w | = cross(v0, v1, v2)
-	| v1.x v1.y v1.z v1.w |
-	| v2.x v2.y v2.z v2.w |
-	*/
-	return Vec4(
-		det(
-			v0.y, v0.z, v0.w,
-			v1.y, v1.z, v1.w,
-			v2.y, v2.z, v2.w
-		),
-		-det(
-			v0.x, v0.z, v0.w,
-			v1.x, v1.z, v1.w,
-			v2.x, v2.z, v2.w
-		),
-		det(
-			v0.x, v0.y, v0.w,
-			v1.x, v1.y, v1.w,
-			v2.x, v2.y, v2.w
-		),
-		-det(
-			v0.x, v0.y, v0.z,
-			v1.x, v1.y, v1.z,
-			v2.x, v2.y, v2.z
-		)
-	);
-}
-
-#include <engine/Math/GramSchmidt.hpp>
-
-Vec3 coordinatesInOrthonormal3Basis(const Vec4 orthonormalBasis[3], Vec4 v) {
-	return Vec3(
-		dot(v, orthonormalBasis[0]),
-		dot(v, orthonormalBasis[1]),
-		dot(v, orthonormalBasis[2])
-	);
-}
-
-Vec4 linearCombination(const Vec4 vs[3], Vec3 v) {
-	return vs[0] * v.x + vs[1] * v.y + vs[2] * v.z;
-}
-
-std::array<Vec4, 3> orthonormalBasisFor3Space(Vec4 normal) {
-	Vec4 candidates[] { 
-		Vec4(1.0f, 0.0f, 0.0f, 0.0f), 
-		Vec4(0.0f, 1.0f, 0.0f, 0.0f), 
-		Vec4(0.0f, 0.0f, 1.0f, 0.0f), 
-		Vec4(0.0f, 0.0f, 0.0f, 1.0f) 
-	};
-	//f32 candidatesLengths[4]{};
-	for (i32 i = 0; i < 4; i++) {
-		auto& candidate = candidates[i];
-		candidate -= dot(candidate, normal) * normal;
-		//candidatesLengths[i] = candidate.length();
-	}
-	// @Performance: Calculate lengths once and sort an array of indices.
-	std::ranges::sort(candidates, [](Vec4 a, Vec4 b) -> bool {
-		return a.length() < b.length();
-	});
-	gramSchmidtOrthonormalize(View<Vec4>(candidates, 3));
-	return std::array<Vec4, 3>{
-		candidates[0],
-		candidates[1],
-		candidates[2]
-	};
-}
-
-//bool pointsNearlyCoplanar(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, f32 epsilon) {
-//	// https://math.stackexchange.com/questions/405966/if-i-have-three-points-is-there-an-easy-way-to-tell-if-they-are-collinear
-//	// https://stackoverflow.com/questions/65396833/testing-three-points-for-collinearity-in-a-numerically-robust-way
-//
-//	// Using areas or volumes makes it independent of the order of points, but it's probably better to have the biggest or the furthest distance of a point.
-//	/*f32 basesSquaredAreas[]{
-//		cross(p0, p1).lengthSquared(),
-//		cross(p0, p2).lengthSquared(),
-//		cross(p0, p3).lengthSquared(),
-//
-//		cross(p1, p2).lengthSquared(),
-//		cross(p1, p3).lengthSquared(),
-//
-//		cross(p2, p3).lengthSquared(),
-//	};*/
-//
-//	/*const auto p = Plane::fromPoints(p0, p1, p2);
-//	return abs(p.signedDistance(p3)) <= epsilon;*/
-//	const auto v0 = p0 - p3;
-//	const auto v1 = p1 - p3;
-//	const auto v2 = p2 - p3;
-//	f32 basesSquaredAreas[]{
-//		cross(v0, v1).lengthSquared(),
-//		cross(v0, v2).lengthSquared(),
-//		cross(v1, v2).lengthSquared(),
-//	};
-//	const auto biggestBaseArea = sqrt(std::ranges::max(basesSquaredAreas));
-//	const auto volume = abs(det(v0, v1, v2));
-//	const auto parallelepipedHeight = volume / biggestBaseArea;
-//	return parallelepipedHeight <= epsilon;
-//
-//	// Assumes that the plane goes though p3
-//	//const auto v0 = p0 - p3;
-//	//const auto v1 = p1 - p3;
-//	//const auto v2 = p2 - p3;
-//	//const auto volume = abs(det(v0, v1, v2));
-//	//f32 distances[]{
-//	//	volume / sqrt(cross(v0, v1).lengthSquared()),
-//	//	volume / sqrt(cross(v0, v2).lengthSquared()),
-//	//	volume / sqrt(cross(v1, v2).lengthSquared()),
-//	//};
-//	//const auto biggestDistance = std::ranges::max(distances);
-//	//return biggestDistance <= epsilon;
-//}
-
-#include <engine/Math/Circle.hpp>
-
-struct CircularSegment {
-	CircularSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)
-		: start(start)
-		, initialVelocity(initialVelocity)
-		, center(center)
-		, angle(angle) {}
-
-	Vec3 start;
-	Vec3 initialVelocity;
-	Vec3 center;
-	f32 angle;
-
-	Vec3 sample(f32 angle) const;
-};
-
-struct LineSegment {
-	LineSegment(Vec3 e0, Vec3 e1)
-		: e{ e0, e1 } {}
-	Vec3 e[2];
-};
-
-struct StereographicSegment {
-private:
-	StereographicSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle);
-	StereographicSegment(Vec3 e0, Vec3 e1);
-public:
-	static StereographicSegment fromCircular(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle) {
-		return StereographicSegment(start, initialVelocity, center, angle);
-	}
-	static StereographicSegment fromLine(Vec3 e0, Vec3 e1) {
-		return StereographicSegment(e0, e1);
-	}
-
-	static StereographicSegment fromEndpoints(Vec4 e0, Vec4 e1) {
-		const auto p0 = stereographicProjection(e0);
-		const auto p1 = stereographicProjection(e1);
-		if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
-			return StereographicSegment::fromLine(p0, p1);
-		}
-		if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
-			auto atInfinity = p0;
-			auto finite = p1;
-			if (isPointAtInfinity(finite)) {
-				std::swap(atInfinity, finite);
-			}
-			const auto direction = finite.normalized();
-
-		} else {
-			auto p2 = antipodalPoint(p0);
-			if (isPointAtInfinity(p2)) {
-				p2 = antipodalPoint(p1);
-				if (isPointAtInfinity(p2)) {
-					ASSERT_NOT_REACHED();
-					return StereographicSegment::fromLine(p0, p1);
-				}
-			}
-
-			const auto velocity4 = (e1 - dot(e1, e0.normalized()) * e0.normalized()).normalized();
-			const auto velocity3 = stereographicProjectionJacobian(e0, velocity4);
-
-			const auto origin = p0;
-			Vec3 v0 = p2 - origin;
-			Vec3 v1 = p1 - origin;
-			const auto b0 = v0.normalized();
-			const auto b1 = (v1 - dot(v1, b0) * b0).normalized();
-			const auto t0 = dot(b0, b1);
-			auto coordinatesInBasis = [&b0, &b1](Vec3 v) -> Vec2 {
-				return Vec2(dot(v, b0), dot(v, b1));
-			};
-			auto fromCoordinatesInBasis = [&b0, &b1, &origin](Vec2 v) -> Vec3 {
-				return v.x * b0 + v.y * b1 + origin;
-			};
-			const auto c0 = Vec2(0.0f);
-			const auto c1 = coordinatesInBasis(v0);
-			const auto c2 = coordinatesInBasis(v1);
-			const auto circle = Circle::thoughPoints(c0, c1, c2);
-			Vec3 center = fromCoordinatesInBasis(circle.center);
-			const auto radius = circle.radius;
-
-			//const auto midpoint = ((p2 - center) + (p1 - center)).normalized() + center;
-
-			auto circularDistance = [](Vec3 a, Vec3 b) {
-				return acos(std::clamp(dot(a.normalized(), b.normalized()), -1.0f, 1.0f));
-				};
-			/*
-			Wanted to try calculating the arclength by calculating it normally between p0, p1 then checking the the endpoint is correct (by checking the distance of the evavluated curve endpoint to the correct endpoint) and
-			*/
-
-			/*i32 stepCount = 10;
-			const auto arclength4 = acos(std::clamp(dot(e0, e1), -1.0f, 1.0f));
-			auto previous = e0;
-			f32 d = 0.0f;
-			for (i32 i = 1; i < stepCount; i++) {
-				const auto t = f32(i) / f32(stepCount - 1);
-				const auto a = t * arclength4;
-				const auto current = cos(a) * e0 + sin(a) * velocity4;
-				d += circularDistance(
-					stereographicProjection(previous) - center,
-					stereographicProjection(current) - center);
-				previous = current;
-			}*/
-			f32 d = circularDistance(p0 - center, p1 - center);
-			const auto p = (p0 - center);
-			const auto v = velocity3.normalized() * p.length();
-			{
-				const auto calculatedEndpoint = center + p * cos(d) + v * sin(d);
-				//renderer.sphere(calculatedEndpoint, width * 3, Color3::CYAN);
-				const auto correctEndpoint = p1;
-				if (calculatedEndpoint.distanceTo(correctEndpoint) > 0.01f) {
-					d = TAU<f32> -d;
-				}
-			}
-			// This isn't actually the midpoint so there can the correct between this and p0 and p1 might not be the shortest.
-
-			//const auto midpoint = stereographicProjection((e0 + e1).normalized());
-			// 
-			/*const auto d =
-				circularDistance(p0 - center, midpoint - center) +
-				circularDistance(p1 - center, midpoint - center);*/
-
-				//lineGenerator.addCircularArc(p0 - center, velocity3, center, d, width);
-			return StereographicSegment::fromCircular(p, v, center, d);
-			//lineGenerator.addCircularArc(p0 - center, velocity3, center, TAU<f32>, width);
-			const auto t1 = p0.distanceTo(center);
-			const auto t2 = p1.distanceTo(center);
-			//const auto t3 = midpoint.distanceTo(center);
-			/*renderer.sphere(p0, width * 3, Color3::RED);
-			renderer.sphere(p1, width * 3, Color3::RED);
-			renderer.sphere(midpoint, width * 3, Color3::BLUE);
-			renderer.sphere(center, width * 3, Color3::GREEN);
-			renderer.line(p0, p0 + velocity3.normalized() * 0.5f, 0.01f, Color3::MAGENTA);*/
-			//renderer.line(p0, p1, width, Color3::WHITE);
-			/*renderer.sphere(p0, width * 3, Color3::RED);
-			renderer.sphere(p1, width * 3, Color3::RED);*/
-			//renderer.sphere(midpoint, width * 3, Color3::BLUE);
-		}
-	}
-
-	enum class Type {
-		LINE, CIRCULAR
-	};
-	Type type;
-	union {
-		CircularSegment circular;
-		LineSegment line;
-	};
-};
-
-// a and b are points on the unit sphere
-Quat unitSphereRotateAToB(Vec3 a, Vec3 b) {
-	auto rotationAxis = cross(a, b).normalized();
-	auto rotationAngle = acos(std::clamp(dot(a,
-		b.normalized()), -1.0f, 1.0f));
-
-	if (std::abs(rotationAngle) < 0.01f) {
-		rotationAngle = 0.0f;
-		rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
-	}
-	return Quat(rotationAngle, rotationAxis);
-}
-
 void Visualization2::update() {
+	lodLevelsSettingsGui();
 	//const auto result = crossPolytope(3);
 	togglableCursorUpdate();
 
@@ -504,20 +219,6 @@ void Visualization2::update() {
 	if (Input::isKeyDown(KeyCode::TAB)) {
 		selectedCamera = static_cast<CameraType>((static_cast<int>(selectedCamera) + 1) % 2);
 	}
-
-	/*const auto a = nChoosek(5, 2);
-	const auto b = nChoosek(12, 2);
-	const auto c = nChoosek(12, 7);*/
-	//for (i32 dimensionOfPolytope = 2; dimensionOfPolytope < 10; dimensionOfPolytope++) {
-	//	const auto polytope = crossPolytope(dimensionOfPolytope);
-	//	for (i32 i = 0; i < polytope.cells.size(); i++) {
-	//		const auto dimensionOfSimplex = i + 1;
-	//		const auto expectedSize = crossPolytopeSimplexCount(dimensionOfPolytope, dimensionOfSimplex);
-	//		if (polytope.cells[i].size() != expectedSize) {
-	//			ASSERT_NOT_REACHED();
-	//		}
-	//	}
-	//}
 
 	auto view = Mat4::identity;
 	Vec3 cameraPosition = Vec3(0.0f);
@@ -539,6 +240,13 @@ void Visualization2::update() {
 		cameraPosition = stereographicCamera.pos3d();
 		break;
 	}
+	// Moves the cameraPosition to (0, 0, 0, 1), forward to (0, 0, 1, 0), up to (0, 1, 0, 0) and right to (1, 0, 0, 0). It serves the same purpose as the normal view matrix. That is it moves everyhing to the origin before rendering.
+	auto view4 = stereographicCamera.transformation.inversed();
+	renderer.viewInverse4 = stereographicCamera.transformation;
+	// This is just extracting the 4th column of the matrix.
+	renderer.cameraPos4 = stereographicCamera.transformation * Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+
 	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz().normalized();
 	const auto aspectRatio = Window::aspectRatio();
 	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
@@ -547,8 +255,6 @@ void Visualization2::update() {
 	renderer.projection = projection;
 	renderer.cameraForward = cameraForward;
 	renderer.cameraPosition = cameraPosition;
-	const auto pos4 = stereographicCamera.position();
-	renderer.cameraPos4 = Vec4(pos4.x, pos4.y, pos4.z, pos4.w);
 
 	renderer.resizeBuffers(Vec2T<i32>(Window::size()));
 	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
@@ -558,6 +264,9 @@ void Visualization2::update() {
 	glDepthMask(GL_TRUE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_BLEND);
+
+	static bool drawOnlyLines = false;
+	ImGui::Checkbox("drawOnlyLines", &drawOnlyLines);
 
 	const auto width = 0.02f;
 	auto stereographicDraw = [&](Vec4 e0, Vec4 e1) {
@@ -587,18 +296,17 @@ void Visualization2::update() {
 
 		case CIRCULAR: {
 			auto& s = segment.circular;
+			if (drawOnlyLines) {
+				// broken
+				renderer.line(s.start, s.sample(s.angle), width, Color3::WHITE);
+				break;
+			}
 			lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
 			break;
 		}
 
 		}
 	};
-
-
-	auto apply = [](const Mat4& m, Vec4 v) {
-		return v * m;
-	};
-	auto t = stereographicCamera.transformation.inversed();
 
 	//auto apply = [](Quat q, Vec4 v) {
 	//	const auto r = q * Quat(v.x, v.y, v.z, v.w);
@@ -630,12 +338,12 @@ void Visualization2::update() {
 
 	std::vector<Vec4> transformedVertices4;
 	for (const auto& vertex : vertices) {
-		transformedVertices4.push_back(apply(t, vertex));
+		transformedVertices4.push_back(view4 * vertex);
 	}
 
 
 	for (i32 i = 0; i < vertices.size(); i++) {
-		const auto v = stereographicProjection(apply(t, vertices[i]));
+		const auto v = stereographicProjection(view4 * vertices[i]);
 		if (isPointAtInfinity(v)) {
 			continue;
 		}
@@ -650,8 +358,8 @@ void Visualization2::update() {
 			return Vec4(r.x, r.y, r.z, r.w);
 		};*/
 		//auto t = stereographicCamera.position;
-		e0 = apply(t, e0);
-		e1 = apply(t, e1);
+		e0 = view4 * e0;
+		e1 = view4 * e1;
 		stereographicDraw(e0, e1);
 	}
 	auto renderPlaneTriangle = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
@@ -705,19 +413,6 @@ void Visualization2::update() {
 	};
 
 	auto renderTriangle = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4) {
-		//static i32 faceI = 0;
-		//ImGui::InputInt("faceI", &faceI);
-		//const auto& face = faces[faceI];
-		////const auto& p0 = transformedVertices4[face.vertices[0]];
-		////const auto& p1 = transformedVertices4[face.vertices[1]];
-		////const auto& p2 = transformedVertices4[face.vertices[2]];
-		////const auto p3 = -p0;
-		//const auto& p0 = transformedVertices4[face.vertices[0]];
-		//const auto& p1 = transformedVertices4[face.vertices[1]];
-		//const auto& p2 = transformedVertices4[face.vertices[2]];
-		////const auto& p0 = apply(t, Vec4(1.0f, 0.0f, 0.0f, 0.0f));
-		////const auto& p1 = apply(t, Vec4(0.0f, 1.0f, 0.0f, 0.0f));
-		////const auto& p2 = apply(t, Vec4(0.0f, 0.0f, 1.0f, 0.0f));
 		const auto p3 = -p0;
 		const auto sp0 = stereographicProjection(p0);
 		const auto sp1 = stereographicProjection(p1);
@@ -756,8 +451,6 @@ void Visualization2::update() {
 		const auto n0 = planeThoughPoints(p0, p1);
 		const auto n1 = planeThoughPoints(p1, p2);
 		const auto n2 = planeThoughPoints(p2, p0);
-		//static bool test = false;
-		//ImGui::Checkbox("test", &test);
 		if (finitePoints.size() == 4) {
 			/*
 			Tried computing all the planes by choosing triples of points and then comparing the distance to the 4th point to find the best one and the rendering a plane if the 4th points is close enough. This isn't really a good metric, because the plane can still be far away from the edges of the polygon even if it's close to the vertices.
@@ -788,23 +481,23 @@ void Visualization2::update() {
 					deviationFromPlane(p1, p2), deviationFromPlane(p2, p0)
 				)
 			);
+			static float maxAllowedDeviation = 0.005f;
+			ImGui::SliderFloat("max allowed deviation", &maxAllowedDeviation, 0.0, 0.03f);
+
 			// Could check if the deviation is less than the radius of the tubes.
-			if (deviation < 0.03f) {
+			if (deviation < maxAllowedDeviation) {
 				renderPlaneTriangle(planeThoughPolygonVertices, n0, n1, n2, planeNormal4);
 			} else {
 				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
-
-				/*renderer.sphere(stereographicProjection(p0), 0.03f, Color3::MAGENTA);
-				renderer.sphere(stereographicProjection(p1), 0.03f, Color3::MAGENTA);
-				renderer.sphere(stereographicProjection(p2), 0.03f, Color3::MAGENTA);
-				renderer.sphere(stereographicProjection(p3), 0.03f, Color3::MAGENTA);*/
-				{
-					const auto t0 = sphere.center.distanceSquaredTo(sp0);
-					const auto t1 = sphere.center.distanceSquaredTo(sp1);
-					const auto t2 = sphere.center.distanceSquaredTo(sp2);
-					const auto t3 = sphere.center.distanceSquaredTo(sp3);
-					const auto t4 = 0.0f;
-				}
+				// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
+				
+				//{
+				//	const auto t0 = sphere.center.distanceSquaredTo(sp0);
+				//	const auto t1 = sphere.center.distanceSquaredTo(sp1);
+				//	const auto t2 = sphere.center.distanceSquaredTo(sp2);
+				//	const auto t3 = sphere.center.distanceSquaredTo(sp3);
+				//	const auto t4 = 0.0f;
+				//}
 				/*
 				Finding if a point on a sphere belongs to a polyhedron.
 				I don't think the lines projected liens are geodesics of the projected sphere.
@@ -816,32 +509,41 @@ void Visualization2::update() {
 
 				Could probably find an approximate solution by calculating the distance from the plane spanned by the vectors that are the vertices of the plane (there is probably an alaogous formula as for the distance from a line in 3-space). This will only be approximate because it will be the linear distance and not the spherical distance. This is kind of similar what I did with the endpoints in the 2d stereographic line rendering code.
 				*/
-				const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
-				{
-					// These should be 0, because the plane should pass though 0.
-					const auto t0 = dot(p0, plane3Normal);
-					const auto t1 = dot(p1, plane3Normal);
-					const auto t2 = dot(p2, plane3Normal);
-					const auto t3 = dot(p3, plane3Normal);
-				}
+				//const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
+				//{
+				//	// These should be 0, because the plane should pass though 0.
+				//	const auto t0 = dot(p0, plane3Normal);
+				//	const auto t1 = dot(p1, plane3Normal);
+				//	const auto t2 = dot(p2, plane3Normal);
+				//	const auto t3 = dot(p3, plane3Normal);
+				//}
 				/*
 				It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
 				*/
-				const auto anyVertex = icosahedronVertices[0];
+
+				// Move a vertex of the polygon to some vertex of the sphere, because the deviation from the sphere is the smallest at he vertices and biggest at the centers of the faces.
+				//const auto anyVertex = icosahedronVertices[0];
+				const auto anyVertex = renderer.sphereLodCenter;
 				const auto rotation = unitSphereRotateAToB(
 					(sp0 - sphere.center).normalized(), 
 					anyVertex.normalized());
-				renderer.sphericalPolygonInstances.push_back(SphericalPolygonInstance{
-					/*.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),*/
-					.transform = 
-						Mat4::translation(sphere.center) *
-						Mat4(rotation.toMatrix()) *
-						Mat4(Mat3::scale(sphere.radius)),
-					.n0 = n0,
-					.n1 = n1,
-					.n2 = n2,
-					.planeNormal = planeNormal4
-				});
+
+				const auto transform =
+					Mat4::translation(sphere.center) *
+					Mat4(rotation.toMatrix()) *
+					Mat4(Mat3::scale(sphere.radius));
+				renderer.renderSphericalPolygon(sphere.radius, transform, n0, n1, n2, planeNormal4);
+				//renderer.sphericalPolygonInstances.push_back(SphericalPolygonInstance{
+				//	/*.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),*/
+				//	.transform = 
+				//		Mat4::translation(sphere.center) *
+				//		Mat4(rotation.toMatrix()) *
+				//		Mat4(Mat3::scale(sphere.radius)),
+				//	.n0 = n0,
+				//	.n1 = n1,
+				//	.n2 = n2,
+				//	.planeNormal = planeNormal4
+				//});
 			}
 		}
 	};
@@ -883,7 +585,7 @@ void Visualization2::update() {
 		
 		const auto a = ((p0 + p1 + p2) / 3.0f).normalized();
 		//const auto a = p0;
-		const auto transformedNormal = stereographicProjectionJacobian(a, apply(t, normal));
+		const auto transformedNormal = stereographicProjectionJacobian(a, view4 * normal);
 		//const auto t0 = dot(m, p1 - p0);
 		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
 		/*renderer.sphere(stereographicProjection(a), 0.03f, Color3::RED);
@@ -910,12 +612,19 @@ void Visualization2::update() {
 		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
 		//renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.01f, Color3::MAGENTA);
 	};
-	//auto& cell = cells[0];
-	//for (const auto& face : cell.faces) {
-	//	renderFace(face, cell);
-	//	//renderFace(1);
+
+	//for (const auto& cell : cells) {
+	//	for (const auto& face : cell.faces) {
+	//		renderFace(face, cell);
+	//		//renderFace(1);
+	//	}
 	//}
 
+	auto& cell = cells[0];
+	for (const auto& face : cell.faces) {
+		renderFace(face, cell);
+		//renderFace(1);
+	}
 	//renderFace(cell.faces[0], cell);
 	//renderFace(3);
 	//renderFace(3);
@@ -937,12 +646,6 @@ void Visualization2::update() {
 	/*const auto q = stereographicCamera.position();
 	const auto p = Vec4(q.x, q.y, q.z, q.w);
 	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);*/
-	/*
-	The player moves along the curve
-	r(t) = p * exp(t * foward)
-	r'(t) = p * forward * exp(t * foward)
-	where p is the initial position
-	*/
 
 	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::WHITE);
 	lineGenerator.reset();
@@ -958,14 +661,15 @@ void Visualization2::update() {
 	renderer.renderHemispheres();
 }
 
-StereographicSegment::StereographicSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)
-	: circular(start, initialVelocity, center, angle)
-	, type(Type::CIRCULAR) {}
-
-StereographicSegment::StereographicSegment(Vec3 e0, Vec3 e1) 
-	: line(e0, e1)
-	, type(Type::LINE) {}
-
-Vec3 CircularSegment::sample(f32 angle) const {
-	return center + cos(angle) * start + sin(angle) * initialVelocity;
+void Visualization2::lodLevelsSettingsGui() {
+	for (auto& level : lodLevelsSettings) {
+		ImGui::PushID(&level);
+		ImGui::SliderFloat("min radius", &level.minRadius, 0.0f, 40.0f);
+		ImGui::InputInt("division count", &level.divisionCount);
+		ImGui::PopID();
+		ImGui::Separator();
+	}
+	if (ImGui::Button("reload")) {
+		renderer.generateSphereLods(lodLevelsSettings);
+	}
 }

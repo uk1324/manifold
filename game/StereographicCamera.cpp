@@ -17,9 +17,9 @@ static Vec3 log(Quat unitQuat) {
 }
 #include <engine/Math/GramSchmidt.hpp>
 #include <imgui/imgui.h>
-Quat StereographicCamera::position() const {
-	return -p.inverseIfNormalized();
-}
+//Quat StereographicCamera::position() const {
+//	return -p.inverseIfNormalized();
+//}
 void StereographicCamera::update(float dt) {
 	if (Window::isCursorEnabled()) {
 		lastMousePosition = std::nullopt;
@@ -37,19 +37,6 @@ void StereographicCamera::update(float dt) {
 
 	//// x+ is right both in window space and in the used coordinate system.
 	//// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.
-	//angleAroundUpAxis += mouseOffset.x * rotationSpeed * dt;
-	//// Down is positive in window space and a positive rotation around the x axis rotates down.
-	//angleAroundRightAxis += mouseOffset.y * rotationSpeed * dt;
-	Quat rotation = Quat::identity;
-	rotation *= Quat(mouseOffset.x * rotationSpeed * dt, up);
-	rotation *= Quat(mouseOffset.y * rotationSpeed * dt, right);
-
-	right *= rotation;
-	up *= rotation;
-
-	/*angleAroundUpAxis = normalizeAngleZeroToTau(angleAroundUpAxis);
-	angleAroundRightAxis = std::clamp(angleAroundRightAxis, -degToRad(89.0f), degToRad(89.0f));*/
-
 	Vec3 movementDirection(0.0f);
 
 	if (Input::isKeyHeld(KeyCode::A)) movementDirection += Vec3::LEFT;
@@ -59,31 +46,28 @@ void StereographicCamera::update(float dt) {
 	if (Input::isKeyHeld(KeyCode::SPACE)) movementDirection += Vec3::UP;
 	if (Input::isKeyHeld(KeyCode::LEFT_SHIFT)) movementDirection += Vec3::DOWN;
 
-	Vec3 movement(0.0f);
 	movementDirection = movementDirection.normalized();
 
-	/*Quat rotationAroundYAxis(angleAroundUpAxis, Vec3::UP);
-	const auto dir = rotationAroundYAxis * movementDirection;*/
-	
-	const auto f = forward();
+	// Only the case of being at the origin (identity of quaterions = (0, 0, 0, 1)) is considered. The other cases are done by applying these transformation with a change of basis.
 
-	movement += right * movementDirection.x + up * movementDirection.y + f * movementDirection.z;
-	ImGui::Text("stereographic movement basis det: %g", dot(cross(up, right), f));
-	const auto nR = cross(up, f).normalized();
-	const auto nU = cross(f, nR).normalized();
-	right = nR;
-	up = nU;
-	
-	//const auto forwardMovement = forward();
-	/*if (Input::isKeyHeld(KeyCode::W)) movement += forwardMovement;
-	if (Input::isKeyHeld(KeyCode::S)) movement -= forwardMovement;*/
-	p = exp(movement * movementSpeed * dt) * p;
-	p = p.normalized();
+	// In analogy with lower dimensions movement on a sphere it should transform the geodesics circle to to itself and it would also make sense to leave everything else invariant.
+	// If we just consider the 2d subspace then we can derive a formula for the rotation using 2 reflections. Thinking about a 2d subace we need 2 lines that are at an angle half of the angle between the initial point and the target point. The line at the start has the normal movementDirection and the line between those 2 points has coordiantes (p0 - t)  (draw a picture). Then these lines extend to hyperplanes. The reflection is going to only change points on the geodesics circle plane and leave everyhing else fixed.
+	// The formula for this rotation is derived here.
+	// "Gaming in Elliptic Geometry" https://cg.iit.bme.hu/~szirmay/EllipticGames2.pdf
+	// This is probably what the parallel transport is on the 3 sphere. 
+	// Another way to find the transformation would be to define what properies it should have and then find what values it should have on at least 3 vectors. The 4th one has to be orthogonal to the other 3. The map should map the identity to the target point. It should also map the velocity of the curve r(t) = exp(t dir) at zero to the velocity at target. It should probably also fix a point, because we could consider a 3d subspace and it would intuitively make sense that on that 3 sphere the axis is fixed. If one subspace is fixed then another has to be as well. So the transformation should have properies:
+	/*
+	1:
+	map (0, 0, 0, 1) to q
+	2:
+	r'(t) = dir exp(t dir)
+	Map dir to dir * exp(t dir)
+	3: Fix the 2d subspace perpendicular to these 2.
 
-	//testP = exp(movement * (testP * movementSpeed) * dt) * testP;
-	//testP = testP.normalized();
-	// using the preforimg operation is basis interpretation of left multiplication
-	//const auto q = 
+	I think the 2 reflection transformation satisfies these properties, because 
+	it satisfies 1, it satisfies 2 because if we consider then 2d subspace the initial velocity vector gets mapped to the vector after movement.
+	it does fix a 2d subspace perpendicular to the geodesic plane, because 2 reflection fix the subspace that is the intersection of the hyperlanes, which is a 2d subspace.
+	*/
 	const auto dir = movementDirection;
 	const auto target = exp(dir * movementSpeed * dt);
 	const auto& q = target;
@@ -97,7 +81,6 @@ void StereographicCamera::update(float dt) {
 	const auto& m02 = m20;
 	const auto m12 = -q.z * q.y * s;
 	const auto& m21 = m12;
-
 	Mat4 move(
 		Vec4(m00, m10, m20, q.x),
 		Vec4(m01, m11, m21, q.y),
@@ -105,6 +88,7 @@ void StereographicCamera::update(float dt) {
 		Vec4(-q.x, q.y, q.z, q.w)
 	);
 
+	// Rotations should fix (0, 0, 0, 1) so the last column is identity. Apart from that they should just rotate the 3d tangent space.
 	Quat rot = Quat::identity;
 	rot *= Quat(mouseOffset.x * rotationSpeed * dt, Vec3(0.0f, 1.0f, 0.0f));
 	rot *= Quat(mouseOffset.y * rotationSpeed * dt, Vec3(1.0f, 0.0f, 0.0f));
@@ -117,12 +101,12 @@ void StereographicCamera::update(float dt) {
 		Vec4(0.0f, 0.0f, 0.0f, 1.0f)
 	);
 
-	const auto t0 = rotate * rotate.transpose();
-	const auto t1 = move * move.transpose();
-	const auto t2 = transformation * transformation.transpose();
-	if (abs(t2[1][0]) > 0.02f) {
-		int x = 5;
-	}
+	//const auto t0 = rotate * rotate.transpose();
+	//const auto t1 = move * move.transpose();
+	//const auto t2 = transformation * transformation.transpose();
+	//if (abs(t2[1][0]) > 0.02f) {
+	//	int x = 5;
+	//}
 	/*
 	If we have for example m r where m is a reflectio and r is a reflection
 	It can be interpreted as rotate then mirror in the global frame or as mirror and then rotate in the mirrored frame.
@@ -131,31 +115,15 @@ void StereographicCamera::update(float dt) {
 	(m r m^-1) m = m r
 	(m r m^-1) means rotate in the mirrored frame and m means mirror. So we first mirror and then rotate in the mirrored frame.
 
+	So in this case we have transformation and then in the basis of the transformed position we move and roate.
 	*/
-	/*transformation = move * transformation;
-	transformation = rotate * transformation;*/
 	transformation = transformation * move;
 	transformation = transformation * rotate;
 	gramSchmidtOrthonormalize(view(transformation.basis));
 }
 
-//Quat StereographicCamera::cameraForwardRotation() const {
-//	return Quat(angleAroundUpAxis, Vec3::UP) * Quat(angleAroundRightAxis, Vec3::RIGHT);
-//}
-
-Vec3 StereographicCamera::forward() const {
-	return cross(right, up);
-	//return cameraForwardRotation() * Vec3::FORWARD;
-}
-
 Mat4 StereographicCamera::viewMatrix() const {
-	auto target = pos3d() + Vec3(0.0f, 0.0f, 1.0f);
-	/*return Mat4::lookAt(pos3d(), target, Vec3::UP);*/
-	return Mat4::lookAt(pos3d(), target, Vec3(0.0f, 1.0f, 0.0f));
-
-	//auto target = pos3d() + forward();
-	///*return Mat4::lookAt(pos3d(), target, Vec3::UP);*/
-	//return Mat4::lookAt(pos3d(), target, up);
+	return Mat4::identity;
 }
 
 Vec3 StereographicCamera::pos3d() const {

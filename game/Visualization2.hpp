@@ -23,6 +23,7 @@ struct Visualization2 {
 	};
 	struct Cell {
 		std::vector<i32> faces;
+		std::vector<Vec4> faceNormals;
 	};
 	std::vector<Edge> edges;
 	std::vector<Face> faces;
@@ -38,6 +39,9 @@ struct Visualization2 {
 	} selectedCamera = CameraType::STEREOGRAPHIC;
 
 	LineGenerator lineGenerator;
+
+	std::vector<GameRenderer::SphereLodSetting> lodLevelsSettings;
+	void lodLevelsSettingsGui();
 
 	GameRenderer renderer;
 	FpsCamera3d camera;

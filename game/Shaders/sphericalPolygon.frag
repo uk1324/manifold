@@ -1,7 +1,7 @@
 #version 430 core
 
-uniform vec3 cameraPosition; 
 uniform vec4 cameraPos; 
+uniform mat4 viewInverse4; 
 
 in vec3 interpolatedNormal; 
 

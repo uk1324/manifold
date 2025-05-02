@@ -18,6 +18,8 @@ struct Polytope {
 Polytope crossPolytope(i32 dimension);
 i32 crossPolytopeSimplexCount(i32 dimensionOfCrossPolytope, i32 dimensionOfSimplex);
 
+Polytope hypercube(i32 dimension);
+
 // a face is a 2 cell.
 std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex);
 std::vector<i32> faceVertices(const Polytope& p, const Polytope::CellN& face);

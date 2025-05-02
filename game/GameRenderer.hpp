@@ -10,6 +10,7 @@
 #include <game/LineGenerator.hpp>
 #include <game/Shaders/sphericalPolygonData.hpp>
 #include <game/Shaders/homogenousData.hpp>
+#include <game/Polyhedra.hpp>
 #include <game/Cubemap.hpp>
 
 struct Mesh {
@@ -109,10 +110,25 @@ struct GameRenderer {
 
 	std::vector<SphericalPolygonInstance> sphericalPolygonInstances;
 	void renderSphericalPolygons();
+	void renderSphericalPolygon(f32 radius, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal);
+
+	struct SphereLodSetting {
+		f32 minRadius;
+		i32 divisionCount;
+	};
+	Vec3 sphereLodCenter = icosahedronVertices[0];
+	void generateSphereLods(const std::vector<SphereLodSetting>& settings);
+	struct SphereLodLevel {
+		SphereLodSetting setting;
+		Mesh mesh;
+		std::vector<SphericalPolygonInstance> instances;
+	};
+	std::vector<SphereLodLevel> sphereLods;
 
 	Gfx2d gfx2d;
 
 	Vec4 cameraPos4 = Vec4(0.0f);
+	Mat4 viewInverse4 = Mat4::identity;
 
 	Vbo instancesVbo;
 };

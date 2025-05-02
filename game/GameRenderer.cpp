@@ -586,17 +586,108 @@ void GameRenderer::renderSphericalPolygons() {
 	shaderSetUniforms(
 		sphericalPolygonShader,
 		SphericalPolygonFragUniforms{
-			.cameraPosition = Vec3(0.0f),
-			.cameraPos = cameraPos4
+			.cameraPos = cameraPos4,
+			.viewInverse4 = viewInverse4
 		}
 	);
 
 	static bool wireframe = false;
 	ImGui::Checkbox("wireframe", &wireframe);
 	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	drawInstances(sphereMesh.vao, instancesVbo, constView(sphericalPolygonInstances), [&](usize count) {
+	for (auto& lod : sphereLods) {
+		drawInstances(lod.mesh.vao, instancesVbo, constView(lod.instances), [&](usize count) {
+			glDrawElementsInstanced(GL_TRIANGLES, lod.mesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
+		});
+		lod.instances.clear();
+	}
+
+	/*drawInstances(sphereMesh.vao, instancesVbo, constView(sphericalPolygonInstances), [&](usize count) {
 		glDrawElementsInstanced(GL_TRIANGLES, sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
 	});
+	sphericalPolygonInstances.clear();*/
 	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	sphericalPolygonInstances.clear();
+}
+
+void GameRenderer::renderSphericalPolygon(f32 radius, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+	const auto instance = SphericalPolygonInstance{
+		.transform = transform,
+		.n0 = n0,
+		.n1 = n1,
+		.n2 = n2,
+		.planeNormal = planeNormal
+	};
+
+	i32 lodLevelToUse = sphereLods.size() - 1;
+	for (; lodLevelToUse > 0; lodLevelToUse--) {
+		if (radius > sphereLods[lodLevelToUse].setting.minRadius) {
+			//lodLevelToUse--;
+			break;
+		}
+	}
+	ImGui::Text("lod level: %d, ", lodLevelToUse);
+	ImGui::Text("lod radius %g", sphereLods[lodLevelToUse].setting.minRadius);
+	ImGui::Text("radius %g", radius);
+	auto& lod = sphereLods[lodLevelToUse];
+	ImGui::Text("triangle count %d", (lod.mesh.indexCount) / 3);
+	lod.instances.push_back(instance);
+}
+
+void GameRenderer::generateSphereLods(const std::vector<SphereLodSetting>& settings) {
+	sphereLods.clear();
+	// The bigger the sphere the closer it gets to passing though 0. So to limit the number of vertices drawn this will generate the sphere at 0 with radius 1. Then scale it and translate it so that a point passes though 0 and then discard vertices that are too far away.
+	for (const auto& setting : settings) {
+		auto sphere = makeIcosphere(setting.divisionCount, 1.0f);
+		//std::vector<i32> verticesToDiscard;
+		const auto VERTEX_REMOVED = -1;
+		std::vector<i32> oldIndexToNewIndex;
+		i32 newIndexCount = 0;
+		for (i32 i = 0; i < sphere.positions.size(); i++) {
+			const auto v = sphere.positions[i];
+			// sphereLodCenter gets mapped to 0.
+			const auto transformedV = v * setting.minRadius - sphereLodCenter.normalized() * setting.minRadius;
+			const auto fogFar = 20.0f;
+			//const auto r = fogFar + 10.0f;
+			const auto r = fogFar + 2.0f;
+			if (Vec3(0.0f).distanceTo(transformedV) > r) {
+				oldIndexToNewIndex.push_back(VERTEX_REMOVED);
+			} else {
+				oldIndexToNewIndex.push_back(newIndexCount);
+				newIndexCount++;
+			}
+		}
+		//MeshTriPn mesh;
+		std::vector<SphericalPolygonVertex> vertices;
+		std::vector<i32> indices;
+		for (i32 i = 0; i < sphere.positions.size(); i++) {
+			if (oldIndexToNewIndex[i] == VERTEX_REMOVED) {
+				continue;
+			}
+			vertices.push_back(SphericalPolygonVertex{
+				.position = sphere.positions[i],
+				.normal = sphere.normals[i]
+			});
+		}
+		for (i32 i = 0; i < sphere.indices.size(); i += 3) {
+			bool faceRemoved = false;
+			for (i32 j = 0; j < 3; j++) {
+				if (oldIndexToNewIndex[sphere.indices[i + j]] == VERTEX_REMOVED) {
+					faceRemoved = true;
+					break;
+				}
+			}
+			if (faceRemoved) {
+				continue;
+			}
+			for (i32 j = 0; j < 3; j++) {
+				const auto index = oldIndexToNewIndex[sphere.indices[i + j]];
+				ASSERT(index != VERTEX_REMOVED);
+				indices.push_back(index);
+			}
+		}
+		sphereLods.push_back(SphereLodLevel{
+			.setting = setting,
+			.mesh = makeMesh<SphericalPolygonShader>(constView(vertices), constView(indices), instancesVbo),
+		});
+	}
+
 }
