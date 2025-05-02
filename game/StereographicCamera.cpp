@@ -8,6 +8,14 @@ static Quat exp(Vec3 vectorPart) {
 	const auto v = distance == 0.0f ? Vec3(0.0f) : vectorPart / distance;
 	return Quat(v.x * sin(distance), v.y * sin(distance), v.z * sin(distance), cos(distance));
 }
+
+static Vec3 log(Quat unitQuat) {
+	return Vec3(unitQuat.x, unitQuat.y, unitQuat.z).normalized() * acos(unitQuat.w);
+	/*const auto distance = vectorPart.length();
+	const auto v = distance == 0.0f ? Vec3(0.0f) : vectorPart / distance;
+	return Quat(v.x * sin(distance), v.y * sin(distance), v.z * sin(distance), cos(distance));*/
+}
+#include <engine/Math/GramSchmidt.hpp>
 #include <imgui/imgui.h>
 Quat StereographicCamera::position() const {
 	return -p.inverseIfNormalized();
@@ -72,8 +80,63 @@ void StereographicCamera::update(float dt) {
 	p = exp(movement * movementSpeed * dt) * p;
 	p = p.normalized();
 
-	testP = exp(movement * (-testP * movementSpeed) * dt) * testP;
-	testP = testP.normalized();
+	//testP = exp(movement * (testP * movementSpeed) * dt) * testP;
+	//testP = testP.normalized();
+	// using the preforimg operation is basis interpretation of left multiplication
+	//const auto q = 
+	const auto dir = movementDirection;
+	const auto target = exp(dir * movementSpeed * dt);
+	const auto& q = target;
+	const auto s = 1.0f / (1.0f + q.w);
+	const auto m00 = 1.0f - (q.x * q.x) * s;
+	const auto m11 = 1.0f - (q.y * q.y) * s;
+	const auto m22 = 1.0f - (q.z * q.z) * s;
+	const auto m01 = -q.y * q.x * s;
+	const auto& m10 = m01;
+	const auto m20 = -q.z * q.x * s;
+	const auto& m02 = m20;
+	const auto m12 = -q.z * q.y * s;
+	const auto& m21 = m12;
+
+	Mat4 move(
+		Vec4(m00, m10, m20, q.x),
+		Vec4(m01, m11, m21, q.y),
+		Vec4(m02, m12, m22, q.z),
+		Vec4(-q.x, q.y, q.z, q.w)
+	);
+
+	Quat rot = Quat::identity;
+	rot *= Quat(mouseOffset.x * rotationSpeed * dt, Vec3(0.0f, 1.0f, 0.0f));
+	rot *= Quat(mouseOffset.y * rotationSpeed * dt, Vec3(1.0f, 0.0f, 0.0f));
+	const auto rM = rot.toMatrix();
+
+	Mat4 rotate(
+		Vec4(rM(0, 0), rM(1, 0), rM(2, 0), 0.0f),
+		Vec4(rM(0, 1), rM(1, 1), rM(2, 1), 0.0f),
+		Vec4(rM(0, 2), rM(1, 2), rM(2, 2), 0.0f),
+		Vec4(0.0f, 0.0f, 0.0f, 1.0f)
+	);
+
+	const auto t0 = rotate * rotate.transpose();
+	const auto t1 = move * move.transpose();
+	const auto t2 = transformation * transformation.transpose();
+	if (abs(t2[1][0]) > 0.02f) {
+		int x = 5;
+	}
+	/*
+	If we have for example m r where m is a reflectio and r is a reflection
+	It can be interpreted as rotate then mirror in the global frame or as mirror and then rotate in the mirrored frame.
+	
+	That is we have 
+	(m r m^-1) m = m r
+	(m r m^-1) means rotate in the mirrored frame and m means mirror. So we first mirror and then rotate in the mirrored frame.
+
+	*/
+	/*transformation = move * transformation;
+	transformation = rotate * transformation;*/
+	transformation = transformation * move;
+	transformation = transformation * rotate;
+	gramSchmidtOrthonormalize(view(transformation.basis));
 }
 
 //Quat StereographicCamera::cameraForwardRotation() const {
@@ -86,9 +149,13 @@ Vec3 StereographicCamera::forward() const {
 }
 
 Mat4 StereographicCamera::viewMatrix() const {
-	auto target = pos3d() + forward();
+	auto target = pos3d() + Vec3(0.0f, 0.0f, 1.0f);
 	/*return Mat4::lookAt(pos3d(), target, Vec3::UP);*/
-	return Mat4::lookAt(pos3d(), target, up);
+	return Mat4::lookAt(pos3d(), target, Vec3(0.0f, 1.0f, 0.0f));
+
+	//auto target = pos3d() + forward();
+	///*return Mat4::lookAt(pos3d(), target, Vec3::UP);*/
+	//return Mat4::lookAt(pos3d(), target, up);
 }
 
 Vec3 StereographicCamera::pos3d() const {

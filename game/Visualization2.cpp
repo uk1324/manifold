@@ -247,16 +247,7 @@ Vec4 crossProduct(Vec4 v0, Vec4 v1, Vec4 v2) {
 	);
 }
 
-void gramSchmidtOrthonormalize(View<Vec4> basis) {
-	basis[0] = basis[0].normalized();
-	for (i32 i = 1; i < basis.size(); i++) {
-		auto& v = basis[i];
-		for (i32 j = 0; j < i; j++) {
-			v -= dot(v, basis[j]) * basis[j];
-		}
-		v = v.normalized();
-	}
-}
+#include <engine/Math/GramSchmidt.hpp>
 
 Vec3 coordinatesInOrthonormal3Basis(const Vec4 orthonormalBasis[3], Vec4 v) {
 	return Vec3(
@@ -604,16 +595,33 @@ void Visualization2::update() {
 	};
 
 
-	auto apply = [](Quat q, Vec4 v) {
-		const auto r = q * Quat(v.x, v.y, v.z, v.w);
-		return Vec4(r.x, r.y, r.z, r.w);
+	auto apply = [](const Mat4& m, Vec4 v) {
+		return v * m;
 	};
+	auto t = stereographicCamera.transformation.inversed();
+
+	//auto apply = [](Quat q, Vec4 v) {
+	//	const auto r = q * Quat(v.x, v.y, v.z, v.w);
+	//	return Vec4(r.x, r.y, r.z, r.w);
+	//};
+	//auto t = stereographicCamera.p;
+
 	//auto t = stereographicCamera.position.inverseIfNormalized();
 	// Maps position into 0.
-	static bool test1 = false;
-	ImGui::Checkbox("test1", &test1);
-	auto t = stereographicCamera.p;
-	//auto t = stereographicCamera.testP;
+	//static bool test1 = false;
+	//ImGui::Checkbox("test1", &test1);
+
+	//auto apply = [](Quat q, Vec4 v) {
+	//	const auto r = q * Quat(v.x, v.y, v.z, v.w);
+	//	return Vec4(r.x, r.y, r.z, r.w);
+	//};
+	/*auto t = stereographicCamera.p;*/
+	////auto t = stereographicCamera.position.inverseIfNormalized();
+	//// Maps position into 0.
+	//static bool test1 = false;
+	//ImGui::Checkbox("test1", &test1);
+	//auto t = stereographicCamera.p;
+	//auto t = stereographicCamera.testP.inverseIfNormalized();
 	/*if (test1) {
 		t = stereographicCamera.position.inverseIfNormalized();
 	}*/
@@ -626,21 +634,21 @@ void Visualization2::update() {
 	}
 
 
-	/*for (i32 i = 0; i < vertices.size(); i++) {
+	for (i32 i = 0; i < vertices.size(); i++) {
 		const auto v = stereographicProjection(apply(t, vertices[i]));
 		if (isPointAtInfinity(v)) {
 			continue;
 		}
 		renderer.sphere(v, width * 3.0f, verticesColors[i]);
-	}*/
+	}
 	for (const auto& edge : edges) {
 		auto e0 = vertices[edge.vertices[0]];
 		auto e1 = vertices[edge.vertices[1]];
 
-		auto apply = [](Quat q, Vec4 v) {
+		/*auto apply = [](Quat q, Vec4 v) {
 			const auto r = q * Quat(v.x, v.y, v.z, v.w);
 			return Vec4(r.x, r.y, r.z, r.w);
-		};
+		};*/
 		//auto t = stereographicCamera.position;
 		e0 = apply(t, e0);
 		e1 = apply(t, e1);
@@ -878,8 +886,8 @@ void Visualization2::update() {
 		const auto transformedNormal = stereographicProjectionJacobian(a, apply(t, normal));
 		//const auto t0 = dot(m, p1 - p0);
 		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
-		renderer.sphere(stereographicProjection(a), 0.03f, Color3::RED);
-		renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);
+		/*renderer.sphere(stereographicProjection(a), 0.03f, Color3::RED);
+		renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);*/
 
 		/*auto a = vertices[face.vertices[0]];
 		a = apply(t, a);*/
@@ -902,23 +910,24 @@ void Visualization2::update() {
 		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
 		//renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.01f, Color3::MAGENTA);
 	};
-	auto& cell = cells[0];
+	//auto& cell = cells[0];
 	//for (const auto& face : cell.faces) {
 	//	renderFace(face, cell);
 	//	//renderFace(1);
 	//}
-	renderFace(cell.faces[0], cell);
+
+	//renderFace(cell.faces[0], cell);
 	//renderFace(3);
 	//renderFace(3);
 	//ImGui::InputInt("faceI", &faceI);
-	const auto v0 = vertices[faces[cell.faces[0]].vertices[0]];
+	/*const auto v0 = vertices[faces[cell.faces[0]].vertices[0]];
 	renderer.sphere(stereographicProjection(apply(t, v0)), 0.1f, Color3::RED);
 	
 	Vec4 p(1.0f, 0.0f, 0.0f, 0.0f);
 	auto q = stereographicCamera.position();
 	f32 dist = Vec4(p.x - q.x, p.y - q.y, p.z - q.z, p.w - q.w).length();
 	ImGui::InputFloat("dist", &dist);
-	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);
+	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);*/
 
 	//const auto v = inverseStereographicProjectionJacobian(Vec3(0.0f), stereographicCamera.forward());
 	//apply(t, Vec3(stereographicCamera.pos))

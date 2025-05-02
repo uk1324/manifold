@@ -8,6 +8,8 @@ If I am at identity and some forward vector in stereographic space then to move 
 
 
 If we have a curve starting from p in direction v then it has the form r(t) = p exp(t v)
+
+The issue with the method I don't know why it works is that it rotates (rolls around the forward axis) the camera when you move forward. 
 */
 struct StereographicCamera {
 	std::optional<Vec2> lastMousePosition;
@@ -18,7 +20,11 @@ struct StereographicCamera {
 	/*float angleAroundUpAxis = 0.0f;
 	float angleAroundRightAxis = 0.0f;*/
 
-	Quat testP = Quat::identity;
+	Mat4 transformation = Mat4::identity;
+	//Quat up4 = Quat(0, 0, 1, 0);
+	//Quat right4 = Quat(0, 1, 0, 0);
+	//Quat forward4 = Quat(1, 0, 0, 0);
+	//Quat testP = Quat(0, 0, 0, 1);
 
 	// Angle change per pixel.
 	float rotationSpeed = 0.1f;
