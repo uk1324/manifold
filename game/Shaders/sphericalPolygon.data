@@ -19,6 +19,7 @@ shader SphericalPolygon {
 		Vec4 n0;
 		Vec4 n1;
 		Vec4 n2;
+		Vec4 n3;
 		Vec4 planeNormal;
 	};
 	vertOut = {

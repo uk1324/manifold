@@ -135,10 +135,10 @@ Polytope hypercube(i32 polytopeDimension) {
 	auto base = hypercube(polytopeDimension - 1);
 	{
 		// For example if the base is a square then it is described by it's edges. This also adds the square as a face.
-		auto& baseSubCells = base.cells.back();
 		base.cells.push_back(Polytope::CellsN());
 		base.cells.back().push_back(Polytope::CellN());
 		auto& baseCell = base.cells.back().back();
+		auto& baseSubCells = base.cells[base.cells.size() - 2];
 		for (i32 i = 0; i < baseSubCells.size(); i++) {
 			baseCell.push_back(i);
 		}
@@ -203,12 +203,23 @@ Polytope hypercube(i32 polytopeDimension) {
 	}
 	return result;
 }
+const auto polytope = hypercube(4);
 
 i32 hypercubeCellCount(i32 dimensionOfHypercube, i32 dimensionOfCells) {
 	const auto& n = dimensionOfHypercube;
 	const auto& k = dimensionOfCells;
 	// S(n, k) = 2 ^ (n - k) (n choose k)
 	return integerToNonNegativePower(2, n - k) * nChooseK(n, k);
+	//for (i32 dimensionOfPolytope = 2; dimensionOfPolytope < 10; dimensionOfPolytope++) {
+	//	const auto polytope = hypercube(dimensionOfPolytope);
+	//	for (i32 i = 0; i < dimensionOfPolytope - 1; i++) {
+	//		const auto dimensionOfCell = i + 1;
+	//		const auto expectedSize = hypercubeCellCount(dimensionOfPolytope, dimensionOfCell);
+	//		if (polytope.cells[i].size() != expectedSize) {
+	//			ASSERT_NOT_REACHED();
+	//		}
+	//	}
+	//}
 }
 
 std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex) {

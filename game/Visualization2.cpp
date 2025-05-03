@@ -64,11 +64,14 @@ Visualization2 Visualization2::make() {
 		return normal;
 	};
 
-	const auto c = crossPolytope(4);
+	//const auto aa = hypercube(3);
+
+	//const auto c = crossPolytope(4);
+	const auto c = hypercube(4);
 	for (i32 i = 0; i < c.vertices.size(); i++) {
 		const auto t = f32(i) / f32(c.vertices.size() - 1);
 		const auto& vertex = c.vertices[i];
-		r.vertices.push_back(Vec4(vertex[0], vertex[1], vertex[2], vertex[3]));
+		r.vertices.push_back(Vec4(vertex[0], vertex[1], vertex[2], vertex[3]).normalized());
 		r.verticesColors.push_back(Color3::fromHsv(t, 1.0f, 1.0f));
 	}
 	for (const auto& edge : c.cellsOfDimension(1)) {
@@ -308,34 +311,6 @@ void Visualization2::update() {
 		}
 	};
 
-	//auto apply = [](Quat q, Vec4 v) {
-	//	const auto r = q * Quat(v.x, v.y, v.z, v.w);
-	//	return Vec4(r.x, r.y, r.z, r.w);
-	//};
-	//auto t = stereographicCamera.p;
-
-	//auto t = stereographicCamera.position.inverseIfNormalized();
-	// Maps position into 0.
-	//static bool test1 = false;
-	//ImGui::Checkbox("test1", &test1);
-
-	//auto apply = [](Quat q, Vec4 v) {
-	//	const auto r = q * Quat(v.x, v.y, v.z, v.w);
-	//	return Vec4(r.x, r.y, r.z, r.w);
-	//};
-	/*auto t = stereographicCamera.p;*/
-	////auto t = stereographicCamera.position.inverseIfNormalized();
-	//// Maps position into 0.
-	//static bool test1 = false;
-	//ImGui::Checkbox("test1", &test1);
-	//auto t = stereographicCamera.p;
-	//auto t = stereographicCamera.testP.inverseIfNormalized();
-	/*if (test1) {
-		t = stereographicCamera.position.inverseIfNormalized();
-	}*/
-	//const auto a = t * stereographicCamera.position;
-	//auto t = stereographicCamera.position.inverseIfNormalized();
-
 	std::vector<Vec4> transformedVertices4;
 	for (const auto& vertex : vertices) {
 		transformedVertices4.push_back(view4 * vertex);
@@ -362,9 +337,11 @@ void Visualization2::update() {
 		e1 = view4 * e1;
 		stereographicDraw(e0, e1);
 	}
-	auto renderPlaneTriangle = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+
+	auto renderPlaneQuad = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 		Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
 		const auto rotation = unitSphereRotateAToB(untransformedPlaneMeshNormal, wantedPlane.n);
+
 		/*auto rotationAxis = cross(untransformedPlaneMeshNormal, wantedPlane.n).normalized();
 		auto rotationAngle = acos(
 			std::clamp(
@@ -391,11 +368,12 @@ void Visualization2::update() {
 		//	rotationAxis = Vec3(1.0f, 0.0f, 0.0f);
 		//}
 		//const auto rotation = Quat(rotationAngle, rotationAxis);
-		{
-			const auto t0 = rotation * untransformedPlaneMeshNormal;
-			const auto t1 = t0.distanceTo(wantedPlane.n);
-			const auto t2 = 0.0f;
-		}
+		//{
+		//	const auto t0 = rotation * untransformedPlaneMeshNormal;
+		//	const auto t1 = t0.distanceTo(wantedPlane.n);
+		//	const auto t2 = 0.0f;
+		//}
+
 		renderer.infinitePlanes.push_back(HomogenousInstance{
 			.transform =
 				Mat4::translation(wantedPlane.d * wantedPlane.n) *
@@ -403,13 +381,65 @@ void Visualization2::update() {
 			.n0 = n0,
 			.n1 = n1,
 			.n2 = n2,
+			.n3 = n3,
 			.planeNormal = planeNormal,
 		});
-		//renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
-		/*renderer.line(sp0, sp0 + wantedPlane.n, 0.1f, Color3::BLUE);
-		renderer.line(sp0, sp0 + untransformedInfinitePlaneMeshNormal, 0.1f, Color3::BLUE);
-		renderer.line(sp0, sp0 + rotationAxis, 0.1f, Color3::YELLOW);*/
-		//renderer.homogenousTriangleRenderer.addTri()
+	};
+
+	auto renderPlaneTriangle = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+		renderPlaneQuad(wantedPlane, n0, n1, n2, n2, planeNormal);
+	};
+
+	auto renderSphericalQuad = [&](Vec3 sp0, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+		//const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
+		// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
+
+		//{
+		//	const auto t0 = sphere.center.distanceSquaredTo(sp0);
+		//	const auto t1 = sphere.center.distanceSquaredTo(sp1);
+		//	const auto t2 = sphere.center.distanceSquaredTo(sp2);
+		//	const auto t3 = sphere.center.distanceSquaredTo(sp3);
+		//	const auto t4 = 0.0f;
+		//}
+		/*
+		Finding if a point on a sphere belongs to a polyhedron.
+		I don't think the lines projected liens are geodesics of the projected sphere.
+
+		It is probably simplest to work in R^4 for this.
+		An intersection of a 3-plane going though 0 with the 3 sphere is a sphere that has it's center at 0.
+		Then on that sphere we have the vertices of a polygon.
+		If we consider jsut the 3-plane subspace then we can calculate 2-planes going though the origin and pairs of vertices. To check on which side a point is we just need to calculate the dot product with it's normal. We can extend the normal from the 3 space to the whole 4 space and then it will define a 3-plane that still bounds the polygon. Then to check if a point lies on the polygon we just need to calculate the dot products of the points with the normals of the spheres.
+
+		Could probably find an approximate solution by calculating the distance from the plane spanned by the vectors that are the vertices of the plane (there is probably an alaogous formula as for the distance from a line in 3-space). This will only be approximate because it will be the linear distance and not the spherical distance. This is kind of similar what I did with the endpoints in the 2d stereographic line rendering code.
+		*/
+		//const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
+		//{
+		//	// These should be 0, because the plane should pass though 0.
+		//	const auto t0 = dot(p0, plane3Normal);
+		//	const auto t1 = dot(p1, plane3Normal);
+		//	const auto t2 = dot(p2, plane3Normal);
+		//	const auto t3 = dot(p3, plane3Normal);
+		//}
+		/*
+		It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
+		*/
+
+		// Move a vertex of the polygon to some vertex of the sphere, because the deviation from the sphere is the smallest at he vertices and biggest at the centers of the faces.
+		//const auto anyVertex = icosahedronVertices[0];
+		const auto anyVertex = renderer.sphereLodCenter;
+		const auto rotation = unitSphereRotateAToB(
+			(sp0 - sphere.center).normalized(),
+			anyVertex.normalized());
+
+		const auto transform =
+			Mat4::translation(sphere.center) *
+			Mat4(rotation.toMatrix()) *
+			Mat4(Mat3::scale(sphere.radius));
+		renderer.renderSphericalPolygon(sphere.radius, transform, n0, n1, n2, planeNormal);
+	};
+
+	auto renderSphericalTriangle = [&](Vec3 sp0, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+		renderSphericalQuad(sp0, sphere, n0, n1, n2, n2, planeNormal);
 	};
 
 	auto renderTriangle = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4) {
@@ -489,61 +519,89 @@ void Visualization2::update() {
 				renderPlaneTriangle(planeThoughPolygonVertices, n0, n1, n2, planeNormal4);
 			} else {
 				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
-				// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
-				
-				//{
-				//	const auto t0 = sphere.center.distanceSquaredTo(sp0);
-				//	const auto t1 = sphere.center.distanceSquaredTo(sp1);
-				//	const auto t2 = sphere.center.distanceSquaredTo(sp2);
-				//	const auto t3 = sphere.center.distanceSquaredTo(sp3);
-				//	const auto t4 = 0.0f;
-				//}
-				/*
-				Finding if a point on a sphere belongs to a polyhedron.
-				I don't think the lines projected liens are geodesics of the projected sphere.
+				renderSphericalTriangle(sp0, sphere, n0, n1, n2, planeNormal4);
+			}
+		}
+	};
 
-				It is probably simplest to work in R^4 for this.
-				An intersection of a 3-plane going though 0 with the 3 sphere is a sphere that has it's center at 0.
-				Then on that sphere we have the vertices of a polygon.
-				If we consider jsut the 3-plane subspace then we can calculate 2-planes going though the origin and pairs of vertices. To check on which side a point is we just need to calculate the dot product with it's normal. We can extend the normal from the 3 space to the whole 4 space and then it will define a 3-plane that still bounds the polygon. Then to check if a point lies on the polygon we just need to calculate the dot products of the points with the normals of the spheres.
+	auto renderQuad = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 p3, Vec4 planeNormal4) {
+		const auto p3 = -p0;
+		const auto sp0 = stereographicProjection(p0);
+		const auto sp1 = stereographicProjection(p1);
+		const auto sp2 = stereographicProjection(p2);
+		const auto sp3 = stereographicProjection(p3);
 
-				Could probably find an approximate solution by calculating the distance from the plane spanned by the vectors that are the vertices of the plane (there is probably an alaogous formula as for the distance from a line in 3-space). This will only be approximate because it will be the linear distance and not the spherical distance. This is kind of similar what I did with the endpoints in the 2d stereographic line rendering code.
-				*/
-				//const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
-				//{
-				//	// These should be 0, because the plane should pass though 0.
-				//	const auto t0 = dot(p0, plane3Normal);
-				//	const auto t1 = dot(p1, plane3Normal);
-				//	const auto t2 = dot(p2, plane3Normal);
-				//	const auto t3 = dot(p3, plane3Normal);
-				//}
-				/*
-				It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
-				*/
+		/*renderer.sphere(sp0, width * 3.0f, Color3::RED);
+		renderer.sphere(sp1, width * 3.0f, Color3::RED);
+		renderer.sphere(sp2, width * 3.0f, Color3::RED);
+		renderer.sphere(sp3, width * 3.0f, Color3::GREEN);*/
 
-				// Move a vertex of the polygon to some vertex of the sphere, because the deviation from the sphere is the smallest at he vertices and biggest at the centers of the faces.
-				//const auto anyVertex = icosahedronVertices[0];
-				const auto anyVertex = renderer.sphereLodCenter;
-				const auto rotation = unitSphereRotateAToB(
-					(sp0 - sphere.center).normalized(), 
-					anyVertex.normalized());
+		const Vec3 points[]{ sp0, sp1, sp2, sp3 };
+		std::vector<Vec3> finitePoints;
+		for (const auto& point : points) {
+			if (!isPointAtInfinity(point)) {
+				finitePoints.push_back(point);
+			}
+		}
+		struct PlaneData {
+			Plane plane;
+			f32 distanceTo4thPoint;
+		};
+		std::vector<PlaneData> possiblePlanes;
+		Vec4 orthonormalBasisFor3SpaceContainingPolygon[]{
+			p0 - p3, p1 - p3, p2 - p3
+		};
+		gramSchmidtOrthonormalize(::view(orthonormalBasisFor3SpaceContainingPolygon));
 
-				const auto transform =
-					Mat4::translation(sphere.center) *
-					Mat4(rotation.toMatrix()) *
-					Mat4(Mat3::scale(sphere.radius));
-				renderer.renderSphericalPolygon(sphere.radius, transform, n0, n1, n2, planeNormal4);
-				//renderer.sphericalPolygonInstances.push_back(SphericalPolygonInstance{
-				//	/*.transform = Vec4(sphere.center.x, sphere.center.y, sphere.center.z, sphere.radius),*/
-				//	.transform = 
-				//		Mat4::translation(sphere.center) *
-				//		Mat4(rotation.toMatrix()) *
-				//		Mat4(Mat3::scale(sphere.radius)),
-				//	.n0 = n0,
-				//	.n1 = n1,
-				//	.n2 = n2,
-				//	.planeNormal = planeNormal4
-				//});
+		auto planeThoughPoints = [&](Vec4 p0, Vec4 p1) {
+			const auto e0 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p0);
+			const auto e1 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p1);
+			const auto plane2Normal = cross(e0, e1);
+			const auto normalIn4Space = linearCombination(orthonormalBasisFor3SpaceContainingPolygon, plane2Normal);
+			return normalIn4Space;
+		};
+		const auto n0 = planeThoughPoints(p0, p1);
+		const auto n1 = planeThoughPoints(p1, p2);
+		const auto n2 = planeThoughPoints(p2, p0);
+		if (finitePoints.size() == 4) {
+			/*
+			Tried computing all the planes by choosing triples of points and then comparing the distance to the 4th point to find the best one and the rendering a plane if the 4th points is close enough. This isn't really a good metric, because the plane can still be far away from the edges of the polygon even if it's close to the vertices.
+
+			Could use an alternative fitting method like least squares, but it also probably doesn't make sense, because the user doesn't see the 4th point with relation to the other points. The 4th point is only a helper point to construct the sphere. It doesn't lie on the polygon.
+
+			So it seems like a good metric might finding the maximum deviation of the edges from a plane. 
+			Not sure if this is correct, but is seems to me that the maximum distance would happen at the midpoint of the circle curve. So it would make sense to calculate the max of the distances of these midpoints to the plane.
+
+			It might also be good to scale the importance based on the distance from the camera, because objects further away appear smaller so errors are less noticible.
+			*/
+
+			const auto planeThoughPolygonVertices = Plane::fromPoints(sp0, sp1, sp2);
+			auto deviationFromPlane = [&planeThoughPolygonVertices](Vec4 e0, Vec4 e1) -> f32 {
+				const auto s = StereographicSegment::fromEndpoints(e0, e1);
+				switch (s.type) {
+					using enum StereographicSegment::Type;
+				case LINE:
+					return 0.0f;
+				case CIRCULAR:
+					const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
+					return planeThoughPolygonVertices.distance(circularMid);
+				}
+			};
+			const auto deviation = std::max(
+				deviationFromPlane(p0, p1),
+				std::max(
+					deviationFromPlane(p1, p2), deviationFromPlane(p2, p0)
+				)
+			);
+			static float maxAllowedDeviation = 0.005f;
+			ImGui::SliderFloat("max allowed deviation", &maxAllowedDeviation, 0.0, 0.03f);
+
+			// Could check if the deviation is less than the radius of the tubes.
+			if (deviation < maxAllowedDeviation) {
+				renderPlaneQuad(planeThoughPolygonVertices, n0, n1, n2, n3, planeNormal4);
+			} else {
+				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
+				renderSphericalQuad(sp0, sphere, n0, n1, n2, n3, planeNormal4);
 			}
 		}
 	};
@@ -554,112 +612,26 @@ void Visualization2::update() {
 		const auto& p0 = transformedVertices4[face.vertices[0]];
 		const auto& p1 = transformedVertices4[face.vertices[1]];
 		const auto& p2 = transformedVertices4[face.vertices[2]];
-		auto normal = crossProduct(
-			vertices[face.vertices[0]], 
-			vertices[face.vertices[1]], 
-			vertices[face.vertices[2]]).normalized();
-		for (const auto& i : cell.faces) {
-			if (i == faceI) {
-				continue;
-			}
-			const auto& someOtherFace = faces[i];
-			for (const auto& vertexI : someOtherFace.vertices) {
-				bool foundVertexNotBelongingToFace = true;
-				for (const auto& vertexJ : face.vertices) {
-					if (vertexI == vertexJ) {
-						foundVertexNotBelongingToFace = false;
-						break;
-					}
-				}
-				if (foundVertexNotBelongingToFace) {
-					if (dot(vertices[vertexI], normal) > 0.0f) {
-						normal = -normal;
-					}
-
-					goto done;
-				}
+		Vec4 normal(0.0f);
+		for (i32 i = 0; i < cell.faces.size(); i++) {
+			if (cell.faces[i] == faceI) {
+				normal = cell.faceNormals[i];
 			}
 		}
-		done:
 		renderTriangle(p0, p1, p2, normal);
 		
-		const auto a = ((p0 + p1 + p2) / 3.0f).normalized();
-		//const auto a = p0;
-		const auto transformedNormal = stereographicProjectionJacobian(a, view4 * normal);
-		//const auto t0 = dot(m, p1 - p0);
-		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
-		/*renderer.sphere(stereographicProjection(a), 0.03f, Color3::RED);
-		renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);*/
-
-		/*auto a = vertices[face.vertices[0]];
-		a = apply(t, a);*/
-		//const auto a = p0;
-		//const auto m = crossProduct(p0, p1, p2).normalized();
-		////const auto m = crossProduct(Vec4(0.0f) - p0, p1 - p0, p2 - p0);
-		//{
-		//	const auto a = p0.length();
-		//	const auto b = p1.length();
-		//	const auto c = p2.length();
-
-		//	const auto t0 = dot(p0, m);
-		//	const auto t1 = dot(p1, m);
-		//	const auto t2 = dot(p2, m);
-		//	const auto t3 = dot(p1 - p0, m);
-		//}
-		///*const auto transformedNormal = stereographicProjectionJacobian(a, apply(t.inverseIfNormalized(), normal));*/
-		//const auto transformedNormal = stereographicProjectionJacobian(a, m);
-		//const auto t0 = dot(m, p1 - p0);
-		//const auto t1 = dot(transformedNormal, StereographicSegment::fromEndpoints(p0, p1).circular.initialVelocity);
-		//renderer.line(stereographicProjection(a), stereographicProjection(a) + transformedNormal.normalized(), 0.01f, Color3::MAGENTA);
+		const auto faceCenter = ((p0 + p1 + p2) / 3.0f).normalized();
+		const auto transformedFaceCenter = stereographicProjection(faceCenter);
+		const auto transformedNormal = stereographicProjectionJacobian(faceCenter, view4 * normal);
+		renderer.sphere(transformedFaceCenter, 0.03f, Color3::RED);
+		renderer.line(transformedFaceCenter, transformedFaceCenter + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);
 	};
 
-	//for (const auto& cell : cells) {
-	//	for (const auto& face : cell.faces) {
-	//		renderFace(face, cell);
-	//		//renderFace(1);
-	//	}
+	//auto& cell = cells[0];
+	//for (const auto& face : cell.faces) {
+	//	renderFace(face, cell);
+	//	//renderFace(1);
 	//}
-	// 
-	const auto polytope = hypercube(4);
-	for (i32 dimensionOfPolytope = 2; dimensionOfPolytope < 10; dimensionOfPolytope++) {
-		const auto polytope = hypercube(dimensionOfPolytope);
-		//for (i32 i = 0; i < polytope.cells.size(); i++) {
-		for (i32 i = 0; i < dimensionOfPolytope - 1; i++) {
-			const auto dimensionOfCell = i + 1;
-			const auto expectedSize = hypercubeCellCount(dimensionOfPolytope, dimensionOfCell);
-			if (polytope.cells[i].size() != expectedSize) {
-				ASSERT_NOT_REACHED();
-			}
-		}
-	}
-
-
-	auto& cell = cells[0];
-	for (const auto& face : cell.faces) {
-		renderFace(face, cell);
-		//renderFace(1);
-	}
-	//renderFace(cell.faces[0], cell);
-	//renderFace(3);
-	//renderFace(3);
-	//ImGui::InputInt("faceI", &faceI);
-	/*const auto v0 = vertices[faces[cell.faces[0]].vertices[0]];
-	renderer.sphere(stereographicProjection(apply(t, v0)), 0.1f, Color3::RED);
-	
-	Vec4 p(1.0f, 0.0f, 0.0f, 0.0f);
-	auto q = stereographicCamera.position();
-	f32 dist = Vec4(p.x - q.x, p.y - q.y, p.z - q.z, p.w - q.w).length();
-	ImGui::InputFloat("dist", &dist);
-	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);*/
-
-	//const auto v = inverseStereographicProjectionJacobian(Vec3(0.0f), stereographicCamera.forward());
-	//apply(t, Vec3(stereographicCamera.pos))
-	//renderer.line(Vec3(0.0f), v, 0.01f, Color3::YELLOW);
-	/*const auto q = -stereographicCamera.position.inverseIfNormalized();
-	const auto p = Vec4(q.x, q.y, q.z, q.w);*/
-	/*const auto q = stereographicCamera.position();
-	const auto p = Vec4(q.x, q.y, q.z, q.w);
-	renderer.sphere(stereographicProjection(apply(t, p)), 0.1f, Color3::CYAN);*/
 
 	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::WHITE);
 	lineGenerator.reset();

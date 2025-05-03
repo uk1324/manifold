@@ -7,6 +7,7 @@ uniform vec4 cameraPos;
 in vec4 n0; 
 in vec4 n1; 
 in vec4 n2; 
+in vec4 n3; 
 in vec4 planeNormal; 
 out vec4 fragColor;
 
