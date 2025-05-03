@@ -40,7 +40,7 @@ bool nextCombination(std::vector<i32>& v, i32 subSetSize, i32 setSize) {
 	return true;
 }
 
-i32 nChoosek(i32 n, i32 k) {
+i32 nChooseK(i32 n, i32 k) {
 	i32 result = 1;
 	for (i32 i = 0; i < k; i++) {
 		result *= n;

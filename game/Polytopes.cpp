@@ -101,7 +101,7 @@ i32 crossPolytopeSimplexCount(i32 dimensionOfCrossPolytope, i32 dimensionOfSimpl
 	// S(n, 0) = 2 * n
 	// Solution:
 	// S(n, k) = 2^(k+1) (n choose k + 1)
-	return integerToNonNegativePower(2, k + 1) * nChoosek(n, k + 1);
+	return integerToNonNegativePower(2, k + 1) * nChooseK(n, k + 1);
 
 	//for (i32 dimensionOfPolytope = 2; dimensionOfPolytope < 10; dimensionOfPolytope++) {
 	//	const auto polytope = crossPolytope(dimensionOfPolytope);
@@ -115,9 +115,9 @@ i32 crossPolytopeSimplexCount(i32 dimensionOfCrossPolytope, i32 dimensionOfSimpl
 	//}
 }
 
-Polytope hypercube(i32 dimension) {
-	ASSERT(dimension >= 2);
-	if (dimension == 2) {
+Polytope hypercube(i32 polytopeDimension) {
+	ASSERT(polytopeDimension >= 2);
+	if (polytopeDimension == 2) {
 		Polytope result;
 		result.vertices.push_back({ 1.0f, 0.0f }); // 0
 		result.vertices.push_back({ 0.0f, 1.0f }); // 1
@@ -132,17 +132,83 @@ Polytope hypercube(i32 dimension) {
 		return result;
 	}
 
-	auto base = crossPolytope(dimension - 1);
+	auto base = hypercube(polytopeDimension - 1);
+	{
+		// For example if the base is a square then it is described by it's edges. This also adds the square as a face.
+		auto& baseSubCells = base.cells.back();
+		base.cells.push_back(Polytope::CellsN());
+		base.cells.back().push_back(Polytope::CellN());
+		auto& baseCell = base.cells.back().back();
+		for (i32 i = 0; i < baseSubCells.size(); i++) {
+			baseCell.push_back(i);
+		}
+	}
+
+	// The vertices are ordered as top0, bottom0, top1, bottom1, ...
 	Polytope result;
 	for (auto& vertex : base.vertices) {
 		result.vertices.push_back(vertex);
-		result.vertices.back().push_back(-1.0f);
-		result.vertices.push_back(vertex);
 		result.vertices.back().push_back(1.0f);
+		result.vertices.push_back(vertex);
+		result.vertices.back().push_back(-1.0f);
 	}
-	for (i32 dimension = 1; dimension < dimension - 1; dimension) {
-		const auto& cells = result.cellsOfDimension(dimension);
+	// the cells are ordered as
+	// top0, bottom0, top1, bottom1, ..., 
+	// after that are the cells correspoding to cells of lower dimension.
+	// so for for example the top and bottom vertex connected.
+	for (i32 dimension = 1; dimension < polytopeDimension; dimension++) {
+		result.cells.push_back(Polytope::CellsN());
+		auto& resultCells = result.cells.back();
+		//auto& resultCells = result.cellsOfDimension(dimension);
+		const auto& baseCells = base.cellsOfDimension(dimension);
+		for (const auto& baseCell : baseCells) {
+			for (i32 i = 0; i < 2; i++) {
+				Polytope::CellN resultCell;
+				for (auto& subCell : baseCell) {
+					resultCell.push_back(subCell * 2 + i);
+				}
+				resultCells.push_back(std::move(resultCell));
+			}
+			//for (auto& subCell : baseCell) {
+			//	Polytope::CellN resultCell;
+			//	for (auto& )
+			//	//resultCell.push_back(subCell * 2 + i);
+			//}
+			//resultCells.push_back()
+		}
+		if (dimension - 1 == 0) {
+			for (i32 vertexI = 0; vertexI < base.vertices.size(); vertexI++) {
+				Polytope::CellN edge;
+				edge.push_back(vertexI * 2 + 0);
+				edge.push_back(vertexI * 2 + 1);
+				resultCells.push_back(edge);
+			}
+		} else {
+			const auto& baseSubCells = base.cellsOfDimension(dimension - 1);
+			// offset to cell of 2 dimensions lower.
+			// so if we are making a faces that is if dimension = 2
+			// then this will itrate over the edges and makes faces from the top edge bottom edge and edges correspoding to each vertex of that edge.
+			const auto offset = baseSubCells.size() * 2;
+			for (i32 baseSubCellI = 0; baseSubCellI < baseSubCells.size(); baseSubCellI++) {
+				Polytope::CellN resultCell;
+				resultCell.push_back(baseSubCellI * 2 + 0);
+				resultCell.push_back(baseSubCellI * 2 + 1);
+				auto& baseSubCell = baseSubCells[baseSubCellI];
+				for (const auto& subSubCells : baseSubCell) {
+					resultCell.push_back(offset + subSubCells);
+				}
+				resultCells.push_back(std::move(resultCell));
+			}
+		}
 	}
+	return result;
+}
+
+i32 hypercubeCellCount(i32 dimensionOfHypercube, i32 dimensionOfCells) {
+	const auto& n = dimensionOfHypercube;
+	const auto& k = dimensionOfCells;
+	// S(n, k) = 2 ^ (n - k) (n choose k)
+	return integerToNonNegativePower(2, n - k) * nChooseK(n, k);
 }
 
 std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex) {

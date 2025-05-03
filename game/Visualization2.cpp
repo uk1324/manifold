@@ -619,6 +619,20 @@ void Visualization2::update() {
 	//		//renderFace(1);
 	//	}
 	//}
+	// 
+	const auto polytope = hypercube(4);
+	for (i32 dimensionOfPolytope = 2; dimensionOfPolytope < 10; dimensionOfPolytope++) {
+		const auto polytope = hypercube(dimensionOfPolytope);
+		//for (i32 i = 0; i < polytope.cells.size(); i++) {
+		for (i32 i = 0; i < dimensionOfPolytope - 1; i++) {
+			const auto dimensionOfCell = i + 1;
+			const auto expectedSize = hypercubeCellCount(dimensionOfPolytope, dimensionOfCell);
+			if (polytope.cells[i].size() != expectedSize) {
+				ASSERT_NOT_REACHED();
+			}
+		}
+	}
+
 
 	auto& cell = cells[0];
 	for (const auto& face : cell.faces) {

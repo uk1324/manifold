@@ -22,7 +22,7 @@ struct CombinationsIter {
 	i32 subsetSize;
 };
 
-i32 nChoosek(i32 n, i32 k);
+i32 nChooseK(i32 n, i32 k);
 
 /*
 Example
