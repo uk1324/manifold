@@ -1,7 +1,9 @@
 #pragma once
 
 #include <engine/Math/Vec4.hpp>
-
+#include <engine/Math/Sphere.hpp>
+#include <engine/Math/Plane.hpp>
+#include <View.hpp>
 
 bool isPointAtInfinity(Vec3 v);
 
@@ -49,3 +51,25 @@ public:
 		LineSegment line;
 	};
 };
+
+struct StereographicPlane {
+	static StereographicPlane fromVertices(Vec4 v0, Vec4 v1, Vec4 v2);
+
+	enum class Type {
+		SPHERE, PLANE
+	};
+	Type type;
+	union {
+		Plane plane;
+		Sphere sphere;
+	};
+};
+
+std::optional<f32> rayStereographicPlaneIntersection(Vec3 rayOrigin, Vec3 rayDirection, const StereographicPlane& 
+ plane);
+std::optional<f32> rayStereographicPlaneIntersection(const Ray3& ray, const StereographicPlane& plane);
+
+std::optional<f32> rayStereographicPolygonIntersection(Vec3 rayOrigin, Vec3 rayDirection, const StereographicPlane&
+	plane, View<const Vec4> edgeNormals);
+std::optional<f32> rayStereographicPolygonIntersection(const Ray3& ray, const StereographicPlane&
+	plane, View<const Vec4> edgeNormals);

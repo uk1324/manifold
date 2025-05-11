@@ -25,5 +25,6 @@ shader Homogenous {
 		Vec2 screenSize;
 		Mat4 inverseTransform;
 		Vec4 cameraPos;
+		Mat4 viewInverse4;
 	};
 }

@@ -1,30 +1,32 @@
-struct SphericalPolygonVertex {
+struct SphereImpostorVertex {
 	Vec3 position;
-	Vec3 normal;
 }
 
-shader SphericalPolygon {
-	vertexStruct = SphericalPolygonVertex;
+shader SphereImpostor {
+	vertexStruct = SphereImpostorVertex;
 	vertUniforms = {
-		Mat4 transform;
+		Mat4 transform; 
 	};
 	fragUniforms = {
-		Vec4 cameraPos;
+		Vec3 cameraPos;
+		Vec4 cameraPos4;
 		Mat4 viewInverse4;
 	};
 	vertInstance = {
 		Mat4 transform;
 	};
 	fragInstance = {
+		Vec3 sphereCenter;
+		float sphereRadius;
+
 		Vec4 n0;
 		Vec4 n1;
 		Vec4 n2;
 		Vec4 n3;
 		Vec4 planeNormal;
-		Vec3 sphereCenter;
-		float sphereRadius;
 	};
 	vertOut = {
-		Vec3 interpolatedNormal;
+		Vec3 worldPos;
+		Vec3 rayDir;
 	};
 }

@@ -302,3 +302,11 @@ void LineGenerator::reset() {
 i32 LineGenerator::vertexCount() const{
 	return i32(positions.size());
 }
+
+/*
+Drawing a constant width tube around a line.
+If you have 2 points then find the stereographic line though them. Then to draw the equal with tube given a direction instead of finding the point on the circle r = point on curve + curve normal * cos(a) + curve binormal * sin(a) instead calculate point on curve + move_forward_by_radius(curve normal * cos(a) + curve binormal * sin(a))
+Moving forward can be calulcated using the exponential map.
+
+Another way could be to first calculate 3 points and find the sphere though them. Then for the mesh points to match always start from the point that is in the direction of the normal for example.
+*/

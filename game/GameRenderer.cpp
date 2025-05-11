@@ -231,6 +231,33 @@ GameRenderer GameRenderer::make() {
 	}
 	auto cubeMesh = coloredShaderMesh();
 
+
+	std::vector<SphereImpostorVertex> sphereImpostorMeshVertices;
+	std::vector<i32> sphereImpostorMeshIndices;
+	{
+		// Could do without flat shading, just pass the positions
+		const auto data = flatShadeRegularPolyhedron(constView(cubeVertices), constView(cubeFaces), cubeVerticesPerFace);
+		for (i32 i = 0; i < data.positions.size(); i++) {
+			sphereImpostorMeshVertices.push_back(SphereImpostorVertex{ data.positions[i] });
+		}
+		for (i32 i = 0; i < data.indices.size(); i++) {
+			sphereImpostorMeshIndices.push_back(data.indices[i]);
+		}
+	}
+	auto sphereImpostorMesh = makeMesh<SphereImpostorShader>(constView(sphereImpostorMeshVertices), constView(sphereImpostorMeshIndices), instancesVbo);
+
+	{
+		sphereImpostorMeshVertices.clear();
+		sphereImpostorMeshIndices.clear();
+		sphereImpostorMeshVertices.push_back(SphereImpostorVertex{ Vec3(0.0f) });
+		sphereImpostorMeshVertices.push_back(SphereImpostorVertex{ Vec3(1.0f, 0.0f, 0.0f) });
+		sphereImpostorMeshVertices.push_back(SphereImpostorVertex{ Vec3(0.0f, 1.0f, 0.0f) });
+		sphereImpostorMeshIndices.push_back(0);
+		sphereImpostorMeshIndices.push_back(1);
+		sphereImpostorMeshIndices.push_back(2);
+	}
+	auto sphereImpostorMeshTri = makeMesh<SphereImpostorShader>(constView(sphereImpostorMeshVertices), constView(sphereImpostorMeshIndices), instancesVbo);
+
 	auto makeRectVertex = [&](f32 x, f32 y) {
 		return Vertex3Pnt{ Vec3(x, y, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec2(x, y) };
 	};
@@ -344,6 +371,9 @@ GameRenderer GameRenderer::make() {
 		.coloredShadingShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
 		.homogenousShader = MAKE_GENERATED_SHADER(HOMOGENOUS),
 		.infinitePlaneMesh = makeMesh<HomogenousShader>(constView(infinitePlaneVertices), constView(infinitePlaneIndices), instancesVbo),
+		.sphereImpostorsShader = MAKE_GENERATED_SHADER(SPHERE_IMPOSTOR),
+		MOVE(sphereImpostorMesh),
+		MOVE(sphereImpostorMeshTri),
 		MOVE(gfx2d),
 		MOVE(instancesVbo),
 	};
@@ -568,7 +598,8 @@ void GameRenderer::renderInfinitePlanes() {
 		HomogenousFragUniforms{
 			.screenSize = Window::size(),
 			.inverseTransform = transform.inversed(),
-			.cameraPos = cameraPos4
+			.cameraPos = cameraPos4,
+			.viewInverse4 = viewInverse4
 		}
 	);
 	drawMeshInstances(infinitePlaneMesh, constView(infinitePlanes), instancesVbo);
@@ -608,13 +639,16 @@ void GameRenderer::renderSphericalPolygons() {
 	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
-void GameRenderer::renderSphericalPolygon(f32 radius, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+void GameRenderer::renderSphericalPolygon(f32 radius, Vec3 center, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 	const auto instance = SphericalPolygonInstance{
 		.transform = transform,
 		.n0 = n0,
 		.n1 = n1,
 		.n2 = n2,
-		.planeNormal = planeNormal
+		.n3 = n3,
+		.planeNormal = planeNormal,
+		.sphereCenter = center,
+		.sphereRadius = radius
 	};
 
 	i32 lodLevelToUse = sphereLods.size() - 1;
@@ -690,4 +724,43 @@ void GameRenderer::generateSphereLods(const std::vector<SphereLodSetting>& setti
 		});
 	}
 
+}
+
+#include <game/Stereographic.hpp>
+
+void GameRenderer::sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+	sphereImpostors.push_back(SphereImpostorInstance{
+		.transform = transform,
+		.sphereCenter = position,
+		.sphereRadius = radius,
+		.n0 = n0,
+		.n1 = n1,
+		.n2 = n2,
+		.n3 = n3,
+		.planeNormal = planeNormal
+	});
+}
+
+void GameRenderer::renderSphereImpostors() {
+	shaderSetUniforms(
+		sphereImpostorsShader,
+		SphereImpostorVertUniforms{
+			.transform = transform,
+		}
+	);
+	shaderSetUniforms(
+		sphereImpostorsShader,
+		SphereImpostorFragUniforms{
+			.cameraPos = cameraPosition,
+			.cameraPos4 = cameraPos4,
+			.viewInverse4 = viewInverse4,
+		}
+	);
+	sphereImpostorsShader.use();
+	if (useImpostorsTriangles) {
+		drawMeshInstances(sphereImpostorMeshTri, constView(sphereImpostors), instancesVbo);
+	} else {
+		drawMeshInstances(sphereImpostorMesh, constView(sphereImpostors), instancesVbo);
+	}
+	sphereImpostors.clear();
 }

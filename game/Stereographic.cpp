@@ -1,5 +1,6 @@
 #include "Stereographic.hpp"
 #include <engine/Math/Angles.hpp>
+#include <engine/Math/Plane.hpp>
 #include <engine/Math/Circle.hpp>
 
 bool isPointAtInfinity(Vec3 v) {
@@ -103,6 +104,37 @@ Vec3 antipodalPoint(Vec3 p) {
 		return Vec3(0.0f);
 	}
 	return stereographicProjection(-inverseStereographicProjection(p));
+}
+
+std::optional<f32> rayStereographicPlaneIntersection(Vec3 rayOrigin, Vec3 rayDirection, const StereographicPlane& plane) {
+	if (plane.type == StereographicPlane::Type::PLANE) {
+		return rayPlaneIntersection(rayOrigin, rayDirection, plane.plane);
+	} else {
+		return raySphereIntersection(rayOrigin, rayDirection, plane.sphere);
+	}
+}
+
+std::optional<f32> rayStereographicPlaneIntersection(const Ray3& ray, const StereographicPlane& plane) {
+	return rayStereographicPlaneIntersection(ray.origin, ray.origin, plane);
+}
+
+std::optional<f32> rayStereographicPolygonIntersection(Vec3 rayOrigin, Vec3 rayDirection, const StereographicPlane& plane, View<const Vec4> edgeNormals) {
+	const auto t = rayStereographicPlaneIntersection(rayOrigin, rayDirection, plane);
+	if (!t.has_value()) {
+		return std::nullopt;
+	}
+	const auto& hitP = rayAt(*t, rayOrigin, rayDirection);
+	const auto hitP4 = inverseStereographicProjection(hitP);
+	for (const auto& normal : edgeNormals) {
+		if (dot(hitP4, normal) < 0.0f) {
+			return std::nullopt;
+		}
+	}
+	return t;
+}
+
+std::optional<f32> rayStereographicPolygonIntersection(const Ray3& ray, const StereographicPlane& plane, View<const Vec4> edgeNormals) {
+	return rayStereographicPolygonIntersection(ray.origin, ray.direction, plane, edgeNormals);
 }
 
 CircularSegment::CircularSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)
@@ -237,5 +269,47 @@ StereographicSegment StereographicSegment::fromEndpoints(Vec4 e0, Vec4 e1) {
 		/*renderer.sphere(p0, width * 3, Color3::RED);
 		renderer.sphere(p1, width * 3, Color3::RED);*/
 		//renderer.sphere(midpoint, width * 3, Color3::BLUE);
+	}
+}
+
+StereographicPlane StereographicPlane::fromVertices(Vec4 v0, Vec4 v1, Vec4 v2) {
+	const auto p4 = -v0;
+	const auto sp0 = stereographicProjection(v0);
+	const auto sp1 = stereographicProjection(v1);
+	const auto sp2 = stereographicProjection(v2);
+	const auto sp3 = stereographicProjection(p4);
+
+	const auto planeThoughPolygonVertices = Plane::fromPoints(sp0, sp1, sp2);
+	auto deviationFromPlane = [&planeThoughPolygonVertices](Vec4 e0, Vec4 e1) -> f32 {
+		const auto s = StereographicSegment::fromEndpoints(e0, e1);
+		switch (s.type) {
+			using enum StereographicSegment::Type;
+		case LINE:
+			return 0.0f;
+		case CIRCULAR:
+			const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
+			return planeThoughPolygonVertices.distance(circularMid);
+		}
+	};
+	const auto deviation = std::max(
+		deviationFromPlane(v0, v1),
+		std::max(
+			deviationFromPlane(v1, v2), deviationFromPlane(v2, v0)
+		)
+	);
+	static float maxAllowedDeviation = 0.005f;
+	//ImGui::SliderFloat("max allowed deviation", &maxAllowedDeviation, 0.0, 0.03f);
+
+	// Could check if the deviation is less than the radius of the tubes.
+	if (deviation < maxAllowedDeviation) {
+		return StereographicPlane{
+			.type = StereographicPlane::Type::PLANE, 
+			.plane = planeThoughPolygonVertices
+		};
+	} else {
+		return StereographicPlane{
+			.type = StereographicPlane::Type::SPHERE,
+			.sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3)
+		};
 	}
 }

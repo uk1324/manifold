@@ -30,9 +30,9 @@ vec4 quatMultiply(vec4 l, vec4 r){
     );
 } 
 
+#include "Utils/noise4d.glsl"
 
 vec3 shade(vec4 lightPos, vec4 fragmentPos, vec4 fragmentNormal, vec4 cameraPos, vec3 lightColor) {
-    return vec3(0.2);
     float ambientStrength = 0.1;
     vec3 ambient = ambientStrength * lightColor;
     
@@ -52,8 +52,11 @@ vec3 shade(vec4 lightPos, vec4 fragmentPos, vec4 fragmentNormal, vec4 cameraPos,
     vec3 objectColor = vec3(1.0);
     vec3 result = (ambient + diffuse + specular) * objectColor;
     //result = vec3(fragmentNormal.xyz);
+
     result = vec3(diff);
-//    result = vec3(distance(cameraPos, fragmentPos) / 4.0);
+    result = vec3(distance(cameraPos, fragmentPos) / 4.0);
+    //result = vec3((snoise(fragmentPos * 5) + 1.0) / 2.0);
+    result = vec3(abs(cnoise(fragmentPos * 5)));
 //    result = vec3(distance(vec4(1.0, 0.0, 0.0, 0.0), fragmentPos) / 4.0);
     // could attenuate based on geodesic distance
     return result;

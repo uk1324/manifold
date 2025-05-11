@@ -10,6 +10,7 @@
 #include <game/LineGenerator.hpp>
 #include <game/Shaders/sphericalPolygonData.hpp>
 #include <game/Shaders/homogenousData.hpp>
+#include <game/Shaders/sphereImpostorData.hpp>
 #include <game/Polyhedra.hpp>
 #include <game/Cubemap.hpp>
 
@@ -110,7 +111,7 @@ struct GameRenderer {
 
 	std::vector<SphericalPolygonInstance> sphericalPolygonInstances;
 	void renderSphericalPolygons();
-	void renderSphericalPolygon(f32 radius, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal);
+	void renderSphericalPolygon(f32 radius, Vec3 center, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
 
 	struct SphereLodSetting {
 		f32 minRadius;
@@ -124,6 +125,15 @@ struct GameRenderer {
 		std::vector<SphericalPolygonInstance> instances;
 	};
 	std::vector<SphereLodLevel> sphereLods;
+
+	ShaderProgram& sphereImpostorsShader;
+	Mesh sphereImpostorMesh;
+	Mesh sphereImpostorMeshTri;
+	std::vector<SphereImpostorInstance> sphereImpostors;
+	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
+	void renderSphereImpostors();
+
+	bool useImpostorsTriangles = false;
 
 	Gfx2d gfx2d;
 

@@ -1,0 +1,10 @@
+When we consider perspective it's nice to think about it by looking at a 2d slice. Similarly we can look at a 2D slice of a 3-sphere, which is a 2-sphere.
+
+Spherical geometry program:
+https://www.geogebra.org/m/j4yqa9jd
+
+Let's draw 2 lines (locally looking parallel). Then hit them with a ray.
+
+You can see that if you go far enough away the same range of rays will hit a bigger area of the closer objects than the further object. That is we get reverse prespective.
+
+You could think about the range of rays as a lune connecting antipodal points. Then it's clear that at first objects will get smaller with distance, but after passing the equator (if the antipodal points are the top and bottom) get start to get smaller.

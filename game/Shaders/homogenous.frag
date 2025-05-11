@@ -3,6 +3,7 @@
 uniform vec2 screenSize; 
 uniform mat4 inverseTransform; 
 uniform vec4 cameraPos; 
+uniform mat4 viewInverse4; 
 
 in vec4 n0; 
 in vec4 n1; 
@@ -27,6 +28,8 @@ void main() {
 	if (dot(pos4, n0) < 0.0) discard;
 	if (dot(pos4, n1) < 0.0) discard;
 	if (dot(pos4, n2) < 0.0) discard;
-	fragColor = shade(worldPos, cameraPos, quatMultiply(-cameraPos, pos4), planeNormal);
+	if (dot(pos4, n3) < 0.0) discard;
+	//fragColor = shade(worldPos, cameraPos, quatMultiply(-cameraPos, pos4), planeNormal);
+	fragColor = shade(worldPos, cameraPos, -viewInverse4 * pos4, planeNormal);
 	//fragColor = shade(worldPos, cameraPos, pos4, planeNormal);
 }

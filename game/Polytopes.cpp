@@ -1,5 +1,7 @@
 #include "Polytopes.hpp"
 #include "Combinatorics.hpp"
+#include <algorithm>
+#include <engine/Math/Quat.hpp>
 
 void addPyramid(
 	Polytope& polytope, 
@@ -222,11 +224,281 @@ i32 hypercubeCellCount(i32 dimensionOfHypercube, i32 dimensionOfCells) {
 	//}
 }
 
-std::vector<i32> faceVertices(const Polytope& p, i32 faceIndex) {
-	return faceVertices(p, p.cellsOfDimension(2)[faceIndex]);
+f32 dot(Quat a, Quat b) {
+	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-std::vector<i32> faceVertices(const Polytope& p, const Polytope::CellN& face) {
+Quat slerp(Quat q1, Quat q2, f32 t) {
+	const auto angle = acos(dot(q1, q2));
+	const auto denom = sin(angle);
+	//check if denom is zero
+	if (denom < 0.001f) {
+		return Quat::identity;
+	}
+	return (q1 * sin((1 - t) * angle) + q2 * sin(t * angle)) / denom;
+}
+
+void subdivideCube(
+	Polytope& p, i32 divisionCount, 
+	Quat v000, Quat v001, Quat v010, Quat v011, // bottom
+	Quat v100, Quat v101, Quat v110, Quat v111 // top
+) {
+	const auto verticesOffset = p.vertices.size();
+	i32 vertexCountPerEdge = divisionCount + 2;
+	for (i32 i = 0; i < vertexCountPerEdge; i++) {
+		const auto it = f32(i) / f32(vertexCountPerEdge - 1);
+
+		const auto a0 = slerp(v000, v001, it);
+		const auto a1 = slerp(v010, v011, it);
+
+		const auto a2 = slerp(v100, v101, it);
+		const auto a3 = slerp(v110, v111, it);
+
+		for (i32 j = 0; j < vertexCountPerEdge; j++) {
+			const auto jt = f32(j) / f32(vertexCountPerEdge - 1);
+
+			const auto b0 = slerp(a0, a1, jt);
+			const auto b1 = slerp(a2, a3, jt);
+
+			for (i32 k = 0; k < vertexCountPerEdge; k++) {
+				const auto kt = f32(k) / f32(vertexCountPerEdge - 1);
+
+				const auto c = slerp(b0, b1, kt);
+				p.vertices.push_back({ c.x, c.y, c.z, c.w });
+			}
+		}
+	}
+
+	auto index = [&](i32 x, i32 y, i32 z) {
+		return verticesOffset + x * vertexCountPerEdge * vertexCountPerEdge + y * vertexCountPerEdge + z;
+	};
+
+	auto addCube = [&](
+		i32 i000, i32 i001, i32 i010, i32 i011, // bottom
+		i32 i100, i32 i101, i32 i110, i32 i111 // top
+	) {
+		auto& edges = p.cellsOfDimension(1);
+		const auto edgesOffset = edges.size();
+		// bottom
+		edges.push_back({ i000, i001 }); // 0
+		edges.push_back({ i010, i011 }); // 1
+		edges.push_back({ i000, i010 }); // 2
+		edges.push_back({ i001, i011 }); // 3
+
+		// top
+		edges.push_back({ i100, i101 }); // 4
+		edges.push_back({ i110, i111 }); // 5
+		edges.push_back({ i100, i110 }); // 6
+		edges.push_back({ i101, i111 }); // 7
+
+		// sides
+		edges.push_back({ i000, i100 }); // 8
+		edges.push_back({ i001, i101 }); // 9
+		edges.push_back({ i010, i110 }); // 10
+		edges.push_back({ i011, i111 }); // 11
+
+		auto& faces = p.cellsOfDimension(2);
+		const auto facesOffset = faces.size();
+		auto eo = [&](i32 i) -> i32 { return i + edgesOffset; };
+		// top, bottom
+		faces.push_back({ eo(0), eo(1), eo(2), eo(3) });
+		faces.push_back({ eo(4), eo(5), eo(6), eo(7) });
+		/*
+		Algorithm: 
+		Pick an edge on the bottom, pick the corespoding edge on the top. That is the edge with index + 4. Then select to hilight all the occurences of the first vertex and add that highlighted add in the sides section do the same for the second vertex.
+		*/
+		faces.push_back({ eo(0), eo(4), eo(8), eo(9) });
+		faces.push_back({ eo(1), eo(5), eo(10), eo(11) });
+		faces.push_back({ eo(2), eo(6), eo(8), eo(10) });
+		faces.push_back({ eo(3), eo(7), eo(9), eo(11) });
+
+		auto& cells = p.cellsOfDimension(3);
+		const auto cellOffset = cells.size();
+		auto fo = [&](i32 i) -> i32 { return i + facesOffset; };
+		cells.push_back({ fo(0), fo(1), fo(2), fo(3), fo(4), fo(5) });
+		//cells.push_back({ 0 });
+	};
+
+	for (i32 i = 0; i < vertexCountPerEdge - 1; i++) {
+		for (i32 j = 0; j < vertexCountPerEdge - 1; j++) {
+			for (i32 k = 0; k < vertexCountPerEdge - 1; k++) {
+				addCube(
+					index(i, j, k),
+					index(i, j, k + 1),
+					index(i, j + 1, k),
+					index(i, j + 1, k + 1),
+					index(i + 1, j, k),
+					index(i + 1, j, k + 1),
+					index(i + 1, j + 1, k),
+					index(i + 1, j + 1, k + 1)
+				);
+			}
+		}
+	}
+}
+
+#include <iostream>
+
+Polytope removedDuplicates(Polytope&& p) {
+	Polytope result;
+	std::vector<i32> oldToNew;
+
+	//oldToNew.resize(p.vertices.size());
+	oldToNew.clear();
+	for (auto& vertex : p.vertices) {
+		bool alreadyAdded = false;
+		for (i32 alreadyAddedVertexI = 0; alreadyAddedVertexI < result.vertices.size(); alreadyAddedVertexI++) {
+			const auto& alreadyAddedVertex = result.vertices[alreadyAddedVertexI];
+
+			auto dist = [](const std::vector<f32>& a, const std::vector<f32>& b) {
+				f32 result = 0.0f;
+				for (i32 i = 0; i < a.size(); i++) {
+					result += pow(a[i] - b[i], 2.0f);
+				}
+				return result;
+			};
+			if (dist(vertex, alreadyAddedVertex) < 0.01f) {
+				oldToNew.push_back(alreadyAddedVertexI);
+				alreadyAdded = true;
+				break;
+			}
+		}
+		if (!alreadyAdded) {
+			oldToNew.push_back(result.vertices.size());
+			result.vertices.push_back(std::move(vertex));
+		}
+	}
+
+	for (auto& cells : p.cells) {
+		result.cells.push_back(Polytope::CellsN());
+		auto& resultCells = result.cells.back();
+
+		for (auto& cell : cells) {
+			for (auto& subCellIndex : cell) {
+				subCellIndex = oldToNew[subCellIndex];
+			}
+			// Sort the indices in the cell to make equality testing easier.
+			std::ranges::sort(cell);
+		}
+		oldToNew.clear();
+		for (auto& cell : cells) {
+			bool alreadyAdded = false;
+			for (i32 alreadyAddedCellI = 0; alreadyAddedCellI < resultCells.size(); alreadyAddedCellI++) {
+				const auto& alreadyAddedCell = resultCells[alreadyAddedCellI];
+
+				auto equals = [](const std::vector<i32>& a, const std::vector<i32>& b) {
+					ASSERT(a.size() == b.size());
+					return a == b;
+				};
+				if (equals(cell, alreadyAddedCell)) {
+					oldToNew.push_back(alreadyAddedCellI);
+					alreadyAdded = true;
+					break;
+				}
+			}
+			if (!alreadyAdded) {
+				oldToNew.push_back(resultCells.size());
+				resultCells.push_back(std::move(cell));
+			}
+		}
+	}
+	return result;
+}
+
+Polytope subdiviedHypercube4(i32 divisionCount) {
+	const auto h = hypercube(4);
+	/*
+	(4 choose 3) places for the changing 1 and -1
+	and the other place for a constant 1
+	*/
+	Polytope result;
+	result.cells.resize(3);
+	const auto p = 0.5f;
+	const auto m = -0.5f;
+	f32 ds[]{ p, m };
+	for (const auto d : ds) {
+		for (i32 i = 0; i < 4; i++) {
+			auto c = [&](f32 x, f32 y, f32 z) -> Quat {
+				f32 a[]{ x, y, z };
+				f32 b[4]{};
+				b[i] = 1.0f;
+				i32 j = 0;
+				b[i] = d;
+				for (i32 k = 0; k < 4; k++) {
+					if (k != i) {
+						b[k] = a[j];
+						j++;
+					}
+				}
+				return Quat(b[0], b[1], b[2], b[3]);
+			};
+
+			subdivideCube(
+				result, divisionCount,
+				c(m, m, m), c(m, m, p), c(m, p, m), c(m, p, p),
+				c(p, m, m), c(p, m, p), c(p, p, m), c(p, p, p)
+			);
+			//goto zend;
+		}
+	}
+	end:
+	return removedDuplicates(std::move(result));
+}
+
+Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex) {
+	auto& faceEdgesIndices = p.cellsOfDimension(2)[faceIndex];
+	auto& edges = p.cellsOfDimension(1);
+	std::vector<bool> visitedEdges;
+	visitedEdges.resize(faceEdgesIndices.size(), false);
+	Polytope::CellN sortedEdgesIndices;
+
+ 	i32 currentEdgeIndex = faceEdgesIndices[0];
+	i32 currentVertex = edges[currentEdgeIndex][0];
+	visitedEdges[0] = true;
+	sortedEdgesIndices.push_back(currentEdgeIndex);
+
+	while (sortedEdgesIndices.size() < faceEdgesIndices.size()) {
+
+		auto& currentEdge = edges[currentEdgeIndex];
+
+		auto nextVertex = currentEdge[0];
+		if (currentVertex == nextVertex) {
+			nextVertex = currentEdge[1];
+		}
+
+		bool foundNextVertex = false;
+		for (i32 i = 0; i < faceEdgesIndices.size(); i++) {
+			auto& edgeIndex = faceEdgesIndices[i];
+			if (edgeIndex == currentEdgeIndex) {
+				continue;
+			}
+			auto& edge = edges[edgeIndex];
+			if (edge[0] == nextVertex || edge[1] == nextVertex) {
+				currentVertex = nextVertex;
+				if (visitedEdges[i]) {
+					CHECK_NOT_REACHED();
+					return faceEdgesIndices;
+				}
+				currentEdgeIndex = edgeIndex;
+				sortedEdgesIndices.push_back(edgeIndex);
+				visitedEdges[i] = true;
+				foundNextVertex = true;
+				break;
+			}
+		}
+		if (!foundNextVertex) {
+			CHECK_NOT_REACHED();
+			return faceEdgesIndices;
+		}
+	}
+	return sortedEdgesIndices;
+}
+
+std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, i32 faceIndex) {
+	return verticesOfFaceWithSortedEdges(p, p.cellsOfDimension(2)[faceIndex]);
+}
+
+std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, const Polytope::CellN& face) {
 	const auto& faceEdgesIdxs = face;
 	const auto& edges = p.cellsOfDimension(1);
 
@@ -234,7 +506,8 @@ std::vector<i32> faceVertices(const Polytope& p, const Polytope::CellN& face) {
 	std::vector<i32> vertices;
 
 	vertices.push_back(edges[faceEdgesIdxs[0]][0]);
-	for (i32 i = 1; i < faceEdgesIdxs.size(); i++) {
+	vertices.push_back(edges[faceEdgesIdxs[0]][1]);
+	for (i32 i = 1; i < faceEdgesIdxs.size() - 1; i++) {
 		const auto& edge = edges[faceEdgesIdxs[i]];
 		if (vertices.back() == edge[0]) {
 			vertices.push_back(edge[1]);

@@ -63,11 +63,11 @@ Visualization2 Visualization2::make() {
 		CHECK_NOT_REACHED();
 		return normal;
 	};
-
 	//const auto aa = hypercube(3);
 
 	//const auto c = crossPolytope(4);
-	const auto c = hypercube(4);
+	//const auto c = hypercube(4);
+	const auto c = subdiviedHypercube4(4);
 	for (i32 i = 0; i < c.vertices.size(); i++) {
 		const auto t = f32(i) / f32(c.vertices.size() - 1);
 		const auto& vertex = c.vertices[i];
@@ -78,10 +78,37 @@ Visualization2 Visualization2::make() {
 		r.edges.push_back(Edge{ edge[0], edge[1] });
 	}
 	for (const auto& face : c.cellsOfDimension(2)) {
-		auto vertices = faceVertices(c, face);
-		r.faces.push_back(Face{ 
-			.vertices = std::move(vertices) 
-		});
+		auto sortedEdges = faceEdgesSorted(c, &face - c.cellsOfDimension(2).data());
+		auto vertices = verticesOfFaceWithSortedEdges(c, sortedEdges);
+
+		Face f{ .vertices = std::move(vertices) };
+
+		Vec4 orthonormalBasisFor3SpaceContainingPolygon[]{
+			r.vertices[f.vertices[0]], r.vertices[f.vertices[1]], r.vertices[f.vertices[2]]
+		};
+		gramSchmidtOrthonormalize(::view(orthonormalBasisFor3SpaceContainingPolygon));
+
+		auto planeThoughPoints = [&](Vec4 p0, Vec4 p1) {
+			/*
+			If you have a 2-sphere then you can represent lines on it by spheres that intersect the sphere in them. This is the same idea, but we first intersect the 3-sphere with a 3-space to get a sphere and then do the same thing. Then you can check if a point lies on an face using dot products with edges.
+			*/
+			const auto e0 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p0);
+			const auto e1 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p1);
+			const auto plane2Normal = cross(e0, e1);
+			const auto normalIn4Space = linearCombination(orthonormalBasisFor3SpaceContainingPolygon, plane2Normal);
+			return normalIn4Space;
+		};
+
+		i32 previousI = f.vertices.size() - 1;
+		for (i32 i = 0; i < f.vertices.size(); i++) {
+			f.edgeNormals.push_back(planeThoughPoints(
+				r.vertices[f.vertices[previousI]], 
+				r.vertices[f.vertices[i]])
+			);
+			previousI = i;
+		}
+
+		r.faces.push_back(f);
 	}
 	for (const auto& cell : c.cellsOfDimension(3)) {
 		std::vector<Vec4> faceNormals;
@@ -90,6 +117,33 @@ Visualization2 Visualization2::make() {
 			faceNormals.push_back(normal);
 		}
 		r.cells.push_back(Cell{ .faces = cell, .faceNormals = std::move(faceNormals) });
+	}
+	r.isCellSet.resize(r.cells.size(), false);
+	r.isCellSet[0] = true;
+	{
+		std::vector<StaticList<i32, 2>> faceToCells;
+		faceToCells.resize(r.faces.size());
+
+		for (i32 cellI = 0; cellI < r.cells.size(); cellI++) {
+			auto& cell = r.cells[cellI];
+			for (const auto& faceI : cell.faces) {
+				auto& faceCells = faceToCells[faceI];
+				if (faceCells.size() >= 2) {
+					ASSERT_NOT_REACHED();
+					break;
+				}
+				faceCells.add(cellI);
+			}
+		}
+
+		for (i32 faceI = 0; faceI < r.faces.size(); faceI++) {
+			auto& cells = faceToCells[faceI];
+			ASSERT(cells.size() <= 2);
+			for (i32 i = 0; i < 2; i++) {
+				r.faces[faceI].cells.add(cells[i]);
+				//r.faces[faceI].cells[i] = cells[i];
+			}
+		}
 	}
 	/*r.lodLevelsSettings = {
 		{ 0.0f, 5 },
@@ -129,61 +183,61 @@ Visualization2 Visualization2::make() {
 	//	});
 	//}
 
+	//r.lodLevelsSettings.clear();
+	//const f32 radii[]{
+	//	1,
+	//	2,
+	//	3,
+	//	5,
+	//	10,
+	//	20,
+	//	40,
+	//	80,
+	//};
+	//r.lodLevelsSettings.clear();
+	//for (i32 i = 0; i < std::size(radii); i++) {
+	//	const auto& radius = radii[i];
+	//	// If I approximate a circle by subdividing it n times then I can calculate the maximum deviation from a cicrcle by calculating (radius - distance of midpoint of segment from center).
+	//	// midpoint 
+	//	//	= (r * (cos(tau/n), sin(tau/n)) + r * (1, 0)) / 2 =
+	//	//	= ((cos(tau/n) + 1, sin(tau/n))) * (r / 2)
+	//	//  length(midpoint) = (r/2) * sqrt((cos(tau/n) + 1)^2 + sin(tau/n)^2) = (*1)
+	//	// (cos(tau/n) + 1)^2 + sin(tau/n)^2 =
+	//	// cos(tau/n)^2 + 2 cos(tau/n) + 1 + sin(tau/n)^2 =
+	//	// 2 cos(tau/n) + 2
+	//	// (*1) = (r/2) * sqrt(2 cos(tau/n) + 2)
+	//	// So the deviation is
+	//	// r - (r/2) * sqrt(2 cos(tau/n) + 2)
 
-	r.lodLevelsSettings.clear();
-	const f32 radii[]{
-		1,
-		2,
-		3,
-		5,
-		10,
-		20,
-		40,
-		80,
-	};
-	r.lodLevelsSettings.clear();
-	for (i32 i = 0; i < std::size(radii); i++) {
-		const auto& radius = radii[i];
-		// If I approximate a circle by subdividing it n times then I can calculate the maximum deviation from a cicrcle by calculating (radius - distance of midpoint of segment from center).
-		// midpoint 
-		//	= (r * (cos(tau/n), sin(tau/n)) + r * (1, 0)) / 2 =
-		//	= ((cos(tau/n) + 1, sin(tau/n))) * (r / 2)
-		//  length(midpoint) = (r/2) * sqrt((cos(tau/n) + 1)^2 + sin(tau/n)^2) = (*1)
-		// (cos(tau/n) + 1)^2 + sin(tau/n)^2 =
-		// cos(tau/n)^2 + 2 cos(tau/n) + 1 + sin(tau/n)^2 =
-		// 2 cos(tau/n) + 2
-		// (*1) = (r/2) * sqrt(2 cos(tau/n) + 2)
-		// So the deviation is
-		// r - (r/2) * sqrt(2 cos(tau/n) + 2)
+	//	// I want to solve the inequality
+	//	// x in range (0, pi / 2)
+	//	// r - (r/2) * sqrt(2 cos(x) + 2) < a
+	//	//
+	//	// The solution found in desmos is
+	//	// x < arccos(2(a/r - 1)^2 - 1)
+	//	// 
+	//	const auto v0 = icosahedronVertices[icosahedronEdges[0]].normalized();
+	//	const auto v1 = icosahedronVertices[icosahedronEdges[1]].normalized();
+	//	const auto unsubdividedAngleBetweenVertices = v0.shortestAngleTo(v1);
+	//	// x = unsubdividedAngleBetweenVertices / n
+	//	// unsubdividedAngleBetweenVertices / n < arccos(2(a/r - 1)^2 - 1)
+	//	// 1 / n < arccos(2(a/r - 1)^2 - 1) / unsubdividedAngleBetweenVertices
+	//	// n > unsubdividedAngleBetweenVertices / arccos(2(a/r - 1)^2 - 1)
+	//	//const auto desiredDeviation = 0.01f;
+	//	//const auto desiredDeviation = 0.005f;
+	//	const auto desiredDeviation = 0.007f;
+	//	//const auto desiredDeviation = 0.001f;
+	//	const auto k = acos(2.0f * pow(desiredDeviation / radius - 1.0f, 2.0f) - 1.0f);
+	//	const auto n = i32(std::ceil(unsubdividedAngleBetweenVertices / k));
 
-		// I want to solve the inequality
-		// x in range (0, pi / 2)
-		// r - (r/2) * sqrt(2 cos(x) + 2) < a
-		//
-		// The solution found in desmos is
-		// x < arccos(2(a/r - 1)^2 - 1)
-		// 
-		const auto v0 = icosahedronVertices[icosahedronEdges[0]].normalized();
-		const auto v1 = icosahedronVertices[icosahedronEdges[1]].normalized();
-		const auto unsubdividedAngleBetweenVertices = v0.shortestAngleTo(v1);
-		// x = unsubdividedAngleBetweenVertices / n
-		// unsubdividedAngleBetweenVertices / n < arccos(2(a/r - 1)^2 - 1)
-		// 1 / n < arccos(2(a/r - 1)^2 - 1) / unsubdividedAngleBetweenVertices
-		// n > unsubdividedAngleBetweenVertices / arccos(2(a/r - 1)^2 - 1)
-		//const auto desiredDeviation = 0.01f;
-		//const auto desiredDeviation = 0.005f;
-		const auto desiredDeviation = 0.007f;
-		const auto k = acos(2.0f * pow(desiredDeviation / radius - 1.0f, 2.0f) - 1.0f);
-		const auto n = i32(std::ceil(unsubdividedAngleBetweenVertices / k));
+	//	// Assuming that the triangles on the sphere are equilateral. You can calculate the maximum deviation from the sphere by calcualting (radius - height of the tetrahedron with vertices being the center of sphere and the vertices of the triangle.
+	//	r.lodLevelsSettings.push_back(GameRenderer::SphereLodSetting{
+	//		.minRadius = radius,
+	//		.divisionCount = n,
+	//	});
+	//}
 
-		// Assuming that the triangles on the sphere are equilateral. You can calculate the maximum deviation from the sphere by calcualting (radius - height of the tetrahedron with vertices being the center of sphere and the vertices of the triangle.
-		r.lodLevelsSettings.push_back(GameRenderer::SphereLodSetting{
-			.minRadius = radius,
-			.divisionCount = n,
-		});
-	}
-
-	r.renderer.generateSphereLods(r.lodLevelsSettings);
+	//r.renderer.generateSphereLods(r.lodLevelsSettings);
 	/*r.renderer.generateSphereLods({
 		{ 0.0f, 5 },
 		{ 10.0f, 8 },
@@ -212,8 +266,7 @@ void togglableCursorUpdate() {
 }
 
 void Visualization2::update() {
-	lodLevelsSettingsGui();
-	//const auto result = crossPolytope(3);
+	//lodLevelsSettingsGui();
 	togglableCursorUpdate();
 
 	if (Input::isKeyDown(KeyCode::X)) {
@@ -221,6 +274,13 @@ void Visualization2::update() {
 	}
 	if (Input::isKeyDown(KeyCode::TAB)) {
 		selectedCamera = static_cast<CameraType>((static_cast<int>(selectedCamera) + 1) % 2);
+	}
+
+	std::vector<i32> setCells;
+	for (i32 cellI = 0; cellI < cells.size(); cellI++) {
+		if (isCellSet[cellI]) {
+			setCells.push_back(cellI);
+		}
 	}
 
 	auto view = Mat4::identity;
@@ -250,7 +310,7 @@ void Visualization2::update() {
 	renderer.cameraPos4 = stereographicCamera.transformation * Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 
-	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz().normalized();
+ 	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz().normalized();
 	const auto aspectRatio = Window::aspectRatio();
 	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
 	renderer.transform = projection * view;
@@ -270,6 +330,11 @@ void Visualization2::update() {
 
 	static bool drawOnlyLines = false;
 	ImGui::Checkbox("drawOnlyLines", &drawOnlyLines);
+
+	/*for (const auto& visibleFace : visibleFaces) {
+		auto& face = faces[visibleFace.faceI];
+		raySphereIntersection()
+	}*/
 
 	const auto width = 0.02f;
 	auto stereographicDraw = [&](Vec4 e0, Vec4 e1) {
@@ -316,27 +381,55 @@ void Visualization2::update() {
 		transformedVertices4.push_back(view4 * vertex);
 	}
 
-
-	for (i32 i = 0; i < vertices.size(); i++) {
-		const auto v = stereographicProjection(view4 * vertices[i]);
-		if (isPointAtInfinity(v)) {
+		struct FaceCellPair {
+		i32 faceI;
+		i32 cellI;
+		StereographicPlane plane;
+	};
+	std::vector<FaceCellPair> visibleFaces;
+	for (i32 faceI = 0; faceI < faces.size(); faceI++) {
+		auto& face = faces[faceI];
+		const auto plane = StereographicPlane::fromVertices(
+			transformedVertices4[face.vertices[0]],
+			transformedVertices4[face.vertices[1]],
+			transformedVertices4[face.vertices[2]]
+		);
+		if (face.cells.size() == 0) {
+			ASSERT_NOT_REACHED();
 			continue;
 		}
-		renderer.sphere(v, width * 3.0f, verticesColors[i]);
+		if (face.cells.size() == 1) {
+			if (isCellSet[face.cells[0]]) {
+				/*visibleFaces.push_back(faceI);*/
+				visibleFaces.push_back(FaceCellPair{ faceI, face.cells[0], plane });
+			}
+		} else if (face.cells.size() == 2) {
+			const auto& cell0 = face.cells[0];
+			const auto& cell1 = face.cells[1];
+			if (isCellSet[cell0] && !isCellSet[cell1]) {
+				visibleFaces.push_back(FaceCellPair{ faceI, cell0, plane });
+			} else if (isCellSet[cell1] && !isCellSet[cell0]) {
+				visibleFaces.push_back(FaceCellPair{ faceI, cell1, plane });
+			}
+		}
 	}
-	for (const auto& edge : edges) {
+
+
+	//for (i32 i = 0; i < vertices.size(); i++) {
+	//	const auto v = stereographicProjection(view4 * vertices[i]);
+	//	if (isPointAtInfinity(v)) {
+	//		continue;
+	//	}
+	//	renderer.sphere(v, width * 3.0f, verticesColors[i]);
+	//}
+	/*for (const auto& edge : edges) {
 		auto e0 = vertices[edge.vertices[0]];
 		auto e1 = vertices[edge.vertices[1]];
 
-		/*auto apply = [](Quat q, Vec4 v) {
-			const auto r = q * Quat(v.x, v.y, v.z, v.w);
-			return Vec4(r.x, r.y, r.z, r.w);
-		};*/
-		//auto t = stereographicCamera.position;
 		e0 = view4 * e0;
 		e1 = view4 * e1;
 		stereographicDraw(e0, e1);
-	}
+	}*/
 
 	auto renderPlaneQuad = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 		Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
@@ -386,11 +479,13 @@ void Visualization2::update() {
 		});
 	};
 
-	auto renderPlaneTriangle = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
-		renderPlaneQuad(wantedPlane, n0, n1, n2, n2, planeNormal);
-	};
+	ImGui::Checkbox("use triangle impostors", &renderer.useImpostorsTriangles);
+	static f32 impostorsTriangleScale = 1.0f;
+	if (renderer.useImpostorsTriangles) {
+		ImGui::SliderFloat("impostorsTriangleScale", &impostorsTriangleScale, 1.0f, 2.0f);
+	}
 
-	auto renderSphericalQuad = [&](Vec3 sp0, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+	auto renderSphericalQuad = [&](Vec3 sp0, Vec3 sp1, Vec3 sp2, Vec3 sp3, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 		//const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
 		// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
 
@@ -426,28 +521,54 @@ void Visualization2::update() {
 
 		// Move a vertex of the polygon to some vertex of the sphere, because the deviation from the sphere is the smallest at he vertices and biggest at the centers of the faces.
 		//const auto anyVertex = icosahedronVertices[0];
-		const auto anyVertex = renderer.sphereLodCenter;
-		const auto rotation = unitSphereRotateAToB(
-			(sp0 - sphere.center).normalized(),
-			anyVertex.normalized());
+		//const auto anyVertex = renderer.sphereLodCenter;
+		//const auto rotation = unitSphereRotateAToB(
+		//	(sp0 - sphere.center).normalized(),
+		//	anyVertex.normalized());
 
-		const auto transform =
-			Mat4::translation(sphere.center) *
-			Mat4(rotation.toMatrix()) *
-			Mat4(Mat3::scale(sphere.radius));
-		renderer.renderSphericalPolygon(sphere.radius, transform, n0, n1, n2, planeNormal);
+		//const auto transform =
+		//	Mat4::translation(sphere.center) *
+		//	Mat4(rotation.toMatrix()) *
+		//	Mat4(Mat3::scale(sphere.radius));
+		//renderer.renderSphericalPolygon(sphere.radius, sphere.center, transform, n0, n1, n2, n3, planeNormal);
+
+		if (renderer.useImpostorsTriangles) {
+			// map (0, 0, 0) -> v0, (1, 0, 0) -> v1, (0, 1, 0) -> v2
+			auto transformTriangle = [](Vec3 v0, Vec3 v1, Vec3 v2) -> Mat4 {
+				const auto center = (v0 + v1 + v2) / 3.0f;
+				auto t = [&](Vec3& v) {
+					v -= center;
+					//v *= 2.0f;
+					v *= impostorsTriangleScale;
+					v += center;
+				};
+				t(v0);
+				t(v1);
+				t(v2);
+				// The 4th coordinate of all these points is 1.
+				return Mat4(
+					Vec4(v0 - v2, 0.0f),
+					Vec4(v1 - v2, 0.0f),
+					Vec4(0.0f),
+					Vec4(v2, 1.0f)
+				);
+			};
+			renderer.sphereImpostor(transformTriangle(sp0, sp1, sp2), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
+			renderer.sphereImpostor(transformTriangle(sp0, sp2, sp3), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
+		} else {
+			const auto transform =
+				Mat4::translation(sphere.center) *
+				Mat4(Mat3::scale(sphere.radius));
+			renderer.sphereImpostor(transform, sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
+		}
 	};
 
-	auto renderSphericalTriangle = [&](Vec3 sp0, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
-		renderSphericalQuad(sp0, sphere, n0, n1, n2, n2, planeNormal);
-	};
-
-	auto renderTriangle = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4) {
-		const auto p3 = -p0;
+	auto renderQuad = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 p3, Vec4 planeNormal4, i32 faceI) {
+		const auto p4 = -p0;
 		const auto sp0 = stereographicProjection(p0);
 		const auto sp1 = stereographicProjection(p1);
 		const auto sp2 = stereographicProjection(p2);
-		const auto sp3 = stereographicProjection(p3);
+		const auto sp3 = stereographicProjection(p4);
 
 		/*renderer.sphere(sp0, width * 3.0f, Color3::RED);
 		renderer.sphere(sp1, width * 3.0f, Color3::RED);
@@ -466,21 +587,13 @@ void Visualization2::update() {
 			f32 distanceTo4thPoint;
 		};
 		std::vector<PlaneData> possiblePlanes;
-		Vec4 orthonormalBasisFor3SpaceContainingPolygon[]{
-			p0 - p3, p1 - p3, p2 - p3
-		};
-		gramSchmidtOrthonormalize(::view(orthonormalBasisFor3SpaceContainingPolygon));
 
-		auto planeThoughPoints = [&](Vec4 p0, Vec4 p1) {
-			const auto e0 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p0);
-			const auto e1 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p1);
-			const auto plane2Normal = cross(e0, e1);
-			const auto normalIn4Space = linearCombination(orthonormalBasisFor3SpaceContainingPolygon, plane2Normal);
-			return normalIn4Space;
-		};
-		const auto n0 = planeThoughPoints(p0, p1);
-		const auto n1 = planeThoughPoints(p1, p2);
-		const auto n2 = planeThoughPoints(p2, p0);
+		auto& face = faces[faceI];
+		const auto n0 = view4 * face.edgeNormals[0];
+		const auto n1 = view4 * face.edgeNormals[1];
+		const auto n2 = view4 * face.edgeNormals[2];
+		const auto n3 = view4 * face.edgeNormals[3];
+
 		if (finitePoints.size() == 4) {
 			/*
 			Tried computing all the planes by choosing triples of points and then comparing the distance to the 4th point to find the best one and the rendering a plane if the 4th points is close enough. This isn't really a good metric, because the plane can still be far away from the edges of the polygon even if it's close to the vertices.
@@ -511,98 +624,30 @@ void Visualization2::update() {
 					deviationFromPlane(p1, p2), deviationFromPlane(p2, p0)
 				)
 			);
-			static float maxAllowedDeviation = 0.005f;
-			ImGui::SliderFloat("max allowed deviation", &maxAllowedDeviation, 0.0, 0.03f);
+			static float maxAllowedDeviation = 0.001f;
+			//static float maxAllowedDeviation = 0.005f;
+			//ImGui::SliderFloat("max allowed deviation", &maxAllowedDeviation, 0.0, 0.03f);
 
-			// Could check if the deviation is less than the radius of the tubes.
-			if (deviation < maxAllowedDeviation) {
-				renderPlaneTriangle(planeThoughPolygonVertices, n0, n1, n2, planeNormal4);
-			} else {
-				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
-				renderSphericalTriangle(sp0, sphere, n0, n1, n2, planeNormal4);
-			}
-		}
-	};
 
-	auto renderQuad = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 p3, Vec4 planeNormal4) {
-		const auto p3 = -p0;
-		const auto sp0 = stereographicProjection(p0);
-		const auto sp1 = stereographicProjection(p1);
-		const auto sp2 = stereographicProjection(p2);
-		const auto sp3 = stereographicProjection(p3);
+			const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
 
-		/*renderer.sphere(sp0, width * 3.0f, Color3::RED);
-		renderer.sphere(sp1, width * 3.0f, Color3::RED);
-		renderer.sphere(sp2, width * 3.0f, Color3::RED);
-		renderer.sphere(sp3, width * 3.0f, Color3::GREEN);*/
-
-		const Vec3 points[]{ sp0, sp1, sp2, sp3 };
-		std::vector<Vec3> finitePoints;
-		for (const auto& point : points) {
-			if (!isPointAtInfinity(point)) {
-				finitePoints.push_back(point);
-			}
-		}
-		struct PlaneData {
-			Plane plane;
-			f32 distanceTo4thPoint;
-		};
-		std::vector<PlaneData> possiblePlanes;
-		Vec4 orthonormalBasisFor3SpaceContainingPolygon[]{
-			p0 - p3, p1 - p3, p2 - p3
-		};
-		gramSchmidtOrthonormalize(::view(orthonormalBasisFor3SpaceContainingPolygon));
-
-		auto planeThoughPoints = [&](Vec4 p0, Vec4 p1) {
-			const auto e0 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p0);
-			const auto e1 = coordinatesInOrthonormal3Basis(orthonormalBasisFor3SpaceContainingPolygon, p1);
-			const auto plane2Normal = cross(e0, e1);
-			const auto normalIn4Space = linearCombination(orthonormalBasisFor3SpaceContainingPolygon, plane2Normal);
-			return normalIn4Space;
-		};
-		const auto n0 = planeThoughPoints(p0, p1);
-		const auto n1 = planeThoughPoints(p1, p2);
-		const auto n2 = planeThoughPoints(p2, p0);
-		if (finitePoints.size() == 4) {
-			/*
-			Tried computing all the planes by choosing triples of points and then comparing the distance to the 4th point to find the best one and the rendering a plane if the 4th points is close enough. This isn't really a good metric, because the plane can still be far away from the edges of the polygon even if it's close to the vertices.
-
-			Could use an alternative fitting method like least squares, but it also probably doesn't make sense, because the user doesn't see the 4th point with relation to the other points. The 4th point is only a helper point to construct the sphere. It doesn't lie on the polygon.
-
-			So it seems like a good metric might finding the maximum deviation of the edges from a plane. 
-			Not sure if this is correct, but is seems to me that the maximum distance would happen at the midpoint of the circle curve. So it would make sense to calculate the max of the distances of these midpoints to the plane.
-
-			It might also be good to scale the importance based on the distance from the camera, because objects further away appear smaller so errors are less noticible.
-			*/
-
-			const auto planeThoughPolygonVertices = Plane::fromPoints(sp0, sp1, sp2);
-			auto deviationFromPlane = [&planeThoughPolygonVertices](Vec4 e0, Vec4 e1) -> f32 {
-				const auto s = StereographicSegment::fromEndpoints(e0, e1);
-				switch (s.type) {
-					using enum StereographicSegment::Type;
-				case LINE:
-					return 0.0f;
-				case CIRCULAR:
-					const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
-					return planeThoughPolygonVertices.distance(circularMid);
-				}
+			auto isInf = [](f32 v) {
+				return isinf(v) || isnan(v);
 			};
-			const auto deviation = std::max(
-				deviationFromPlane(p0, p1),
-				std::max(
-					deviationFromPlane(p1, p2), deviationFromPlane(p2, p0)
-				)
-			);
-			static float maxAllowedDeviation = 0.005f;
-			ImGui::SliderFloat("max allowed deviation", &maxAllowedDeviation, 0.0, 0.03f);
 
-			// Could check if the deviation is less than the radius of the tubes.
-			if (deviation < maxAllowedDeviation) {
+			if (isInf(sphere.radius) || isInf(sphere.center.x) || isInf(sphere.center.y) || isInf(sphere.center.z)) {
 				renderPlaneQuad(planeThoughPolygonVertices, n0, n1, n2, n3, planeNormal4);
 			} else {
-				const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
-				renderSphericalQuad(sp0, sphere, n0, n1, n2, n3, planeNormal4);
+				renderSphericalQuad(sp0, sp1, sp2, stereographicProjection(p3), sphere, n0, n1, n2, n3, planeNormal4);
 			}
+
+			//// Could check if the deviation is less than the radius of the tubes.
+			//if (deviation < maxAllowedDeviation) {
+			//	renderPlaneQuad(planeThoughPolygonVertices, n0, n1, n2, n3, planeNormal4);
+			//} else {
+			//	const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
+			//	renderSphericalQuad(sp0, sphere, n0, n1, n2, n3, planeNormal4);
+			//}
 		}
 	};
 
@@ -612,26 +657,90 @@ void Visualization2::update() {
 		const auto& p0 = transformedVertices4[face.vertices[0]];
 		const auto& p1 = transformedVertices4[face.vertices[1]];
 		const auto& p2 = transformedVertices4[face.vertices[2]];
+		const auto& p3 = transformedVertices4[face.vertices[3]];
 		Vec4 normal(0.0f);
 		for (i32 i = 0; i < cell.faces.size(); i++) {
 			if (cell.faces[i] == faceI) {
 				normal = cell.faceNormals[i];
 			}
 		}
-		renderTriangle(p0, p1, p2, normal);
+		renderQuad(p0, p1, p2, p3, normal, faceI);
 		
-		const auto faceCenter = ((p0 + p1 + p2) / 3.0f).normalized();
-		const auto transformedFaceCenter = stereographicProjection(faceCenter);
-		const auto transformedNormal = stereographicProjectionJacobian(faceCenter, view4 * normal);
-		renderer.sphere(transformedFaceCenter, 0.03f, Color3::RED);
-		renderer.line(transformedFaceCenter, transformedFaceCenter + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);
+		//const auto faceCenter = ((p0 + p1 + p2) / 3.0f).normalized();
+		//const auto transformedFaceCenter = stereographicProjection(faceCenter);
+		//const auto transformedNormal = stereographicProjectionJacobian(faceCenter, view4 * normal);
+		//renderer.sphere(transformedFaceCenter, 0.03f, Color3::RED);
+		//renderer.line(transformedFaceCenter, transformedFaceCenter + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);
 	};
 
-	//auto& cell = cells[0];
+	//while (visibleFaces.size() > 1) {
+	//	visibleFaces.pop_back();
+	//}
+
+	for (const auto& face : visibleFaces) {
+		renderFace(face.faceI, cells[face.cellI]);
+	}
+
+	const auto ray = Ray3(Vec3(0.0f), Vec3(0.0f, 0.0f, 1.0f));
+	struct Hit {
+		f32 t;
+		FaceCellPair* face;
+	};
+	std::optional<Hit> hit;
+	for (auto& face : visibleFaces) {
+		const auto& normals = faces[face.faceI].edgeNormals;
+		std::vector<Vec4> transformedNormals;
+		for (const auto& normal : normals) {
+			transformedNormals.push_back(view4 * normal);
+		}
+		const auto t = rayStereographicPolygonIntersection(ray, face.plane, constView(transformedNormals));
+		if (!t.has_value()) {
+			continue;
+		}
+		renderer.sphere(ray.at(*t), 0.01f, Color3::GREEN);
+		if (!hit.has_value() || t < hit->t) {
+			hit = Hit{ .t = *t, .face = &face };
+		}
+	}
+
+	if (hit.has_value()) {
+		auto& face = faces[hit->face->faceI];
+		i32 previousI = face.vertices.size() - 1;
+		for (i32 i = 0; i < face.vertices.size(); i++) {
+			stereographicDraw(
+				transformedVertices4[face.vertices[i]],
+				transformedVertices4[face.vertices[previousI]]
+			);
+			previousI = i;
+		}
+		renderer.sphere(ray.at(hit->t), 0.01f, Color3::GREEN);
+
+		if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
+			if (face.cells[0] != hit->face->cellI) {
+				isCellSet[face.cells[0]] = true;
+			} else {
+				isCellSet[face.cells[1]] = true;
+			}
+		}
+		if (Input::isMouseButtonDown(MouseButton::LEFT)) {
+			isCellSet[hit->face->cellI] = false;
+		}
+	}
+
+	/*for (const auto& cellI : setCells) {
+		auto& cell = cells[cellI];
+		for (const auto& face : cell.faces) {
+			renderFace(face, cell);
+		}
+	}*/
 	//for (const auto& face : cell.faces) {
 	//	renderFace(face, cell);
 	//	//renderFace(1);
 	//}
+	/*auto& cell = cells[0];
+	renderFace(0, cell);*/
+
+	renderer.renderSphereImpostors();
 
 	renderer.coloredShadingTrianglesAddMesh(lineGenerator, Color3::WHITE);
 	lineGenerator.reset();
@@ -641,7 +750,6 @@ void Visualization2::update() {
 	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
 		.model = Mat4::identity
 	});
-
 
 	renderer.renderCyllinders();
 	renderer.renderHemispheres();
@@ -657,5 +765,20 @@ void Visualization2::lodLevelsSettingsGui() {
 	}
 	if (ImGui::Button("reload")) {
 		renderer.generateSphereLods(lodLevelsSettings);
+	}
+}
+
+Polytope4::Polytope4(const Polytope& p) {
+	for (const auto& vertex : p.vertices) {
+		vertices.push_back(Vec4(vertex[0], vertex[1], vertex[2], vertex[3]));
+	}
+	for (const auto& edge : p.cells[0]) {
+		edges.push_back(PolytopeEdge{ .vertices = { edge[0], edge[1] } });
+	}
+	for (const auto& face : p.cells[1]) {
+		faces.push_back(PolytopeFace{ .edges = face });
+	}
+	for (const auto& cell : p.cells[2]) {
+		cells.push_back(PolytopeCell3{ .faces = cell });
 	}
 }
