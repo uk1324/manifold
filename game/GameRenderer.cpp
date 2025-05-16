@@ -626,7 +626,7 @@ void GameRenderer::renderSphericalPolygons() {
 	ImGui::Checkbox("wireframe", &wireframe);
 	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	for (auto& lod : sphereLods) {
-		drawInstances(lod.mesh.vao, instancesVbo, constView(lod.instances), [&](usize count) {
+		drawInstances(lod.mesh.vao, instancesVbo, constView(lod.instances), [&](GLsizei count) {
 			glDrawElementsInstanced(GL_TRIANGLES, lod.mesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
 		});
 		lod.instances.clear();
@@ -651,7 +651,7 @@ void GameRenderer::renderSphericalPolygon(f32 radius, Vec3 center, Mat4 transfor
 		.sphereRadius = radius
 	};
 
-	i32 lodLevelToUse = sphereLods.size() - 1;
+	i32 lodLevelToUse = i32(sphereLods.size()) - 1;
 	for (; lodLevelToUse > 0; lodLevelToUse--) {
 		if (radius > sphereLods[lodLevelToUse].setting.minRadius) {
 			//lodLevelToUse--;

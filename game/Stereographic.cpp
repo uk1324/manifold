@@ -1,5 +1,6 @@
 #include "Stereographic.hpp"
 #include <engine/Math/Angles.hpp>
+#include <engine/Math/Quat.hpp>
 #include <engine/Math/Plane.hpp>
 #include <engine/Math/Circle.hpp>
 
@@ -135,6 +136,19 @@ std::optional<f32> rayStereographicPolygonIntersection(Vec3 rayOrigin, Vec3 rayD
 
 std::optional<f32> rayStereographicPolygonIntersection(const Ray3& ray, const StereographicPlane& plane, View<const Vec4> edgeNormals) {
 	return rayStereographicPolygonIntersection(ray.origin, ray.direction, plane, edgeNormals);
+}
+
+Vec3 moveForwardStereographic(Vec3 initialPosition, Vec3 velocityDirection, f32 velocityLength) {
+	const auto p = inverseStereographicProjection(initialPosition);
+	const auto pq = Quat(p.x, p.y, p.z, p.w).normalized();
+	const auto v = inverseStereographicProjectionJacobian(initialPosition, velocityDirection);
+	Quat vq(v.x, v.y, v.z, v.w);
+	vq = vq.normalized();
+	vq *= velocityLength;
+	vq *= pq.inverseIfNormalized();
+	Quat movement = quatExp(Vec3(vq.x, vq.y, vq.z));
+	Quat point = (pq * movement).normalized();
+	return stereographicProjection(Vec4(point.x, point.y, point.z, point.w));
 }
 
 CircularSegment::CircularSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)

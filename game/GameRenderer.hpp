@@ -133,7 +133,7 @@ struct GameRenderer {
 	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
 	void renderSphereImpostors();
 
-	bool useImpostorsTriangles = false;
+	bool useImpostorsTriangles = true;
 
 	Gfx2d gfx2d;
 

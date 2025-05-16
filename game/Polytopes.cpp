@@ -1,6 +1,7 @@
 #include "Polytopes.hpp"
 #include "Combinatorics.hpp"
 #include <algorithm>
+#include <unordered_map>
 #include <engine/Math/Quat.hpp>
 
 void addPyramid(
@@ -11,14 +12,14 @@ void addPyramid(
 	const auto baseDimension = upperIndexBoundsForBase.size();
 
 	// The 1-cell coming out of vertex with index i will have index newCellsOffset + i.
-	i32 newCellsOffset = polytope.cellsOfDimension(1).size();
+	i32 newCellsOffset = i32(polytope.cellsOfDimension(1).size());
 	for (i32 vertexI = 0; vertexI < upperIndexBoundsForBase[0]; vertexI++) {
 		auto& cells = polytope.cellsOfDimension(1);
 		cells.push_back(Polytope::CellN{ vertexI, pyramidVertexIndex });
 	}
 	for (i32 dimension = 2; dimension < baseDimension + 1; dimension++) {
 		auto& dimensionCells = polytope.cellsOfDimension(dimension);
-		const auto cellOffset = polytope.cellsOfDimension(dimension).size();
+		const auto cellOffset = i32(polytope.cellsOfDimension(dimension).size());
 
 		auto& baseCells = polytope.cellsOfDimension(dimension - 1);
 		for (i32 baseCellI = 0; baseCellI < upperIndexBoundsForBase[dimension - 1]; baseCellI++) {
@@ -66,13 +67,13 @@ Polytope crossPolytope(i32 dimension) {
 		copy.push_back(direction);
 		result.vertices.push_back(std::move(copy));
 	}
-	const auto apex0 = result.vertices.size() - 2;
-	const auto apex1 = result.vertices.size() - 1;
+	const auto apex0 = i32(result.vertices.size()) - 2;
+	const auto apex1 = i32(result.vertices.size()) - 1;
 	
 	std::vector<i32> upperIndexBoundsForBase;
-	upperIndexBoundsForBase.push_back(result.vertices.size() - 2);
+	upperIndexBoundsForBase.push_back(i32(result.vertices.size()) - 2);
 	for (const auto& cells : result.cells) {
-		upperIndexBoundsForBase.push_back(cells.size());
+		upperIndexBoundsForBase.push_back(i32(cells.size()));
 	}
 	result.cells.push_back(Polytope::CellsN());
 	addPyramid(result, apex0, upperIndexBoundsForBase);
@@ -190,7 +191,7 @@ Polytope hypercube(i32 polytopeDimension) {
 			// offset to cell of 2 dimensions lower.
 			// so if we are making a faces that is if dimension = 2
 			// then this will itrate over the edges and makes faces from the top edge bottom edge and edges correspoding to each vertex of that edge.
-			const auto offset = baseSubCells.size() * 2;
+			const auto offset = i32(baseSubCells.size()) * 2;
 			for (i32 baseSubCellI = 0; baseSubCellI < baseSubCells.size(); baseSubCellI++) {
 				Polytope::CellN resultCell;
 				resultCell.push_back(baseSubCellI * 2 + 0);
@@ -243,7 +244,7 @@ void subdivideCube(
 	Quat v000, Quat v001, Quat v010, Quat v011, // bottom
 	Quat v100, Quat v101, Quat v110, Quat v111 // top
 ) {
-	const auto verticesOffset = p.vertices.size();
+	const auto verticesOffset = i32(p.vertices.size());
 	i32 vertexCountPerEdge = divisionCount + 2;
 	for (i32 i = 0; i < vertexCountPerEdge; i++) {
 		const auto it = f32(i) / f32(vertexCountPerEdge - 1);
@@ -269,7 +270,7 @@ void subdivideCube(
 		}
 	}
 
-	auto index = [&](i32 x, i32 y, i32 z) {
+	auto index = [&](i32 x, i32 y, i32 z) -> i32 {
 		return verticesOffset + x * vertexCountPerEdge * vertexCountPerEdge + y * vertexCountPerEdge + z;
 	};
 
@@ -278,7 +279,7 @@ void subdivideCube(
 		i32 i100, i32 i101, i32 i110, i32 i111 // top
 	) {
 		auto& edges = p.cellsOfDimension(1);
-		const auto edgesOffset = edges.size();
+		const auto edgesOffset = i32(edges.size());
 		// bottom
 		edges.push_back({ i000, i001 }); // 0
 		edges.push_back({ i010, i011 }); // 1
@@ -298,7 +299,7 @@ void subdivideCube(
 		edges.push_back({ i011, i111 }); // 11
 
 		auto& faces = p.cellsOfDimension(2);
-		const auto facesOffset = faces.size();
+		const auto facesOffset = i32(faces.size());
 		auto eo = [&](i32 i) -> i32 { return i + edgesOffset; };
 		// top, bottom
 		faces.push_back({ eo(0), eo(1), eo(2), eo(3) });
@@ -364,14 +365,41 @@ Polytope removedDuplicates(Polytope&& p) {
 			}
 		}
 		if (!alreadyAdded) {
-			oldToNew.push_back(result.vertices.size());
+			oldToNew.push_back(i32(result.vertices.size()));
 			result.vertices.push_back(std::move(vertex));
 		}
 	}
 
+	struct Hash {
+		const std::vector<Polytope::CellN>& cells;
+
+		usize operator ()(i32 keyIndex) const {
+			auto& k = cells[keyIndex];
+			usize hash = std::hash<i32>()(k[0]);
+			for (i32 i = 1; i < k.size() - 1; i++) {
+				hash = hashCombine(hash, std::hash<i32>()(k[i]));
+			}
+			return hash;
+		}
+	};
+
+	struct Eq {
+		const std::vector<Polytope::CellN>& cells;
+
+		bool operator()(i32 a, i32 b) const {
+			return cells[a] == cells[b];
+		}
+	};
+
+
 	for (auto& cells : p.cells) {
 		result.cells.push_back(Polytope::CellsN());
 		auto& resultCells = result.cells.back();
+
+		Hash hash{ cells };
+		Eq eq{ cells };
+
+		std::unordered_map<i32, i32, Hash, Eq> oldCellToNew(10, hash, eq);
 
 		for (auto& cell : cells) {
 			for (auto& subCellIndex : cell) {
@@ -381,26 +409,43 @@ Polytope removedDuplicates(Polytope&& p) {
 			std::ranges::sort(cell);
 		}
 		oldToNew.clear();
-		for (auto& cell : cells) {
-			bool alreadyAdded = false;
-			for (i32 alreadyAddedCellI = 0; alreadyAddedCellI < resultCells.size(); alreadyAddedCellI++) {
-				const auto& alreadyAddedCell = resultCells[alreadyAddedCellI];
-
-				auto equals = [](const std::vector<i32>& a, const std::vector<i32>& b) {
-					ASSERT(a.size() == b.size());
-					return a == b;
-				};
-				if (equals(cell, alreadyAddedCell)) {
-					oldToNew.push_back(alreadyAddedCellI);
-					alreadyAdded = true;
-					break;
-				}
-			}
-			if (!alreadyAdded) {
-				oldToNew.push_back(resultCells.size());
-				resultCells.push_back(std::move(cell));
+		for (i32 cellI = 0; cellI < cells.size(); cellI++) {
+			const auto& cell = cells[cellI];
+			const auto newIndex = i32(resultCells.size()); 
+			//const auto r = oldCellToNew.find(cellI);
+			const auto r = oldCellToNew.try_emplace(cellI, newIndex);
+			const auto insertedNew = r.second;
+			if (insertedNew) {
+				oldToNew.push_back(newIndex);
+				resultCells.push_back(cell);
+			} else {
+				oldToNew.push_back(r.first->second);
 			}
 		}
+		//for (auto& cell : cells) {
+		//	oldVertexToNew.find()
+
+		//	/*bool alreadyAdded = false;
+		//	for (i32 alreadyAddedCellI = 0; alreadyAddedCellI < resultCells.size(); alreadyAddedCellI++) {
+		//		const auto& alreadyAddedCell = resultCells[alreadyAddedCellI];
+
+		//		auto equals = [](const std::vector<i32>& a, const std::vector<i32>& b) {
+		//			ASSERT(a.size() == b.size());
+		//			return a == b;
+		//		};
+		//		if (equals(cell, alreadyAddedCell)) {
+		//			oldToNew.push_back(alreadyAddedCellI);
+		//			alreadyAdded = true;
+		//			break;
+		//		}
+		//	}*/
+
+
+		//	if (!alreadyAdded) {
+		//		oldToNew.push_back(i32(resultCells.size()));
+		//		resultCells.push_back(std::move(cell));
+		//	}
+		//}
 	}
 	return result;
 }
@@ -441,7 +486,6 @@ Polytope subdiviedHypercube4(i32 divisionCount) {
 			//goto zend;
 		}
 	}
-	end:
 	return removedDuplicates(std::move(result));
 }
 

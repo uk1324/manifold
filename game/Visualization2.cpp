@@ -78,7 +78,7 @@ Visualization2 Visualization2::make() {
 		r.edges.push_back(Edge{ edge[0], edge[1] });
 	}
 	for (const auto& face : c.cellsOfDimension(2)) {
-		auto sortedEdges = faceEdgesSorted(c, &face - c.cellsOfDimension(2).data());
+		auto sortedEdges = faceEdgesSorted(c, i32(&face - c.cellsOfDimension(2).data()));
 		auto vertices = verticesOfFaceWithSortedEdges(c, sortedEdges);
 
 		Face f{ .vertices = std::move(vertices) };
@@ -369,19 +369,25 @@ void Visualization2::update() {
 				renderer.line(s.start, s.sample(s.angle), width, Color3::WHITE);
 				break;
 			}
-			lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
+			//lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
+			lineGenerator.addStereographicArc(segment, width);
 			break;
 		}
 
 		}
 	};
 
+	Vec4 p0(0.0f, 0.0f, 0.0f, 1.0f);
+	Vec4 p1(0.0f, 0.0f, 1.0f, 0.0f);
+	const auto s = StereographicSegment::fromEndpoints(view4 * p0, view4 * p1);
+	lineGenerator.addStereographicArc(s, 0.01f);
+
 	std::vector<Vec4> transformedVertices4;
 	for (const auto& vertex : vertices) {
 		transformedVertices4.push_back(view4 * vertex);
 	}
 
-		struct FaceCellPair {
+	struct FaceCellPair {
 		i32 faceI;
 		i32 cellI;
 		StereographicPlane plane;
@@ -422,14 +428,17 @@ void Visualization2::update() {
 	//	}
 	//	renderer.sphere(v, width * 3.0f, verticesColors[i]);
 	//}
-	/*for (const auto& edge : edges) {
-		auto e0 = vertices[edge.vertices[0]];
-		auto e1 = vertices[edge.vertices[1]];
 
-		e0 = view4 * e0;
-		e1 = view4 * e1;
-		stereographicDraw(e0, e1);
-	}*/
+
+
+	//for (const auto& edge : edges) {
+	//	auto e0 = vertices[edge.vertices[0]];
+	//	auto e1 = vertices[edge.vertices[1]];
+
+	//	e0 = view4 * e0;
+	//	e1 = view4 * e1;
+	//	stereographicDraw(e0, e1);
+	//}
 
 	auto renderPlaneQuad = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 		Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
@@ -480,7 +489,7 @@ void Visualization2::update() {
 	};
 
 	ImGui::Checkbox("use triangle impostors", &renderer.useImpostorsTriangles);
-	static f32 impostorsTriangleScale = 1.0f;
+	static f32 impostorsTriangleScale = 1.2f;
 	if (renderer.useImpostorsTriangles) {
 		ImGui::SliderFloat("impostorsTriangleScale", &impostorsTriangleScale, 1.0f, 2.0f);
 	}
@@ -617,6 +626,7 @@ void Visualization2::update() {
 					const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
 					return planeThoughPolygonVertices.distance(circularMid);
 				}
+				return 0.0f;
 			};
 			const auto deviation = std::max(
 				deviationFromPlane(p0, p1),
@@ -705,7 +715,7 @@ void Visualization2::update() {
 
 	if (hit.has_value()) {
 		auto& face = faces[hit->face->faceI];
-		i32 previousI = face.vertices.size() - 1;
+		i32 previousI = i32(face.vertices.size()) - 1;
 		for (i32 i = 0; i < face.vertices.size(); i++) {
 			stereographicDraw(
 				transformedVertices4[face.vertices[i]],

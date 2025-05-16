@@ -73,3 +73,5 @@ std::optional<f32> rayStereographicPolygonIntersection(Vec3 rayOrigin, Vec3 rayD
 	plane, View<const Vec4> edgeNormals);
 std::optional<f32> rayStereographicPolygonIntersection(const Ray3& ray, const StereographicPlane&
 	plane, View<const Vec4> edgeNormals);
+
+Vec3 moveForwardStereographic(Vec3 initialPosition, Vec3 velocityDirection, f32 velocityLength);

@@ -189,7 +189,7 @@ DoublyConnectedEdgeList::FaceIndex DoublyConnectedEdgeList::faceReferenceToIndex
 	// for (const auto& face : list.faces)
 	// Instead of 
 	// for (DoublyConnectedEdgeList::FaceIndex faceIndex = 0; faceIndex++ < list.faces.size(); faceIndex++);
-	return &face - &*faces.begin();
+	return i32(&face - &*faces.begin());
 }
 
 DoublyConnectedEdgeList::VertexIndex DoublyConnectedEdgeList::vertexReferenceToIndex(const Vertex& vertex) const {

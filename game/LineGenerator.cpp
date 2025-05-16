@@ -1,5 +1,6 @@
 #include "LineGenerator.hpp"
 #include "Bezier.hpp"
+#include <engine/Math/Quat.hpp>
 #include <engine/Math/Interpolation.hpp>
 #include <engine/Math/Angles.hpp>
 #include <game/MeshUtils.hpp>
@@ -12,13 +13,13 @@ void LineGenerator::addLine(const std::vector<Vec3>& curvePoints) {
 	const auto offset = vertexCount();
 
 	const i32 ndivs = 8;
-	const i32 ncurves = 1 + (curvePoints.size() - 4) / 3;
+	const i32 ncurves = 1 + (i32(curvePoints.size()) - 4) / 3;
 	Vec3 pts[4];
 	std::unique_ptr<Vec3[]> P(new Vec3[(ndivs + 1) * ndivs * ncurves + 1]);
 	std::unique_ptr<Vec3[]> N(new Vec3[(ndivs + 1) * ndivs * ncurves + 1]);
 	std::unique_ptr<Vec2[]> st(new Vec2[(ndivs + 1) * ndivs * ncurves + 1]);
-	for (uint32_t i = 0; i < ncurves; ++i) {
-		for (uint32_t j = 0; j < ndivs; ++j) {
+	for (i32 i = 0; i < ncurves; ++i) {
+		for (i32 j = 0; j < ndivs; ++j) {
 			Vec3 pts[]{
 				curvePoints[i * 3],
 				curvePoints[i * 3 + 1],
@@ -69,7 +70,7 @@ void LineGenerator::addLine(const std::vector<Vec3>& curvePoints) {
 			//float rad = 0.1 * (1 - sNormalized);
 			float rad = 0.01f;
 			//float rad = 0.04f;
-			for (uint32_t k = 0; k <= ndivs; ++k) {
+			for (i32 k = 0; k <= ndivs; ++k) {
 				float t = k / (float)ndivs;
 				float theta = t * 2 * PI<f32>;
 				Vec3 pc(cos(theta) * rad, 0, sin(theta) * rad);
@@ -85,16 +86,16 @@ void LineGenerator::addLine(const std::vector<Vec3>& curvePoints) {
 	P[(ndivs + 1) * ndivs * ncurves] = curvePoints[curvePoints.size() - 1];
 	N[(ndivs + 1) * ndivs * ncurves] = (curvePoints[curvePoints.size() - 2] - curvePoints[curvePoints.size() - 1]).normalized();
 	st[(ndivs + 1) * ndivs * ncurves] = Vec2(1, 0.5);
-	uint32_t numFaces = ndivs * ndivs * ncurves;
-	std::unique_ptr<uint32_t[]> verts(new uint32_t[numFaces]);
-	for (uint32_t i = 0; i < numFaces; ++i)
+	i32 numFaces = ndivs * ndivs * ncurves;
+	std::unique_ptr<i32[]> verts(new i32[numFaces]);
+	for (i32 i = 0; i < numFaces; ++i)
 		verts[i] = (i < (numFaces - ndivs)) ? 4 : 3;
-	std::unique_ptr<uint32_t[]> vertIndices(new uint32_t[ndivs * ndivs * ncurves * 4 + ndivs * 3]);
-	uint32_t nf = 0, ix = 0;
-	for (uint32_t k = 0; k < ncurves; ++k) {
-		for (uint32_t j = 0; j < ndivs; ++j) {
+	std::unique_ptr<i32[]> vertIndices(new i32[ndivs * ndivs * ncurves * 4 + ndivs * 3]);
+	i32 nf = 0, ix = 0;
+	for (i32 k = 0; k < ncurves; ++k) {
+		for (i32 j = 0; j < ndivs; ++j) {
 			if (k == (ncurves - 1) && j == (ndivs - 1)) { break; }
-			for (uint32_t i = 0; i < ndivs; ++i) {
+			for (i32 i = 0; i < ndivs; ++i) {
 				indicesAddQuad(
 					indices,
 					offset + nf,
@@ -113,7 +114,7 @@ void LineGenerator::addLine(const std::vector<Vec3>& curvePoints) {
 		}
 	}
 
-	for (uint32_t i = 0; i < ndivs; ++i) {
+	for (i32 i = 0; i < ndivs; ++i) {
 		vertIndices[ix] = nf;
 		vertIndices[ix + 1] = (ndivs + 1) * ndivs * ncurves;
 		vertIndices[ix + 2] = nf + 1;
@@ -169,7 +170,7 @@ void LineGenerator::addPlaneCurve(const std::vector<Vec3>& curvePoints, Vec3 pla
 		const auto circleCenter = curvePoints[pointI];
 
 		f32 radius = 0.01f;
-		for (i32 circlePointI = 0; circlePointI < circlePoints.size(); circlePointI++) {
+		for (i32 circlePointI = 0; circlePointI < circlePointCount; circlePointI++) {
 			const auto& circlePoint = circlePoints[circlePointI];
 			const auto normal = circlePoint.x * side + circlePoint.y * planeNormal;
 			positions.push_back(circleCenter + normal * radius);
@@ -177,19 +178,19 @@ void LineGenerator::addPlaneCurve(const std::vector<Vec3>& curvePoints, Vec3 pla
 		}
 	}
 
-	const auto quadCount = circlePoints.size() * curvePoints.size();
+	const auto quadCount = circlePointCount * curvePoints.size();
 	const auto triangleCount = 2 * quadCount;
 	const auto vertexCount = 3 * triangleCount;
 
 	for (i32 circleI = 0; circleI < curvePoints.size() - 2; circleI++) {
-		i32 previousCirclePointI = circlePoints.size() - 1;
-		for (i32 circlePointI = 0; circlePointI < circlePoints.size(); circlePointI++) {
+		i32 previousCirclePointI = circlePointCount - 1;
+		for (i32 circlePointI = 0; circlePointI < circlePointCount; circlePointI++) {
 			indicesAddQuad(
 				indices,
-				offset + circleI * circlePoints.size() + previousCirclePointI,
-				offset + (circleI + 1) * circlePoints.size() + previousCirclePointI,
-				offset + (circleI + 1) * circlePoints.size() + circlePointI,
-				offset + (circleI) * circlePoints.size() + circlePointI
+				offset + circleI * circlePointCount + previousCirclePointI,
+				offset + (circleI + 1) * circlePointCount + previousCirclePointI,
+				offset + (circleI + 1) * circlePointCount + circlePointI,
+				offset + (circleI) * circlePointCount + circlePointI
 			);
 			previousCirclePointI = circlePointI;
 		}
@@ -276,19 +277,89 @@ void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, 
 			
 		}
 	}
-
 	for (i32 circleI = 0; circleI < count - 1; circleI++) {
-		i32 previousCirclePointI = circlePoints.size() - 1;
-		for (i32 circlePointI = 0; circlePointI < circlePoints.size(); circlePointI++) {
+		i32 previousCirclePointI = circlePointCount - 1;
+		for (i32 circlePointI = 0; circlePointI < circlePointCount; circlePointI++) {
 			indicesAddQuad(
 				indices,
-				offset + circleI * circlePoints.size() + previousCirclePointI,
-				offset + (circleI + 1) * circlePoints.size() + previousCirclePointI,
-				offset + (circleI + 1) * circlePoints.size() + circlePointI,
-				offset + (circleI) * circlePoints.size() + circlePointI
+				offset + circleI * circlePointCount + previousCirclePointI,
+				offset + (circleI + 1) * circlePointCount + previousCirclePointI,
+				offset + (circleI + 1) * circlePointCount + circlePointI,
+				offset + (circleI) *circlePointCount + circlePointI
 			);
 			previousCirclePointI = circlePointI;
 		}
+	}
+}
+
+void LineGenerator::addStereographicArc(const StereographicSegment& segment, f32 radius) {
+	if (segment.type == StereographicSegment::Type::CIRCULAR) {
+		auto aRelativeToCenter = segment.circular.start;
+		auto velocityOutOfA = segment.circular.initialVelocity;
+		auto circleCenter = segment.circular.center;
+		auto angle = segment.circular.angle;
+
+		velocityOutOfA = velocityOutOfA.normalized() * aRelativeToCenter.length();
+		const auto t0 = aRelativeToCenter.length();
+		const auto t1 = velocityOutOfA.length();
+
+		std::vector<Vec2> circlePoints;
+		const i32 circlePointCount = 10;
+		for (i32 i = 0; i < circlePointCount; i++) {
+			const auto a = (f32(i) / f32(circlePointCount)) * TAU<f32>;
+			circlePoints.push_back(Vec2::oriented(a));
+		}
+
+		const auto offset = vertexCount();
+
+		const auto count = 100;
+		const auto curveBinormal = cross(aRelativeToCenter, velocityOutOfA).normalized();
+		for (i32 curveI = 0; curveI < count; curveI++) {
+			const auto curveAngle = lerp(0.0f, angle, f32(curveI) / f32(count - 1));
+			const auto c = cos(curveAngle);
+			const auto s = sin(curveAngle);
+			auto curveNormal = c * aRelativeToCenter + s * velocityOutOfA;
+			const auto curvePosition = circleCenter + curveNormal;
+			curveNormal = curveNormal.normalized();
+
+			const auto initialPosition = inverseStereographicProjection(curvePosition);
+			const auto initialPositionQ = Quat(initialPosition.x, initialPosition.y, initialPosition.z, initialPosition.w);
+			// https://math.stackexchange.com/questions/3952432/geodesic-distance-of-two-quaternions
+			// https://math.stackexchange.com/questions/686901/how-can-i-find-a-unit-velocity-vector-between-two-quaternions?rq=1
+			for (const auto& circlePoint : circlePoints) {
+				const auto surfaceNormal =
+					radius *
+					(circlePoint.x * curveNormal + circlePoint.y * curveBinormal);
+
+				//const auto velocity = inverseStereographicProjectionJacobian(curvePosition, surfaceNormal.normalized());
+				//Quat velocityQ = Quat(velocity.x, velocity.y, velocity.z, velocity.w);
+				//velocityQ = velocityQ.normalized();
+				//velocityQ *= radius;
+				//velocityQ *= initialPositionQ.inverseIfNormalized();
+				//Quat moved = exp(Vec3(velocityQ.x, velocityQ.y, velocityQ.z));
+				//Quat point = (initialPositionQ * moved).normalized();
+				//const auto p = stereographicProjection(Vec4(point.x, point.y, point.z, point.w));
+				///*const auto surfacePosition = curvePosition + surfaceNormal;*/
+				const auto surfacePosition = moveForwardStereographic(curvePosition, surfaceNormal, radius);
+				positions.push_back(surfacePosition);
+				normals.push_back(surfaceNormal);
+			}
+		}
+		for (i32 circleI = 0; circleI < count - 1; circleI++) {
+			i32 previousCirclePointI = circlePointCount - 1;
+			for (i32 circlePointI = 0; circlePointI < circlePointCount; circlePointI++) {
+				indicesAddQuad(
+					indices,
+					offset + circleI * circlePointCount + previousCirclePointI,
+					offset + (circleI + 1) * circlePointCount + previousCirclePointI,
+					offset + (circleI + 1) * circlePointCount + circlePointI,
+					offset + (circleI)*circlePointCount + circlePointI
+				);
+				previousCirclePointI = circlePointI;
+			}
+		}
+	} else {
+
 	}
 }
 

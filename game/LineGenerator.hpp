@@ -2,6 +2,7 @@
 
 #include <engine/Math/Vec3.hpp>
 #include <engine/Math/Vec2.hpp>
+#include <game/Stereographic.hpp>
 #include <vector>
 
 struct LineGenerator {
@@ -10,6 +11,8 @@ struct LineGenerator {
 	void addFlatCurve(const std::vector<Vec3>& curvePoints, Vec3 cameraForward);
 	void addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRadius);
 	void addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius);
+
+	void addStereographicArc(const StereographicSegment& segment, f32 radius);
 
 	void reset();
 	i32 vertexCount() const;
