@@ -244,7 +244,7 @@ GameRenderer GameRenderer::make() {
 			sphereImpostorMeshIndices.push_back(data.indices[i]);
 		}
 	}
-	auto sphereImpostorMesh = makeMesh<SphereImpostorShader>(constView(sphereImpostorMeshVertices), constView(sphereImpostorMeshIndices), instancesVbo);
+	auto sphereImpostorMesh = makeMesh<SphereImpostor2Shader>(constView(sphereImpostorMeshVertices), constView(sphereImpostorMeshIndices), instancesVbo);
 
 	{
 		sphereImpostorMeshVertices.clear();
@@ -372,6 +372,7 @@ GameRenderer GameRenderer::make() {
 		.homogenousShader = MAKE_GENERATED_SHADER(HOMOGENOUS),
 		.infinitePlaneMesh = makeMesh<HomogenousShader>(constView(infinitePlaneVertices), constView(infinitePlaneIndices), instancesVbo),
 		.sphereImpostorsShader = MAKE_GENERATED_SHADER(SPHERE_IMPOSTOR),
+		.sphereImpostors2Shader = MAKE_GENERATED_SHADER(SPHERE_IMPOSTOR_2),
 		MOVE(sphereImpostorMesh),
 		MOVE(sphereImpostorMeshTri),
 		MOVE(gfx2d),
@@ -741,6 +742,20 @@ void GameRenderer::sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec
 	});
 }
 
+void GameRenderer::sphereImpostorCube(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+
+	sphereImpostorsCubes.push_back(SphereImpostor2Instance{
+		.transform = transform,
+		.sphereCenter = position,
+		.sphereRadius = radius,
+		.n0 = n0,
+		.n1 = n1,
+		.n2 = n2,
+		.n3 = n3,
+		.planeNormal = planeNormal
+	});
+}
+
 void GameRenderer::renderSphereImpostors() {
 	shaderSetUniforms(
 		sphereImpostorsShader,
@@ -763,4 +778,31 @@ void GameRenderer::renderSphereImpostors() {
 		drawMeshInstances(sphereImpostorMesh, constView(sphereImpostors), instancesVbo);
 	}
 	sphereImpostors.clear();
+
+	//drawMeshInstances(sphereImpostorMesh, constView(sphereImpostorsCubes), instancesVbo);
+	//sphereImpostorsCubes.clear();
+
+	{
+		shaderSetUniforms(
+			sphereImpostors2Shader,
+			SphereImpostor2VertUniforms{
+				.transform = transform,
+			}
+		);
+		shaderSetUniforms(
+			sphereImpostors2Shader,
+			SphereImpostor2FragUniforms{
+				.cameraPos = cameraPosition,
+				.cameraPos4 = cameraPos4,
+				.viewInverse4 = viewInverse4,
+			}
+		);
+		sphereImpostors2Shader.use();
+		drawMeshInstances(sphereImpostorMesh, constView(sphereImpostorsCubes), instancesVbo);
+		sphereImpostorsCubes.clear();
+	}
 }
+
+
+
+

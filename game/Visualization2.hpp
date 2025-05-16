@@ -8,6 +8,7 @@
 #include <game/Polyhedra.hpp>
 #include <engine/Math/Vec4.hpp>
 #include <StaticList.hpp>
+#include <game/Physics/World.hpp>
 
 struct PolytopeEdge {
 	i32 vertices[2];
@@ -69,6 +70,8 @@ struct Visualization2 {
 
 	std::vector<GameRenderer::SphereLodSetting> lodLevelsSettings;
 	void lodLevelsSettingsGui();
+
+	World world;
 
 	GameRenderer renderer;
 	FpsCamera3d camera;

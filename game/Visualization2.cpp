@@ -13,6 +13,7 @@
 #include <engine/Math/GramSchmidt.hpp>
 #include <game/Stereographic.hpp>
 #include <iostream>
+#include <game/Physics/Body.hpp>
 
 Visualization2 Visualization2::make() {
 	auto renderer = GameRenderer::make();
@@ -27,8 +28,32 @@ Visualization2 Visualization2::make() {
 		MOVE(linesVbo),
 		MOVE(linesIbo),
 		MOVE(linesVao),
+		.world = World(4),
 		MOVE(renderer),
 	};
+	auto randomF32 = []() -> f32 {
+		return f32(rand()) / f32(RAND_MAX);
+	};
+	auto randomVec4 = [&randomF32]() -> Vec4 {
+		return Vec4(
+			randomF32(),
+			randomF32(),
+			randomF32(),
+			randomF32()
+		);
+	};
+
+	for (i32 i = 0; i < 10; i++) {
+		
+		r.world.bodies.push_back(new Body{});
+		r.world.bodies.back()->set(0.1f, 1.0f);
+		r.world.bodies.back()->position = randomVec4().normalized();
+		/*const auto p = moveForwardStereographic(Vec3(0.0f), Vec3(1.0f, 0.0f, 0.0f), f32(i) / f32(10));
+		r.world.bodies.back()->position = inverseStereographicProjection(p);*/
+	}
+	//r.world.bodies.push_back(new Body{});
+	//r.world.bodies.back()->set(0.1f, 1.0f);
+	//r.world.bodies.back()->position = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	auto outwardPointingFaceNormal = [&](const std::vector<Vec4>& vertices, const std::vector<Face>& faces, const std::vector<i32>& cellFaces, i32 faceI) {
 		const auto& face = faces[faceI];
@@ -441,7 +466,7 @@ void Visualization2::update() {
 	//	stereographicDraw(e0, e1);
 	//}
 
-	auto renderPlaneQuad = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+	auto renderPlaneQuad = [&](const Plane& wantedPlane, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
 		Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
 		const auto rotation = unitSphereRotateAToB(untransformedPlaneMeshNormal, wantedPlane.n);
 
@@ -484,7 +509,7 @@ void Visualization2::update() {
 			.n0 = n0,
 			.n1 = n1,
 			.n2 = n2,
-			.n3 = n3,
+			.n3 = n2,
 			.planeNormal = planeNormal,
 		});
 	};
@@ -495,7 +520,7 @@ void Visualization2::update() {
 		ImGui::SliderFloat("impostorsTriangleScale", &impostorsTriangleScale, 1.0f, 2.0f);
 	}
 
-	auto renderSphericalQuad = [&](Vec3 sp0, Vec3 sp1, Vec3 sp2, Vec3 sp3, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+	auto renderSphericalQuad = [&](Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
 		//const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
 		// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
 
@@ -563,17 +588,17 @@ void Visualization2::update() {
 					Vec4(v2, 1.0f)
 				);
 			};
-			renderer.sphereImpostor(transformTriangle(sp0, sp1, sp2), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
-			renderer.sphereImpostor(transformTriangle(sp0, sp2, sp3), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
+			renderer.sphereImpostor(transformTriangle(sp0, sp1, sp2), sphere.center, sphere.radius, n0, n1, n2, n2, planeNormal);
+			/*renderer.sphereImpostor(transformTriangle(sp0, sp2, sp3), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);*/
 		} else {
 			const auto transform =
 				Mat4::translation(sphere.center) *
 				Mat4(Mat3::scale(sphere.radius));
-			renderer.sphereImpostor(transform, sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
+			renderer.sphereImpostor(transform, sphere.center, sphere.radius, n0, n1, n2, n2, planeNormal);
 		}
 	};
 
-	auto renderQuad = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 p3, Vec4 planeNormal4, i32 faceI) {
+	auto renderQuad = [&](Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4, i32 faceI) {
 		const auto p4 = -p0;
 		const auto sp0 = stereographicProjection(p0);
 		const auto sp1 = stereographicProjection(p1);
@@ -602,7 +627,7 @@ void Visualization2::update() {
 		const auto n0 = view4 * face.edgeNormals[0];
 		const auto n1 = view4 * face.edgeNormals[1];
 		const auto n2 = view4 * face.edgeNormals[2];
-		const auto n3 = view4 * face.edgeNormals[3];
+		//const auto n3 = view4 * face.edgeNormals[3];
 
 		if (finitePoints.size() == 4) {
 			/*
@@ -647,9 +672,10 @@ void Visualization2::update() {
 			};
 
 			if (isInf(sphere.radius) || isInf(sphere.center.x) || isInf(sphere.center.y) || isInf(sphere.center.z)) {
-				renderPlaneQuad(planeThoughPolygonVertices, n0, n1, n2, n3, planeNormal4);
+				renderPlaneQuad(planeThoughPolygonVertices, n0, n1, n2, planeNormal4);
 			} else {
-				renderSphericalQuad(sp0, sp1, sp2, stereographicProjection(p3), sphere, n0, n1, n2, n3, planeNormal4);
+				/*renderSphericalQuad(sp0, sp1, sp2, stereographicProjection(p3), sphere, n0, n1, n2, n3, planeNormal4);*/
+				renderSphericalQuad(sp0, sp1, sp2, sphere, n0, n1, n2, planeNormal4);
 			}
 
 			//// Could check if the deviation is less than the radius of the tubes.
@@ -668,14 +694,14 @@ void Visualization2::update() {
 		const auto& p0 = transformedVertices4[face.vertices[0]];
 		const auto& p1 = transformedVertices4[face.vertices[1]];
 		const auto& p2 = transformedVertices4[face.vertices[2]];
-		const auto& p3 = transformedVertices4[face.vertices[3]];
+		//const auto& p3 = transformedVertices4[face.vertices[3]];
 		Vec4 normal(0.0f);
 		for (i32 i = 0; i < cell.faces.size(); i++) {
 			if (cell.faces[i] == faceI) {
 				normal = cell.faceNormals[i];
 			}
 		}
-		renderQuad(p0, p1, p2, p3, normal, faceI);
+		renderQuad(p0, p1, p2, normal, faceI);
 		
 		//const auto faceCenter = ((p0 + p1 + p2) / 3.0f).normalized();
 		//const auto transformedFaceCenter = stereographicProjection(faceCenter);
@@ -738,6 +764,61 @@ void Visualization2::update() {
 		}
 	}
 
+
+	for (auto& face : visibleFaces) {
+		/*const auto& normals = faces[face.faceI].edgeNormals;
+		std::vector<Vec4> transformedNormals;
+		for (const auto& normal : normals) {
+			transformedNormals.push_back(view4 * normal);
+		}
+		const auto t = rayStereographicPolygonIntersection(ray, face.plane, constView(transformedNormals));
+		if (!t.has_value()) {
+			continue;
+		}
+		renderer.sphere(ray.at(*t), 0.01f, Color3::GREEN);
+		if (!hit.has_value() || t < hit->t) {
+			hit = Hit{ .t = *t, .face = &face };
+		}*/
+	}
+
+	auto makeStereographicSphere = [](Vec4 pos, f32 radius) {
+		const auto p = stereographicProjection(pos);
+		const auto p0 = moveForwardStereographic(p, Vec3(1.0f, 0.0f, 0.0f), radius);
+		const auto p1 = moveForwardStereographic(p, Vec3(0.0f, 1.0f, 0.0f), radius);
+		const auto p2 = moveForwardStereographic(p, Vec3(0.0f, 0.0f, 1.0f), radius);
+		const auto p3 = moveForwardStereographic(p, Vec3(-1.0f, 0.0f, 0.0f), radius);
+		const auto s = Sphere::thoughPoints(p0, p1, p2, p3);
+		return s;
+	};
+
+	auto drawSphere = [&](Vec4 pos, f32 radius) {
+		const auto p4 = view4 * pos;
+		const auto s = makeStereographicSphere(p4, radius);
+		const auto transform =
+			Mat4::translation(s.center) *
+			Mat4(Mat3::scale(s.radius));
+		renderer.sphereImpostorCube(transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
+	};
+
+	world.Step(1.0f / 60.0f);
+	for (const auto& body : world.bodies) {
+		drawSphere(body->position, body->radius);
+		const auto s = makeStereographicSphere(view4 * body->position, body->radius);
+
+		const auto hit = raySphereIntersection(ray, s.center, s.radius);
+		if (hit.has_value()) {
+			if (Input::isMouseButtonHeld(MouseButton::LEFT)) {
+				body->force -= inverseStereographicProjectionJacobian(stereographicProjection(body->position), ray.direction).normalized() * 5.0f;
+			}
+		}
+	}
+
+	/*for (const auto& body : world.bodies) {
+		body->
+	}*/
+	/*drawSphere(Vec4(1.0f, 0.0f, 0.0f, 0.0f), 0.3f);
+	drawSphere(Vec4(0.0f, 1.0f, 0.0f, 0.0f), 0.3f);
+	drawSphere(Vec4(0.0f, 0.0f, 1.0f, 0.0f), 0.3f);*/
 	/*for (const auto& cellI : setCells) {
 		auto& cell = cells[cellI];
 		for (const auto& face : cell.faces) {

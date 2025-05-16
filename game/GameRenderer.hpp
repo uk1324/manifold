@@ -11,6 +11,7 @@
 #include <game/Shaders/sphericalPolygonData.hpp>
 #include <game/Shaders/homogenousData.hpp>
 #include <game/Shaders/sphereImpostorData.hpp>
+#include <game/Shaders/sphereImpostor2Data.hpp>
 #include <game/Polyhedra.hpp>
 #include <game/Cubemap.hpp>
 
@@ -127,10 +128,13 @@ struct GameRenderer {
 	std::vector<SphereLodLevel> sphereLods;
 
 	ShaderProgram& sphereImpostorsShader;
+	ShaderProgram& sphereImpostors2Shader;
 	Mesh sphereImpostorMesh;
 	Mesh sphereImpostorMeshTri;
 	std::vector<SphereImpostorInstance> sphereImpostors;
+	std::vector<SphereImpostor2Instance> sphereImpostorsCubes;
 	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
+	void sphereImpostorCube(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
 	void renderSphereImpostors();
 
 	bool useImpostorsTriangles = true;

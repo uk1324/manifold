@@ -50,13 +50,6 @@ void main() {
     vec3 hitPos = ray * i + cameraPos;
     
 	vec4 pos4 = inverseStereographicProjection(sphereCenter + normalize(hitPos - sphereCenter) * sphereRadius);
-    //vec4 pos4 = inverseStereographicProjection(hitPos);
-    //float e = -0.001;
-    float e = 0.0;
-    if (dot(pos4, n0) < e) discard;
-	if (dot(pos4, n1) < e) discard;
-	if (dot(pos4, n2) < e) discard;
-	if (dot(pos4, n3) < e) discard;
 
     vec4 clipPos = transform * vec4(hitPos, 1.0);
     gl_FragDepth = (clipPos.z / clipPos.w + 1.0) / 2.0;
@@ -64,16 +57,5 @@ void main() {
     //fragColor = vec4(vec3(abs(i)), 1.0);
    // fragColor = vec4(worldPos, 1.0);
     //fragColor = vec4(cameraPos, 0.5);
-    float d0 = abs(dot(pos4, n0));
-    float d1 = abs(dot(pos4, n1));
-    float d2 = abs(dot(pos4, n2));
-    float d3 = abs(dot(pos4, n3));
-    float d = min(d0, d1);
-    d = min(d, d2);
-    d = min(d, d3);
-
-    d = smoothstep(0.01, 0.011, d);
     fragColor = shade(hitPos, cameraPos4, -viewInverse4 * pos4, planeNormal);
-
-    fragColor.xyz = mix(vec3(0.7), fragColor.xyz, d);
 }

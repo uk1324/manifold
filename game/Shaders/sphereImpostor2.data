@@ -1,0 +1,30 @@
+import "sphereImpostor.data";
+
+shader SphereImpostor2 {
+	vertexStruct = SphereImpostorVertex;
+	vertUniforms = {
+		Mat4 transform; 
+	};
+	fragUniforms = {
+		Vec3 cameraPos;
+		Vec4 cameraPos4;
+		Mat4 viewInverse4;
+	};
+	vertInstance = {
+		Mat4 transform;
+	};
+	fragInstance = {
+		Vec3 sphereCenter;
+		float sphereRadius;
+
+		Vec4 n0;
+		Vec4 n1;
+		Vec4 n2;
+		Vec4 n3;
+		Vec4 planeNormal;
+	};
+	vertOut = {
+		Vec3 worldPos;
+		Vec3 rayDir;
+	};
+}
