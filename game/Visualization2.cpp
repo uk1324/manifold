@@ -67,7 +67,8 @@ Visualization2 Visualization2::make() {
 
 	//const auto c = crossPolytope(4);
 	//const auto c = hypercube(4);
-	const auto c = subdiviedHypercube4(4);
+	//const auto c = subdiviedHypercube4(4);
+	const auto c = make600cell();
 	for (i32 i = 0; i < c.vertices.size(); i++) {
 		const auto t = f32(i) / f32(c.vertices.size() - 1);
 		const auto& vertex = c.vertices[i];
@@ -377,10 +378,10 @@ void Visualization2::update() {
 		}
 	};
 
-	Vec4 p0(0.0f, 0.0f, 0.0f, 1.0f);
+	/*Vec4 p0(0.0f, 0.0f, 0.0f, 1.0f);
 	Vec4 p1(0.0f, 0.0f, 1.0f, 0.0f);
 	const auto s = StereographicSegment::fromEndpoints(view4 * p0, view4 * p1);
-	lineGenerator.addStereographicArc(s, 0.01f);
+	lineGenerator.addStereographicArc(s, 0.01f);*/
 
 	std::vector<Vec4> transformedVertices4;
 	for (const auto& vertex : vertices) {

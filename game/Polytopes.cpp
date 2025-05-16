@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <unordered_map>
 #include <engine/Math/Quat.hpp>
+#include <game/600cell.hpp>
+#include <View.hpp>
 
 void addPyramid(
 	Polytope& polytope, 
@@ -536,6 +538,76 @@ Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex) {
 		}
 	}
 	return sortedEdgesIndices;
+}
+
+Polytope make600cell() {
+	Polytope r;
+	//for (i32 i = 0; i < std::size(vertices600cell); i++) {
+	//	const auto& p = vertices600cell[i];
+	//	r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
+	//}
+	//auto addCells = [](Polytope::CellsN& out, View<const i32> in, i32 subCellsPerCell) {
+	//	for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
+	//		Polytope::CellN cell;
+	//		for (i32 j = 0; j < subCellsPerCell; j++) {
+	//			cell.push_back(in[i + j]);
+	//		}
+	//		out.push_back(std::move(cell));
+	//	}
+	//};
+	//r.cells.push_back(Polytope::CellsN{});
+	//auto& edges = r.cells.back();
+	//addCells(edges, constView(edges600cell), 2);
+
+	//r.cells.push_back(Polytope::CellsN{});
+	//auto& faces = r.cells.back();
+	//addCells(faces, constView(faces600cell), 3);
+
+	//r.cells.push_back(Polytope::CellsN{});
+	//auto& cells = r.cells.back();
+	//addCells(cells, constView(cells600cell), 4);
+
+
+	for (i32 i = 0; i < std::size(vertices600cell); i++) {
+		const auto& p = vertices600cell[i];
+		r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
+	}
+	auto addCells = [](Polytope::CellsN& out, i32 cellCount, View<const i32> subCellToCells, i32 cellsPerSubCell) {
+		out.resize(cellCount);
+
+		for (i32 subCellI = 0; subCellI < subCellToCells.size() / cellsPerSubCell; subCellI++) {
+			for (i32 i = 0; i < cellsPerSubCell; i++) {
+				auto cellI = subCellToCells[subCellI * cellsPerSubCell + i];
+				out[cellI].push_back(subCellI);
+			}
+		}
+		/*for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
+			Polytope::CellN cell;
+			for (i32 j = 0; j < subCellsPerCell; j++) {
+				cell.push_back(in[i + j]);
+			}
+			out.push_back(std::move(cell));
+		}*/
+	};
+	r.cells.push_back(Polytope::CellsN{});
+	auto& edges = r.cells.back();
+	for (i32 i = 0; i < std::size(edges600cell); i += 2) {
+		Polytope::CellN cell;
+		for (i32 j = 0; j < 2; j++) {
+			cell.push_back(edges600cell[i + j]);
+		}
+		edges.push_back(std::move(cell));
+	}
+
+	r.cells.push_back(Polytope::CellsN{});
+	auto& faces = r.cells.back();
+	addCells(faces, std::size(faces600cell) / 3, constView(edgeToFaces600cell), 5);
+
+	r.cells.push_back(Polytope::CellsN{});
+	auto& cells = r.cells.back();
+	addCells(cells, std::size(cells600cell) / 4, constView(faceToCells600cell), 2);
+
+	return r;
 }
 
 std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, i32 faceIndex) {

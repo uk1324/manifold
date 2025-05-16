@@ -28,3 +28,6 @@ std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, const Polytope
  
 // Normally the edges of a face of a polytope can be in any order. This function sorts them so that they are in a cyclic order, that is if an edge contains a vertex then next edge contains one vertex and the previous also contains one vertex. The vertices of the edges are not changed. If a polytope is nonorientable then it isn't possible to consistently orient the edges.
 Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex);
+
+
+Polytope make600cell();
