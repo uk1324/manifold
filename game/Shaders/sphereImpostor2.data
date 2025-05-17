@@ -15,6 +15,7 @@ shader SphereImpostor2 {
 	};
 	fragInstance = {
 		Vec3 sphereCenter;
+		Vec4 sphereCenter4;
 		float sphereRadius;
 
 		Vec4 n0;

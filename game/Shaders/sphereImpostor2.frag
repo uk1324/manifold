@@ -8,6 +8,7 @@ in vec3 worldPos;
 in vec3 rayDir; 
 
 in vec3 sphereCenter; 
+in vec4 sphereCenter4; 
 in float sphereRadius; 
 in vec4 n0; 
 in vec4 n1; 
@@ -50,6 +51,7 @@ void main() {
     vec3 hitPos = ray * i + cameraPos;
     
 	vec4 pos4 = inverseStereographicProjection(sphereCenter + normalize(hitPos - sphereCenter) * sphereRadius);
+    //pos4 -= cameraPos4;
 
     vec4 clipPos = transform * vec4(hitPos, 1.0);
     gl_FragDepth = (clipPos.z / clipPos.w + 1.0) / 2.0;
@@ -57,5 +59,6 @@ void main() {
     //fragColor = vec4(vec3(abs(i)), 1.0);
    // fragColor = vec4(worldPos, 1.0);
     //fragColor = vec4(cameraPos, 0.5);
-    fragColor = shade(hitPos, cameraPos4, -viewInverse4 * pos4, planeNormal);
+    fragColor = shade(hitPos, cameraPos4, quatMultiply(-viewInverse4 * pos4, quatInverseIfNormalized(sphereCenter4)), planeNormal);
+    //fragColor = shade(hitPos, cameraPos4, pos4, planeNormal);
 }

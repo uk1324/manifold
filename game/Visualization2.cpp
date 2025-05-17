@@ -13,6 +13,7 @@
 #include <engine/Math/GramSchmidt.hpp>
 #include <game/Stereographic.hpp>
 #include <iostream>
+#include <game/4d.hpp>
 #include <game/Physics/Body.hpp>
 
 Visualization2 Visualization2::make() {
@@ -43,17 +44,50 @@ Visualization2 Visualization2::make() {
 		);
 	};
 
-	for (i32 i = 0; i < 10; i++) {
-		
+	//for (i32 i = 0; i < 30; i++) {
+	//	
+	//	r.world.bodies.push_back(new Body{});
+	//	//r.world.bodies.back()->set(0.3f, 0.5f);
+	//	r.world.bodies.back()->set(0.1f, 0.5f);
+	//	r.world.bodies.back()->position = randomVec4().normalized();
+	//	/*const auto p = moveForwardStereographic(Vec3(0.0f), Vec3(1.0f, 0.0f, 0.0f), f32(i) / f32(10));
+	//	r.world.bodies.back()->position = inverseStereographicProjection(p);*/
+	//}
+	//{
+	//	const auto p0 = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	//	const auto direction = Vec4(1.0f, 0.0f, 0.0f, 0.0f);
+	//	const auto p1 = moveForwardOnSphere(p0, direction);
+	//	const auto v1 = normalizedDirectionFromAToB(p1, p0);
+
+	//	r.world.bodies.push_back(new Body{});
+	//	r.world.bodies.back()->set(0.3f, 1.0f);
+	//	r.world.bodies.back()->position = p0;
+	//	r.world.bodies.back()->velocity = direction;
+
+	//	r.world.bodies.push_back(new Body{});
+	//	r.world.bodies.back()->set(0.3f, 1.0f);
+	//	r.world.bodies.back()->position = p1;
+	//	r.world.bodies.back()->velocity = v1;
+	//}
+
+	{
+		const auto hitPos = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		const auto direction = Vec4(0.5f, 0.0f, 0.0f, 0.0f);
+		const auto p0 = moveForwardOnSphere(hitPos, -direction);
+		const auto p1 = moveForwardOnSphere(hitPos, direction);
+		const auto v0 = normalizedDirectionFromAToB(p0, hitPos);
+		const auto v1 = normalizedDirectionFromAToB(p1, hitPos);
+
 		r.world.bodies.push_back(new Body{});
-		r.world.bodies.back()->set(0.1f, 1.0f);
-		r.world.bodies.back()->position = randomVec4().normalized();
-		/*const auto p = moveForwardStereographic(Vec3(0.0f), Vec3(1.0f, 0.0f, 0.0f), f32(i) / f32(10));
-		r.world.bodies.back()->position = inverseStereographicProjection(p);*/
+		r.world.bodies.back()->set(0.3f, 1.0f);
+		r.world.bodies.back()->position = p0;
+		r.world.bodies.back()->velocity = v0;
+
+		r.world.bodies.push_back(new Body{});
+		r.world.bodies.back()->set(0.3f, 1.0f);
+		r.world.bodies.back()->position = p1;
+		r.world.bodies.back()->velocity = v1;
 	}
-	//r.world.bodies.push_back(new Body{});
-	//r.world.bodies.back()->set(0.1f, 1.0f);
-	//r.world.bodies.back()->position = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	auto outwardPointingFaceNormal = [&](const std::vector<Vec4>& vertices, const std::vector<Face>& faces, const std::vector<i32>& cellFaces, i32 faceI) {
 		const auto& face = faces[faceI];
@@ -145,7 +179,7 @@ Visualization2 Visualization2::make() {
 		r.cells.push_back(Cell{ .faces = cell, .faceNormals = std::move(faceNormals) });
 	}
 	r.isCellSet.resize(r.cells.size(), false);
-	r.isCellSet[0] = true;
+	//r.isCellSet[0] = true;
 	{
 		std::vector<StaticList<i32, 2>> faceToCells;
 		faceToCells.resize(r.faces.size());
@@ -584,7 +618,8 @@ void Visualization2::update() {
 				return Mat4(
 					Vec4(v0 - v2, 0.0f),
 					Vec4(v1 - v2, 0.0f),
-					Vec4(0.0f),
+					//Vec4(0.0f),
+					Vec4(0.0f, 0.0f, 0.0f, 0.0f),
 					Vec4(v2, 1.0f)
 				);
 			};
@@ -797,21 +832,45 @@ void Visualization2::update() {
 		const auto transform =
 			Mat4::translation(s.center) *
 			Mat4(Mat3::scale(s.radius));
-		renderer.sphereImpostorCube(transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
+		renderer.sphereImpostorCube(pos, transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
 	};
 
 	world.Step(1.0f / 60.0f);
-	for (const auto& body : world.bodies) {
-		drawSphere(body->position, body->radius);
-		const auto s = makeStereographicSphere(view4 * body->position, body->radius);
 
-		const auto hit = raySphereIntersection(ray, s.center, s.radius);
-		if (hit.has_value()) {
+	{
+		struct BodyHit {
+			f32 t;
+			Body* b;
+		};
+		std::optional<BodyHit> bodyHit;
+		for (const auto& body : world.bodies) {
+			drawSphere(body->position, body->radius);
+			const auto s = makeStereographicSphere(view4 * body->position, body->radius);
+
+			const auto hitT = raySphereIntersection(ray, s.center, s.radius);
+			if (hitT.has_value() && (!bodyHit.has_value() || *hitT < bodyHit->t)) {
+				bodyHit = BodyHit{
+					.t = *hitT,
+					.b = body
+				};
+			}
+		}
+
+		if (bodyHit.has_value()) {
+			const auto hit = ray.at(bodyHit->t);
+			const auto p0 = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			const auto p1 = inverseStereographicProjection(hit);
+			Vec4 direction = p0 - dot(p0, p1) * p1;
+			direction = direction.normalized();
+			direction *= view4.inversed();
 			if (Input::isMouseButtonHeld(MouseButton::LEFT)) {
-				body->force -= inverseStereographicProjectionJacobian(stereographicProjection(body->position), ray.direction).normalized() * 5.0f;
+				/*body->force -= inverseStereographicProjectionJacobian(stereographicProjection(body->position), ray.direction).normalized() * 5.0f;*/
+				bodyHit->b->force += direction * 2.0f;
 			}
 		}
 	}
+
+
 
 	/*for (const auto& body : world.bodies) {
 		body->

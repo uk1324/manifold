@@ -134,14 +134,14 @@ struct GameRenderer {
 	std::vector<SphereImpostorInstance> sphereImpostors;
 	std::vector<SphereImpostor2Instance> sphereImpostorsCubes;
 	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
-	void sphereImpostorCube(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
+	void sphereImpostorCube(Vec4 center4, Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
 	void renderSphereImpostors();
 
 	bool useImpostorsTriangles = true;
 
 	Gfx2d gfx2d;
 
-	Vec4 cameraPos4 = Vec4(0.0f);
+	Vec4 cameraPos4 = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	Mat4 viewInverse4 = Mat4::identity;
 
 	Vbo instancesVbo;

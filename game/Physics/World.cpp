@@ -81,12 +81,16 @@ void World::Step(float dt)
 		if (b->invMass == 0.0f)
 			continue;
 
-		Vec4 gravity(0.0f, 0.0f, 0.0f, -3.0f);
+		//Vec4 gravity(0.0f, 0.0f, 0.0f, -1.0f);
+		Vec4 gravity(0.0f, 0.0f, 0.0f, 0.0f);
 
 		// It doesn't matter if the parts of vectors that are outside the tangent space are removed before or after adding, because the removing is linear.
 		Vec4 a = dt * (gravity + b->invMass * b->force);
-		a = projectVectorToSphereTangentSpace(b->position, a);
+		//a = projectVectorToSphereTangentSpace(b->position, a);
 		b->velocity += a;
+		//b->velocity *= 0.97f;
+		//b->velocity *= 0.99f;
+		b->velocity = projectVectorToSphereTangentSpace(b->position, b->velocity);
 		//b->velocity += dt * (gravity + b->invMass * b->force);
 		//b->angularVelocity += dt * b->invI * b->torque;
 	}

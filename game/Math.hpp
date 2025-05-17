@@ -24,5 +24,6 @@ Vec3 coordinatesInOrthonormal3Basis(const Vec4 orthonormalBasis[3], Vec4 v);
 Vec4 linearCombination(const Vec4 vs[3], Vec3 v);
 
 std::array<Vec4, 3> orthonormalBasisFor3Space(Vec4 normal);
+std::array<Vec4, 2> basisForOrthogonalComplement(Vec4 v0, Vec4 v1);
 // a and b are points on the unit sphere
 Quat unitSphereRotateAToB(Vec3 a, Vec3 b);

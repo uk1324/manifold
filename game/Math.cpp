@@ -94,6 +94,36 @@ std::array<Vec4, 3> orthonormalBasisFor3Space(Vec4 normal) {
 	};
 }
 
+std::array<Vec4, 2> basisForOrthogonalComplement(Vec4 v0, Vec4 v1) {
+	// alternative
+	// https://www.geometrictools.com/Documentation/OrthonormalSets.pdf
+	// Orthonormalize plane basis.
+	v0 = v0.normalized();
+	v1 -= dot(v1, v0) * v0;
+	v1 = v1.normalized();
+
+	Vec4 candidates[]{
+		Vec4(1.0f, 0.0f, 0.0f, 0.0f),
+		Vec4(0.0f, 1.0f, 0.0f, 0.0f),
+		Vec4(0.0f, 0.0f, 1.0f, 0.0f),
+		Vec4(0.0f, 0.0f, 0.0f, 1.0f)
+	};
+	for (i32 i = 0; i < 4; i++) {
+		auto& candidate = candidates[i];
+		candidate -= dot(candidate, v0) * v0;
+		candidate -= dot(candidate, v1) * v1;
+	}
+	// @Performance: Calculate lengths once and sort an array of indices.
+	std::ranges::sort(candidates, [](Vec4 a, Vec4 b) -> bool {
+		return a.length() > b.length();
+	});
+	gramSchmidtOrthonormalize(View<Vec4>(candidates, 2));
+	return std::array<Vec4, 2>{
+		candidates[0],
+		candidates[1],
+	};
+}
+
 // a and b are points on the unit sphere
 Quat unitSphereRotateAToB(Vec3 a, Vec3 b) {
 	auto rotationAxis = cross(a, b).normalized();

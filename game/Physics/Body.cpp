@@ -1,7 +1,7 @@
 #include "Body.hpp"
 
 Body::Body()
-	: position(Vec4(0.0f))
+	: position(Vec4(0.0f, 0.0f, 0.0f, 1.0f))
 	, velocity(Vec4(0.0f))
 	, force(Vec4(0.0f)) {
 	//position.Set(0.0f, 0.0f);

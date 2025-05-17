@@ -20,6 +20,8 @@ struct Contact
 {
 	Contact() : Pn(0.0f), Pt(0.0f), Pnb(0.0f) {}
 
+	Vec4 normalAToB = Vec4(0.0f);
+	Vec4 normalBToA = Vec4(0.0f);
 	Vec4 position = Vec4(0.0f);
 	Vec4 normal = Vec4(0.0f);
 	Vec4 r1 = Vec4(0.0f), r2 = Vec4(0.0f);

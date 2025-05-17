@@ -742,17 +742,18 @@ void GameRenderer::sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec
 	});
 }
 
-void GameRenderer::sphereImpostorCube(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
+void GameRenderer::sphereImpostorCube(Vec4 center4, Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 
 	sphereImpostorsCubes.push_back(SphereImpostor2Instance{
 		.transform = transform,
 		.sphereCenter = position,
+		.sphereCenter4 = center4,
 		.sphereRadius = radius,
 		.n0 = n0,
 		.n1 = n1,
 		.n2 = n2,
 		.n3 = n3,
-		.planeNormal = planeNormal
+		.planeNormal = planeNormal,
 	});
 }
 
