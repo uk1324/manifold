@@ -2,6 +2,11 @@
 #include <engine/Math/Quat.hpp>
 #include <game/Math.hpp>
 
+Vec4 quatMul(Vec4 a, Vec4 b) {
+	const auto r = Quat(a.x, a.y, a.z, a.w) * Quat(b.x, b.y, b.z, b.w);
+	return Vec4(r.x, r.y, r.z, r.w);
+}
+
 Vec4 projectVectorToSphereTangentSpace(Vec4 pointOnSphere, Vec4 anyVector) {
 	const auto& normalToTangentSpace = pointOnSphere.normalized();
 	const auto d = dot(anyVector, normalToTangentSpace);
@@ -18,6 +23,62 @@ Vec4 moveForwardOnSphere(Vec4 initialPosition, Vec4 direction) {
 	Quat movement = quatExp(Vec3(v.x, v.y, v.z));
 	Quat r = (p * movement).normalized();
 	return Vec4(r.x, r.y, r.z, r.w);
+}
+
+Vec4 movementForwardOnSphereQuick(Vec4 initialPosition, Vec4 direction) {
+	const auto p = Quat(initialPosition.x, initialPosition.y, initialPosition.z, initialPosition.w).normalized();
+	auto v = Quat(direction.x, direction.y, direction.z, direction.w);
+	// Move to identity
+	v *= p.inverseIfNormalized();
+	Quat movement = quatExp(Vec3(v.x, v.y, v.z));
+	return Vec4(movement.x, movement.y, movement.z, movement.w);
+}
+
+Mat4 movementForwardOnSphere(Vec4 initialPosition, Vec4 direction) {
+	const auto rotationPlaneBasis0 = initialPosition.normalized();
+	auto rotationPlaneBasis1 = direction;
+	rotationPlaneBasis1 -= dot(rotationPlaneBasis0, rotationPlaneBasis1) * rotationPlaneBasis0;
+	rotationPlaneBasis1 = rotationPlaneBasis1.normalized();
+	const auto speed = direction.length();
+	if (speed == 0.0f) {
+		return Mat4::identity;
+	}
+
+	const auto orthogonalPlaneBasis = basisForOrthogonalComplement(rotationPlaneBasis0, rotationPlaneBasis1);
+
+	auto vectorToBasis = [&](Vec4 v) -> Vec4 {
+		return Vec4(
+			dot(v, rotationPlaneBasis0),
+			dot(v, rotationPlaneBasis1),
+			dot(v, orthogonalPlaneBasis[0]),
+			dot(v, orthogonalPlaneBasis[1])
+		);
+	};
+	const auto v0 = vectorToBasis(Vec4(1.0f, 0.0f, 0.0f, 0.0f));
+	const auto v1 = vectorToBasis(Vec4(0.0f, 1.0f, 0.0f, 0.0f));
+	const auto v2 = vectorToBasis(Vec4(0.0f, 0.0f, 1.0f, 0.0f));
+	const auto v3 = vectorToBasis(Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	auto vectorFromBasis = [&](Vec4 v) -> Vec4 {
+		return 
+			v.x * rotationPlaneBasis0 +
+			v.y * rotationPlaneBasis1 +
+			v.z * orthogonalPlaneBasis[0] +
+			v.w * orthogonalPlaneBasis[1];
+	};
+	auto transform = [&](Vec4 v) -> Vec4 {
+		return Vec4(
+			cos(speed) * v.x - sin(speed) * v.y,
+			sin(speed) * v.x + cos(speed) * v.y,
+			v.z,
+			v.w
+		);
+	};
+	return Mat4(
+		vectorFromBasis(transform(v0)),
+		vectorFromBasis(transform(v1)),
+		vectorFromBasis(transform(v2)),
+		vectorFromBasis(transform(v3))
+	);
 }
 
 Vec4 normalizedDirectionFromAToB(Vec4 a, Vec4 b) {

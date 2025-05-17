@@ -33,7 +33,8 @@ Visualization2 Visualization2::make() {
 		MOVE(renderer),
 	};
 	auto randomF32 = []() -> f32 {
-		return f32(rand()) / f32(RAND_MAX);
+		//return f32(rand()) / f32(RAND_MAX);
+		return 2.0f * (f32(rand()) / f32(RAND_MAX) - 0.5f);
 	};
 	auto randomVec4 = [&randomF32]() -> Vec4 {
 		return Vec4(
@@ -44,15 +45,15 @@ Visualization2 Visualization2::make() {
 		);
 	};
 
-	//for (i32 i = 0; i < 30; i++) {
-	//	
-	//	r.world.bodies.push_back(new Body{});
-	//	//r.world.bodies.back()->set(0.3f, 0.5f);
-	//	r.world.bodies.back()->set(0.1f, 0.5f);
-	//	r.world.bodies.back()->position = randomVec4().normalized();
-	//	/*const auto p = moveForwardStereographic(Vec3(0.0f), Vec3(1.0f, 0.0f, 0.0f), f32(i) / f32(10));
-	//	r.world.bodies.back()->position = inverseStereographicProjection(p);*/
-	//}
+	for (i32 i = 0; i < 2; i++) {
+		
+		r.world.bodies.push_back(new Body{});
+		//r.world.bodies.back()->set(0.3f, 0.5f);
+		r.world.bodies.back()->set(0.1f, 0.5f);
+		r.world.bodies.back()->position = randomVec4().normalized();
+		/*const auto p = moveForwardStereographic(Vec3(0.0f), Vec3(1.0f, 0.0f, 0.0f), f32(i) / f32(10));
+		r.world.bodies.back()->position = inverseStereographicProjection(p);*/
+	}
 	//{
 	//	const auto p0 = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	//	const auto direction = Vec4(1.0f, 0.0f, 0.0f, 0.0f);
@@ -70,24 +71,24 @@ Visualization2 Visualization2::make() {
 	//	r.world.bodies.back()->velocity = v1;
 	//}
 
-	{
-		const auto hitPos = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		const auto direction = Vec4(0.5f, 0.0f, 0.0f, 0.0f);
-		const auto p0 = moveForwardOnSphere(hitPos, -direction);
-		const auto p1 = moveForwardOnSphere(hitPos, direction);
-		const auto v0 = normalizedDirectionFromAToB(p0, hitPos);
-		const auto v1 = normalizedDirectionFromAToB(p1, hitPos);
+	//{
+	//	const auto hitPos = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	//	const auto direction = Vec4(0.5f, 0.0f, 0.0f, 0.0f);
+	//	const auto p0 = moveForwardOnSphere(hitPos, -direction);
+	//	const auto p1 = moveForwardOnSphere(hitPos, direction);
+	//	const auto v0 = normalizedDirectionFromAToB(p0, hitPos);
+	//	const auto v1 = normalizedDirectionFromAToB(p1, hitPos);
 
-		r.world.bodies.push_back(new Body{});
-		r.world.bodies.back()->set(0.3f, 1.0f);
-		r.world.bodies.back()->position = p0;
-		r.world.bodies.back()->velocity = v0;
+	//	r.world.bodies.push_back(new Body{});
+	//	r.world.bodies.back()->set(0.3f, 1.0f);
+	//	r.world.bodies.back()->position = p0;
+	//	r.world.bodies.back()->velocity = v0;
 
-		r.world.bodies.push_back(new Body{});
-		r.world.bodies.back()->set(0.3f, 1.0f);
-		r.world.bodies.back()->position = p1;
-		r.world.bodies.back()->velocity = v1;
-	}
+	//	r.world.bodies.push_back(new Body{});
+	//	r.world.bodies.back()->set(0.3f, 1.0f);
+	//	r.world.bodies.back()->position = p1;
+	//	r.world.bodies.back()->velocity = v1;
+	//}
 
 	auto outwardPointingFaceNormal = [&](const std::vector<Vec4>& vertices, const std::vector<Face>& faces, const std::vector<i32>& cellFaces, i32 faceI) {
 		const auto& face = faces[faceI];

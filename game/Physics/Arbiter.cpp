@@ -186,6 +186,8 @@ Vec4 velocityAtPoint(const Body& body, Vec4 point) {
 		rotationPlaneBasis0 * velocity.x + 
 		rotationPlaneBasis1 * velocity.y;
 }
+// Here is a formula using left contraction to get the velocity of a point. Without derivation.
+// https://marctenbosch.com/ndphysics/NDrigidbody.pdf
 
 
 //Vec4 velocityAtPoint(const Body& body, Vec4 point) {

@@ -88,7 +88,7 @@ void World::Step(float dt)
 		Vec4 a = dt * (gravity + b->invMass * b->force);
 		//a = projectVectorToSphereTangentSpace(b->position, a);
 		b->velocity += a;
-		//b->velocity *= 0.97f;
+		b->velocity *= 0.97f;
 		//b->velocity *= 0.99f;
 		b->velocity = projectVectorToSphereTangentSpace(b->position, b->velocity);
 		//b->velocity += dt * (gravity + b->invMass * b->force);
@@ -125,10 +125,27 @@ void World::Step(float dt)
 	{
 		Body* b = bodies[i];
 
+		const auto t = dot(b->position.normalized(), b->velocity.normalized());
+		CHECK(t < 0.01f);
 		//b->position += dt * b->velocity;
 		//const auto 
-		b->position = moveForwardOnSphere(b->position, b->velocity * dt);
+		const auto movement = movementForwardOnSphere(b->position, b->velocity * dt);
+		//if ((movement * b->position - b->position).length() > 0.1f) {
+		//	int x = 5;
+		//}
+
+		//b->position = moveForwardOnSphere(b->position, b->velocity * dt);
+		b->position = movement * b->position;
 		b->position = b->position.normalized();
+		//b->position = quatMul(movement, b->position);
+		//b->position = quatMul(b->position, movement);
+		
+		b->velocity = movement * b->velocity;
+		const auto length = b->velocity.length();
+		b->velocity = b->velocity.normalized();
+		b->velocity *= length;
+		//b->velocity = quatMul(movement, b->velocity);
+		////b->velocity = quatMul(b->velocity, movement);
 		// TODO: move velocity.
 		//b->rotation += dt * b->angularVelocity;
 
