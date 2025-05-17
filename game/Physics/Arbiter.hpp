@@ -24,6 +24,7 @@ struct Contact
 	Vec4 normalBToA = Vec4(0.0f);
 	Vec4 position = Vec4(0.0f);
 	Vec4 normal = Vec4(0.0f);
+	Vec4 normalAtPosition = Vec4(0.0f);
 	Vec4 r1 = Vec4(0.0f), r2 = Vec4(0.0f);
 	float separation;
 	float Pn;	// accumulated normal impulse
@@ -60,7 +61,7 @@ struct Arbiter
 	void Update(Contact* contacts, int numContacts);
 
 	void PreStep(float inv_dt);
-	void ApplyImpulse();
+	void applyImpulse();
 
 	Contact contacts[MAX_POINTS];
 	int numContacts;
@@ -84,4 +85,4 @@ inline bool operator < (const ArbiterKey& a1, const ArbiterKey& a2)
 	return false;
 }
 
-int Collide(Contact* contacts, Body* body1, Body* body2);
+int collide(Contact* contacts, Body* body1, Body* body2);

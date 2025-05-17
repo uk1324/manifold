@@ -1,6 +1,7 @@
 #include "4d.hpp"
 #include <engine/Math/Quat.hpp>
 #include <game/Math.hpp>
+#include <algorithm>
 
 Vec4 quatMul(Vec4 a, Vec4 b) {
 	const auto r = Quat(a.x, a.y, a.z, a.w) * Quat(b.x, b.y, b.z, b.w);
@@ -125,4 +126,8 @@ f32 distanceFromPlaneToPoint(Vec4 planePoint, Vec4 planeSpanning0, Vec4 planeSpa
 	return 
 		parallelepipedArea(point - planePoint, planeSpanning0, planeSpanning1) / 
 		parallelogramArea(planeSpanning0, planeSpanning1);
+}
+
+f32 sphereAngularDistance(Vec4 v0, Vec4 v1) {
+	return acos(std::clamp(dot(v0, v1), -1.0f, 1.0f));
 }

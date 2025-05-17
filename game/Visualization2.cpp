@@ -45,7 +45,7 @@ Visualization2 Visualization2::make() {
 		);
 	};
 
-	for (i32 i = 0; i < 2; i++) {
+	for (i32 i = 0; i < 40; i++) {
 		
 		r.world.bodies.push_back(new Body{});
 		//r.world.bodies.back()->set(0.3f, 0.5f);
@@ -836,7 +836,7 @@ void Visualization2::update() {
 		renderer.sphereImpostorCube(pos, transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
 	};
 
-	world.Step(1.0f / 60.0f);
+	world.step(1.0f / 60.0f);
 
 	{
 		struct BodyHit {

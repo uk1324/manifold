@@ -27,71 +27,96 @@ If we have a point on a circle we get (r cos(w * t), r sin(w * t))
 So the velocity is wr.
 */
 
-Arbiter::Arbiter(Body* b1, Body* b2)
-{
-	if (b1 < b2)
-	{
+
+
+
+
+/*
+We have overlapping 2 shapes
+We find a translation of one of the shapes, such that the shapes no longer overlap.
+This is represented as a velocity vector of a geodesic such that after moving in that direction by the length of the vector the shapes no longer overlap.
+It's probably best if this is a vector of least length that achives this.
+
+We want to modify the velocity of the object along the normal such that after moving that frame
+velocity along the normal is not positive, that is it's either zero or negative
+the penetration is zero
+
+Let p0 and p1 be the deepest penetrating points.
+C(t) = dot(directionFromAToB(p0(t), p1(t)), normalAtP0) < 0.0f, 
+
+directionFromAToB(a, b) = b - dot(b, a) * a;
+C(t) = <p1(t) - <p1(t), p0(t)> * p0(t), n>
+(<p1(t), p0(t)>)' = <p1'(t), p0(t)> + <p1(t), p0'(t)>
+C'(t) = <p1'(t) - (<p1'(t), p0(t)> + <p1(t), p0'(t)>) * p0(t) - <p1(t), p0(t)> * p0'(t), n>
+C' = 
+<p1' - (<p1', p0> + <p1, p0'>) * p0 - <p1, p0> * p0', n> =
+<p1', n> - <(<p1', p0> + <p1, p0'>) * p0, n> - <<p1, p0> * p0', n> = 
+<p1', n> - (<p1', p0> + <p1, p0'>) <p0, n> - <p1, p0> <p0', n>
+// If the points are close then <p1, p0> is near 1. If 
+// <p1', p0> and <p1, p0'> should be close to zero0, because if the points are close then their tangent spaces are nearly equal and then one is a normal to the tangent space and the other vector is a tangent vector.
+In that approximation we get
+
+<p1', n> - <p0', n>
+
+J = [ -n^T, n^T ]
+V = [ p0', p1' ]
+Under this approximation things kinda reduce to normal 3d case.
+
+In spherical geometry object thar are large enough can't be moved apart.
+*/
+Arbiter::Arbiter(Body* b1, Body* b2) {
+	if (b1 < b2) {
 		body1 = b1;
 		body2 = b2;
-	} else
-	{
+	} else {
 		body1 = b2;
 		body2 = b1;
 	}
 
-	numContacts = Collide(contacts, body1, body2);
-
+	numContacts = collide(contacts, body1, body2);
 	friction = sqrtf(body1->friction * body2->friction);
 }
 
-void Arbiter::Update(Contact* newContacts, int numNewContacts)
-{
+void Arbiter::Update(Contact* newContacts, int numNewContacts) {
 	Contact mergedContacts[2];
 
-	for (int i = 0; i < numNewContacts; ++i)
-	{
+	for (i32 i = 0; i < numNewContacts; ++i) {
 		Contact* cNew = newContacts + i;
-		int k = -1;
-		for (int j = 0; j < numContacts; ++j)
-		{
+		i32 k = -1;
+		for (i32 j = 0; j < numContacts; ++j) {
 			Contact* cOld = contacts + j;
-			if (cNew->feature.value == cOld->feature.value)
-			{
+			if (cNew->feature.value == cOld->feature.value) {
 				k = j;
 				break;
 			}
 		}
 
-		if (k > -1)
-		{
+		if (k > -1) {
 			Contact* c = mergedContacts + i;
 			Contact* cOld = contacts + k;
 			*c = *cNew;
-			if (World::warmStarting)
-			{
+			if (World::warmStarting) {
 				c->Pn = cOld->Pn;
 				c->Pt = cOld->Pt;
 				c->Pnb = cOld->Pnb;
-			} else
-			{
+			} else {
 				c->Pn = 0.0f;
 				c->Pt = 0.0f;
 				c->Pnb = 0.0f;
 			}
-		} else
-		{
+		} else {
 			mergedContacts[i] = newContacts[i];
 		}
 	}
 
-	for (int i = 0; i < numNewContacts; ++i)
+	for (i32 i = 0; i < numNewContacts; i++) {
 		contacts[i] = mergedContacts[i];
+	}
 
 	numContacts = numNewContacts;
 }
 
-void Arbiter::PreStep(float inv_dt)
-{
+void Arbiter::PreStep(f32 invDt) {
 	const float k_allowedPenetration = 0.01f;
 	//const float k_allowedPenetration = 0.001f;
 	//float k_biasFactor = World::positionCorrection ? 0.2f : 0.0f;
@@ -99,10 +124,10 @@ void Arbiter::PreStep(float inv_dt)
 
 	for (int i = 0; i < numContacts; ++i)
 	{
-		Contact* c = contacts + i;
+ 		Contact* c = contacts + i;
 
-		Vec4 r1 = c->position - body1->position;
-		Vec4 r2 = c->position - body2->position;
+		/*Vec4 r1 = c->position - body1->position;
+		Vec4 r2 = c->position - body2->position;*/
 
 		// Precompute normal mass, tangent mass, and bias.
 		/*float rn1 = dot(r1, c->normal);
@@ -118,10 +143,9 @@ void Arbiter::PreStep(float inv_dt)
 		//kTangent += body1->invI * (Dot(r1, r1) - rt1 * rt1) + body2->invI * (Dot(r2, r2) - rt2 * rt2);
 		//c->massTangent = 1.0f / kTangent;
 
-		c->bias = -k_biasFactor * inv_dt * std::min(0.0f, c->separation + k_allowedPenetration);
+		c->bias = -k_biasFactor * invDt * std::min(0.0f, c->separation + k_allowedPenetration);
 
-		if (World::accumulateImpulses)
-		{
+		if (World::accumulateImpulses) {
 			// Apply normal + friction impulse
 			//Vec4 P = c->Pn * c->normal + c->Pt * tangent;
 			Vec4 P = c->Pn * c->normal;
@@ -158,12 +182,15 @@ r'(0) =
 [0]
 [0]
 
-dot([x, y, z, w], [-yv, xv, 0, 0]) = 0
+dot([x, y, z, w], [-yv, xv, 0, 0]) = -xyv + yxv = 0
 
 */
 Vec4 velocityAtPoint(const Body& body, Vec4 point) {
 	const auto rotationPlaneBasis0 = body.position;
 	const auto rotationPlaneBasis1 = body.velocity;
+	
+	const auto t1 = dot(rotationPlaneBasis0, rotationPlaneBasis1);
+	CHECK(t1 < 0.01f);
 	//const auto orthogonalPlaneBasis = basisForOrthogonalComplement(rotationPlaneBasis0, rotationPlaneBasis1);
 
 	const auto v = body.velocity.length();
@@ -173,6 +200,7 @@ Vec4 velocityAtPoint(const Body& body, Vec4 point) {
 		//dot(point, orthogonalPlaneBasis[0]),
 		//dot(point, orthogonalPlaneBasis[1])
 	);
+	const auto t2 = p.length();
 
 	const auto velocity = Vec4(
 		-p.y * v,
@@ -180,12 +208,15 @@ Vec4 velocityAtPoint(const Body& body, Vec4 point) {
 		0.0f,
 		0.0f
 	);
-	const auto t0 = dot(velocity, point);
-	//CHECK(t0 < 0.01f);
-	return 
-		rotationPlaneBasis0 * velocity.x + 
+
+	auto result =
+		rotationPlaneBasis0 * velocity.x +
 		rotationPlaneBasis1 * velocity.y;
-}
+
+	const auto t0 = dot(result, point);
+	CHECK(t0 < 0.01f);
+	return result;
+} 
 // Here is a formula using left contraction to get the velocity of a point. Without derivation.
 // https://marctenbosch.com/ndphysics/NDrigidbody.pdf
 
@@ -224,13 +255,11 @@ Vec4 velocityAtPoint(const Body& body, Vec4 point) {
 //	return velocity;
 //}
 
-void Arbiter::ApplyImpulse()
-{
+void Arbiter::applyImpulse() {
 	Body* b1 = body1;
 	Body* b2 = body2;
 
-	for (int i = 0; i < numContacts; ++i)
-	{
+	for (i32 i = 0; i < numContacts; i++) {
 		Contact* c = contacts + i;
 		/*c->r1 = c->position - b1->position;
 		c->r2 = c->position - b2->position;*/
@@ -241,24 +270,22 @@ void Arbiter::ApplyImpulse()
 		const auto velocityAtPos2 = velocityAtPoint(*b2, c->position);
 		const auto velocityAtPos1 = velocityAtPoint(*b1, c->position);
 
-  		Vec4 dv = velocityAtPos2 - velocityAtPos1;
-		const auto t0 = dv.length();
+  		Vec4 relativeVelocityAtContactPosition = velocityAtPos2 - velocityAtPos1;
+		const auto t0 = relativeVelocityAtContactPosition.length();
 		// t0 Should be 2, because the 2 bodies start with velocity 1 and move straight into eachother.
 
 		// Compute normal impulse
 		//float vn = dot(dv, c->normal);
-		float vn = dot(dv, c->normalBToA);
+		float vn = dot(relativeVelocityAtContactPosition, c->normalAtPosition);
 
 		float dPn = c->massNormal * (-vn + c->bias);
 
-		if (World::accumulateImpulses)
-		{
+		if (World::accumulateImpulses) {
 			// Clamp the accumulated impulse
 			float Pn0 = c->Pn;
 			c->Pn = std::max(Pn0 + dPn, 0.0f);
 			dPn = c->Pn - Pn0;
-		} else
-		{
+		} else {
 			dPn = std::max(dPn, 0.0f);
 		}
 

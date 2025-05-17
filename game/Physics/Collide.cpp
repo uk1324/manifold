@@ -29,24 +29,27 @@
 //	return contactCount;
 //}
 
-#include <algorithm>
-
-f32 angleBetween(Vec4 a, Vec4 b) {
-	return acos(std::clamp(dot(a, b), -1.0f, 1.0f));
-}
-
-int Collide(Contact* contacts, Body* bodyA, Body* bodyB) {
+// https://media.steampowered.com/apps/valve/2015/DirkGregorius_Contacts.pdf
+int collide(Contact* contacts, Body* bodyA, Body* bodyB) {
 	const auto aPos = bodyA->position;
 	const auto bPos = bodyB->position;
 	const auto normal = bPos - aPos;
 	//const auto distanceSquared = normal.lengthSquared();
-	const auto distance = angleBetween(aPos, bPos);
+	const auto distance = sphereAngularDistance(aPos, bPos);
 	if (distance > bodyA->radius + bodyB->radius) {
 		//return std::nullopt;
 		return 0;
 	}
+	/*const auto dirFromAToB = normalizedDirectionFromAToB(aPos, bPos);
+	const auto dirFromBToA = normalizedDirectionFromAToB(bPos, aPos);*/
 	const auto dirFromAToB = normalizedDirectionFromAToB(aPos, bPos);
-	const auto dirFromBToA = normalizedDirectionFromAToB(aPos, bPos);
+	const auto dirFromBToA = -normalizedDirectionFromAToB(bPos, aPos);
+	{
+		const auto t0 = dot(dirFromAToB, aPos);
+		const auto t1 = dot(dirFromBToA, bPos);
+		CHECK(t0 < 0.01f);
+		CHECK(t1 < 0.01f);
+	}
 	//Collision collision;
 	//Contact collision;
 	auto& p = contacts[0];
@@ -63,6 +66,7 @@ int Collide(Contact* contacts, Body* bodyA, Body* bodyB) {
 	//p.position = aPos + p.normal * bodyA->radius;
 	//p.position = aPos + p.normal * bodyA->radius;
 	p.position = moveForwardOnSphere(aPos, p.normal * bodyA->radius);
+	p.normalAtPosition = normalizedDirectionFromAToB(p.position, bodyB->position);
 	/*p.id = ContactPointId{ .featureOnA = ContactPointFeature::FACE, .featureOnAIndex = 0, .featureOnB = ContactPointFeature::FACE, .featureOnBIndex = 0 };*/
 	p.feature = FeaturePair{ .value = 0 };
 	return contactCount;
