@@ -45,7 +45,7 @@ Visualization2 Visualization2::make() {
 		);
 	};
 
-	for (i32 i = 0; i < 1; i++) {
+	for (i32 i = 0; i < 20; i++) {
 		
 		r.world.bodies.push_back(new Body{});
 		//r.world.bodies.back()->set(0.3f, 0.5f);
@@ -392,6 +392,7 @@ void Visualization2::update() {
 	static bool drawOnlyLines = false;
 	ImGui::Checkbox("drawOnlyLines", &drawOnlyLines);
 
+	ImGui::Combo("tool", reinterpret_cast<int*>(&tool), "building\0pushing\0");
 	/*for (const auto& visibleFace : visibleFaces) {
 		auto& face = faces[visibleFace.faceI];
 		raySphereIntersection()
@@ -481,44 +482,7 @@ void Visualization2::update() {
 		}
 	}
 
-	static bool test = true;
-	if (test) {
-		for (const auto& face : visibleFaces) {
-			auto& f = faces[face.faceI];
-			auto& cell = cells[face.cellI];
-
-			Vec4 normal(0.0f);
-			for (i32 i = 0; i < cell.faces.size(); i++) {
-				if (cell.faces[i] == face.faceI) {
-					normal = cell.faceNormals[i];
-				}
-			}
-			
-			world.bodies.push_back(new Body{});
-			auto& b = world.bodies.back();
-			b->set(0.0f, INFINITY);
-			b->s = true;
-			b->edgeNormal0 = f.edgeNormals[0];
-			b->edgeNormal1 = f.edgeNormals[1];
-			b->edgeNormal2 = f.edgeNormals[2];
-			/*
-			e0 v2 to v0
-			e1 v0 to v1
-			e2 v1 to v2
-			*/
-			b->v0 = vertices[f.vertices[0]];
-			b->v1 = vertices[f.vertices[1]];
-			b->v2 = vertices[f.vertices[2]];
-			b->planeNormal = normal;
-			//f.edgeNormals[0], f.edgeNormals[1], f.edgeNormals[2]
-			//faces
-			/*f.normal
-			f.edgeNormals[0]*/
-			//break;
-		}
-		test = false;
-	}
-
+	
 
 	//for (i32 i = 0; i < vertices.size(); i++) {
 	//	const auto v = stereographicProjection(view4 * vertices[i]);
@@ -761,6 +725,7 @@ void Visualization2::update() {
 			//}
 		}
 	};
+	world.settingsGui();
 
 	//static i32 faceI = 0;
 	auto renderFace = [&](i32 faceI, const Cell& cell) {
@@ -814,6 +779,51 @@ void Visualization2::update() {
 		}
 	}
 
+	static bool cellsModified = false;
+	static std::vector<Body*> cellsBodies;
+	if (cellsModified) {
+		for (i32 i = 0; i < cellsBodies.size(); i++) {
+			world.bodies.pop_back();
+		}
+		cellsBodies.clear();
+
+		for (const auto& face : visibleFaces) {
+			auto& f = faces[face.faceI];
+			auto& cell = cells[face.cellI];
+
+			Vec4 normal(0.0f);
+			for (i32 i = 0; i < cell.faces.size(); i++) {
+				if (cell.faces[i] == face.faceI) {
+					normal = cell.faceNormals[i];
+				}
+			}
+
+			world.bodies.push_back(new Body{});
+			auto& b = world.bodies.back();
+			cellsBodies.push_back(b);
+			b->set(0.0f, INFINITY);
+			b->s = true;
+			b->edgeNormal0 = f.edgeNormals[0];
+			b->edgeNormal1 = f.edgeNormals[1];
+			b->edgeNormal2 = f.edgeNormals[2];
+			/*
+			e0 v2 to v0
+			e1 v0 to v1
+			e2 v1 to v2
+			*/
+			b->v0 = vertices[f.vertices[0]];
+			b->v1 = vertices[f.vertices[1]];
+			b->v2 = vertices[f.vertices[2]];
+			b->planeNormal = normal;
+			//f.edgeNormals[0], f.edgeNormals[1], f.edgeNormals[2]
+			//faces
+			/*f.normal
+			f.edgeNormals[0]*/
+			//break;
+		}
+	}
+
+	cellsModified = false;
 	if (hit.has_value()) {
 		auto& face = faces[hit->face->faceI];
 		i32 previousI = i32(face.vertices.size()) - 1;
@@ -826,17 +836,63 @@ void Visualization2::update() {
 		}
 		renderer.sphere(ray.at(hit->t), 0.01f, Color3::GREEN);
 
-		/*if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
-			if (face.cells[0] != hit->face->cellI) {
-				isCellSet[face.cells[0]] = true;
-			} else {
-				isCellSet[face.cells[1]] = true;
+		if (tool == Tool::BUILDING) {
+			if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
+				if (face.cells[0] != hit->face->cellI) {
+					cellsModified = true;
+					isCellSet[face.cells[0]] = true;
+				} else {
+					cellsModified = true;
+					isCellSet[face.cells[1]] = true;
+				}
+			}
+			if (Input::isMouseButtonDown(MouseButton::LEFT)) {
+				cellsModified = true;
+				isCellSet[hit->face->cellI] = false;
 			}
 		}
-		if (Input::isMouseButtonDown(MouseButton::LEFT)) {
-			isCellSet[hit->face->cellI] = false;
-		}*/
 	}
+
+	//static bool test = true;
+	//if (test) {
+	//	for (const auto& face : visibleFaces) {
+	//		auto& f = faces[face.faceI];
+	//		auto& cell = cells[face.cellI];
+
+	//		Vec4 normal(0.0f);
+	//		for (i32 i = 0; i < cell.faces.size(); i++) {
+	//			if (cell.faces[i] == face.faceI) {
+	//				normal = cell.faceNormals[i];
+	//			}
+	//		}
+
+	//		world.bodies.push_back(new Body{});
+	//		auto& b = world.bodies.back();
+	//		b->set(0.0f, INFINITY);
+	//		b->s = true;
+	//		b->edgeNormal0 = f.edgeNormals[0];
+	//		b->edgeNormal1 = f.edgeNormals[1];
+	//		b->edgeNormal2 = f.edgeNormals[2];
+	//		/*
+	//		e0 v2 to v0
+	//		e1 v0 to v1
+	//		e2 v1 to v2
+	//		*/
+	//		b->v0 = vertices[f.vertices[0]];
+	//		b->v1 = vertices[f.vertices[1]];
+	//		b->v2 = vertices[f.vertices[2]];
+	//		b->planeNormal = normal;
+	//		//f.edgeNormals[0], f.edgeNormals[1], f.edgeNormals[2]
+	//		//faces
+	//		/*f.normal
+	//		f.edgeNormals[0]*/
+	//		//break;
+	//	}
+	//	test = false;
+	//}
+
+
+
 
 
 	for (auto& face : visibleFaces) {
@@ -884,9 +940,9 @@ void Visualization2::update() {
 	}
 	
 
-	const auto tri = world.bodies.back();
+	/*const auto tri = world.bodies.back();
 	const auto pp = closestPointOnTriangle(tri->planeNormal, tri->edgeNormal0, tri->edgeNormal1, tri->edgeNormal2, world.bodies[0]->position, tri->v0, tri->v1, tri->v2);
-	renderer.sphere(stereographicProjection(view4 * pp), 0.05f, Color3::RED);
+	renderer.sphere(stereographicProjection(view4 * pp), 0.05f, Color3::RED);*/
 
 	{
 		struct BodyHit {
@@ -895,6 +951,9 @@ void Visualization2::update() {
 		};
 		std::optional<BodyHit> bodyHit;
 		for (const auto& body : world.bodies) {
+			if (body->s) {
+				continue;
+			}
 			drawSphere(body->position, body->radius);
 			const auto s = makeStereographicSphere(view4 * body->position, body->radius);
 
@@ -914,9 +973,11 @@ void Visualization2::update() {
 			Vec4 direction = p0 - dot(p0, p1) * p1;
 			direction = direction.normalized();
 			direction *= view4.inversed();
-			if (Input::isMouseButtonHeld(MouseButton::LEFT)) {
-				/*body->force -= inverseStereographicProjectionJacobian(stereographicProjection(body->position), ray.direction).normalized() * 5.0f;*/
-				bodyHit->b->force += direction * 2.0f;
+			if (tool == Tool::PUSHING) {
+				if (Input::isMouseButtonHeld(MouseButton::LEFT)) {
+					/*body->force -= inverseStereographicProjectionJacobian(stereographicProjection(body->position), ray.direction).normalized() * 5.0f;*/
+					bodyHit->b->force += direction * 2.0f;
+				}
 			}
 		}
 	}
@@ -955,6 +1016,15 @@ void Visualization2::update() {
 
 	renderer.renderCyllinders();
 	renderer.renderHemispheres();
+
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	renderer.gfx2d.camera.aspectRatio = Window::aspectRatio();
+	renderer.gfx2d.disk(Vec2(0.0f), 0.025f, Color3::GREEN);
+	renderer.gfx2d.drawDisks();
+	glDisable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
 }
 
 void Visualization2::lodLevelsSettingsGui() {

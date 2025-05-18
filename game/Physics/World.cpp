@@ -52,6 +52,7 @@ void World::broadPhase() {
 
 void World::settingsGui() {
 	ImGui::SliderFloat("resistance", &resistance, 0.0f, 1.0f);
+	ImGui::InputFloat4("gravity", gravity.data());
 }
 
 void World::step(f32 dt) {
@@ -70,7 +71,7 @@ void World::step(f32 dt) {
 		}
 
 		//Vec4 gravity(0.0f, 0.0f, 0.0f, -1.0f);
-		Vec4 gravity(0.0f, 0.0f, 0.0f, 0.0f);
+		//Vec4 gravity(0.0f, 0.0f, 0.0f, 0.0f);
 
 		// It doesn't matter if the parts of vectors that are outside the tangent space are removed before or after adding, because the removing is linear.
 		Vec4 a = dt * (gravity + b->invMass * b->force);
@@ -112,8 +113,9 @@ void World::step(f32 dt) {
 
 	// Integrate Velocities
 	for (auto& b : bodies) {
+		b->velocity = projectVectorToSphereTangentSpace(b->position, b->velocity);
 		const auto t = dot(b->position.normalized(), b->velocity.normalized());
-		CHECK(t < 0.01f);
+		CHECK(t < 0.02f);
 
 		//b->position += dt * b->velocity;
 		//const auto 

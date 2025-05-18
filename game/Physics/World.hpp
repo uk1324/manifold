@@ -18,6 +18,7 @@ struct World
 	void broadPhase();
 
 	f32 resistance = 0.97f;
+	Vec4 gravity = Vec4(0.0f);
 	void settingsGui();
 
 	std::vector<Body*> bodies;

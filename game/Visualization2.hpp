@@ -66,6 +66,12 @@ struct Visualization2 {
 		STEREOGRAPHIC,
 	} selectedCamera = CameraType::STEREOGRAPHIC;
 
+	enum class Tool {
+		BUILDING,
+		PUSHING
+	};
+	Tool tool = Tool::BUILDING;
+
 	LineGenerator lineGenerator;
 
 	std::vector<GameRenderer::SphereLodSetting> lodLevelsSettings;

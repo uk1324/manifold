@@ -122,8 +122,7 @@ void Arbiter::PreStep(f32 invDt) {
 	//float k_biasFactor = World::positionCorrection ? 0.2f : 0.0f;
 	float k_biasFactor = World::positionCorrection ? 0.2f : 0.0f;
 
-	for (int i = 0; i < numContacts; ++i)
-	{
+	for (int i = 0; i < numContacts; ++i) {
  		Contact* c = contacts + i;
 
 		/*Vec4 r1 = c->position - body1->position;
@@ -143,11 +142,11 @@ void Arbiter::PreStep(f32 invDt) {
 		//kTangent += body1->invI * (Dot(r1, r1) - rt1 * rt1) + body2->invI * (Dot(r2, r2) - rt2 * rt2);
 		//c->massTangent = 1.0f / kTangent;
 
-		//c->bias = -k_biasFactor * invDt * std::min(0.0f, c->separation + k_allowedPenetration);
-		c->bias = 0.0f;
+		c->bias = -k_biasFactor * invDt * std::min(0.0f, c->separation + k_allowedPenetration);
+		//c->bias = 0.0f;
 
-		World::accumulateImpulses = false;
-		World::warmStarting = false;
+		/*World::accumulateImpulses = false;
+		World::warmStarting = false;*/
 		if (World::accumulateImpulses) {
 			// Apply normal + friction impulse
 			//Vec4 P = c->Pn * c->normal + c->Pt * tangent;

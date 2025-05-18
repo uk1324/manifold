@@ -135,13 +135,16 @@ int collide2(Contact* contacts, Body* bodyA, Body* bodyB) {
 	const auto p = closestPointOnTriangle(bodyA->planeNormal, bodyA->edgeNormal0, bodyA->edgeNormal1, bodyA->edgeNormal2, bodyB->position, bodyA->v0, bodyA->v1, bodyA->v2);
 
 	auto& c = contacts[0];
+	// TODO: What sign should seperation be?
 	c.separation = sphereAngularDistance(p, bodyB->position);
 	if (c.separation > bodyB->radius) {
 		return 0;
 	}
+	//c.separation = -c.separation;
 	c.position = p;
 
-	c.normalAtPosition = (bodyB->position - p).normalized();
+	//c.normalAtPosition = (bodyB->position - p).normalized();
+	c.normalAtPosition = normalizedDirectionFromAToB(p, bodyB->position);
 	//const auto t1 = c.normalAtPosition.length();
 	//CHECK(abs(t1 - 1.0f) < 0.01f);
 	c.normal = c.normalAtPosition;
@@ -168,7 +171,7 @@ int collide(Contact* contacts, Body* bodyA, Body* bodyB) {
 	}
 	if (bodyA->s) {
 		return collide2(contacts, bodyA, bodyB);
-	} else {
+	} else if (bodyB->s) {
 		const auto r = collide2(contacts, bodyB, bodyA);
 		auto& c = contacts[0];
 		std::swap(c.normalAToB, c.normalBToA);
