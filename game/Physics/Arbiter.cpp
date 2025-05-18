@@ -143,8 +143,11 @@ void Arbiter::PreStep(f32 invDt) {
 		//kTangent += body1->invI * (Dot(r1, r1) - rt1 * rt1) + body2->invI * (Dot(r2, r2) - rt2 * rt2);
 		//c->massTangent = 1.0f / kTangent;
 
-		c->bias = -k_biasFactor * invDt * std::min(0.0f, c->separation + k_allowedPenetration);
+		//c->bias = -k_biasFactor * invDt * std::min(0.0f, c->separation + k_allowedPenetration);
+		c->bias = 0.0f;
 
+		World::accumulateImpulses = false;
+		World::warmStarting = false;
 		if (World::accumulateImpulses) {
 			// Apply normal + friction impulse
 			//Vec4 P = c->Pn * c->normal + c->Pt * tangent;
@@ -267,8 +270,13 @@ void Arbiter::applyImpulse() {
 		// Relative velocity at contact
 		/*Vec2 dv = b2->velocity + Cross(b2->angularVelocity, c->r2) - b1->velocity - Cross(b1->angularVelocity, c->r1);*/
 		//Vec4 dv = b2->velocity - b1->velocity;
-		const auto velocityAtPos2 = velocityAtPoint(*b2, c->position);
-		const auto velocityAtPos1 = velocityAtPoint(*b1, c->position);
+		/*const auto velocityAtPos2 = velocityAtPoint(*b2, c->position);
+		const auto velocityAtPos1 = velocityAtPoint(*b1, c->position);*/
+		const auto velocityAtPos2 = b2->velocity;
+		const auto velocityAtPos1 = b1->velocity;
+		if (velocityAtPos1.length() > 1.0f) {
+			int x = 5;
+		}
 
   		Vec4 relativeVelocityAtContactPosition = velocityAtPos2 - velocityAtPos1;
 		const auto t0 = relativeVelocityAtContactPosition.length();
@@ -277,6 +285,9 @@ void Arbiter::applyImpulse() {
 		// Compute normal impulse
 		//float vn = dot(dv, c->normal);
 		float vn = dot(relativeVelocityAtContactPosition, c->normalAtPosition);
+		if (vn > 5.0f) {
+			int x = 5;
+		}
 
 		float dPn = c->massNormal * (-vn + c->bias);
 

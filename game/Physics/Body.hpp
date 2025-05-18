@@ -18,6 +18,15 @@ struct Body
 	f32 radius;
 	//Vec2 width;
 
+	bool s = false;
+	Vec4 planeNormal = Vec4(0.0f);
+	Vec4 v0 = Vec4(0.0f);
+	Vec4 v1 = Vec4(0.0f);
+	Vec4 v2 = Vec4(0.0f);
+	Vec4 edgeNormal0 = Vec4(0.0f);
+	Vec4 edgeNormal1 = Vec4(0.0f);
+	Vec4 edgeNormal2 = Vec4(0.0f);
+
 	float friction;
 	float mass, invMass;
 	//float I, invI;

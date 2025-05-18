@@ -63,13 +63,14 @@ void World::step(f32 dt) {
 	// Integrate forces.
 	for (i32 i = 0; i < bodies.size(); i++) {
 		Body* b = bodies[i];
-
 		if (b->invMass == 0.0f) {
+			b->velocity = Vec4(0.0f);
+			b->position = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 			continue;
 		}
 
-		Vec4 gravity(0.0f, 0.0f, 0.0f, -1.0f);
-		//Vec4 gravity(0.0f, 0.0f, 0.0f, 0.0f);
+		//Vec4 gravity(0.0f, 0.0f, 0.0f, -1.0f);
+		Vec4 gravity(0.0f, 0.0f, 0.0f, 0.0f);
 
 		// It doesn't matter if the parts of vectors that are outside the tangent space are removed before or after adding, because the removing is linear.
 		Vec4 a = dt * (gravity + b->invMass * b->force);

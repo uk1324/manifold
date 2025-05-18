@@ -86,3 +86,4 @@ inline bool operator < (const ArbiterKey& a1, const ArbiterKey& a2)
 }
 
 int collide(Contact* contacts, Body* body1, Body* body2);
+Vec4 closestPointOnTriangle(Vec4 planeNormal, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 point, Vec4 v0, Vec4 v1, Vec4 v2);

@@ -45,7 +45,7 @@ Visualization2 Visualization2::make() {
 		);
 	};
 
-	for (i32 i = 0; i < 40; i++) {
+	for (i32 i = 0; i < 1; i++) {
 		
 		r.world.bodies.push_back(new Body{});
 		//r.world.bodies.back()->set(0.3f, 0.5f);
@@ -180,7 +180,7 @@ Visualization2 Visualization2::make() {
 		r.cells.push_back(Cell{ .faces = cell, .faceNormals = std::move(faceNormals) });
 	}
 	r.isCellSet.resize(r.cells.size(), false);
-	//r.isCellSet[0] = true;
+	r.isCellSet[0] = true;
 	{
 		std::vector<StaticList<i32, 2>> faceToCells;
 		faceToCells.resize(r.faces.size());
@@ -479,6 +479,44 @@ void Visualization2::update() {
 				visibleFaces.push_back(FaceCellPair{ faceI, cell1, plane });
 			}
 		}
+	}
+
+	static bool test = true;
+	if (test) {
+		for (const auto& face : visibleFaces) {
+			auto& f = faces[face.faceI];
+			auto& cell = cells[face.cellI];
+
+			Vec4 normal(0.0f);
+			for (i32 i = 0; i < cell.faces.size(); i++) {
+				if (cell.faces[i] == face.faceI) {
+					normal = cell.faceNormals[i];
+				}
+			}
+			
+			world.bodies.push_back(new Body{});
+			auto& b = world.bodies.back();
+			b->set(0.0f, INFINITY);
+			b->s = true;
+			b->edgeNormal0 = f.edgeNormals[0];
+			b->edgeNormal1 = f.edgeNormals[1];
+			b->edgeNormal2 = f.edgeNormals[2];
+			/*
+			e0 v2 to v0
+			e1 v0 to v1
+			e2 v1 to v2
+			*/
+			b->v0 = vertices[f.vertices[0]];
+			b->v1 = vertices[f.vertices[1]];
+			b->v2 = vertices[f.vertices[2]];
+			b->planeNormal = normal;
+			//f.edgeNormals[0], f.edgeNormals[1], f.edgeNormals[2]
+			//faces
+			/*f.normal
+			f.edgeNormals[0]*/
+			//break;
+		}
+		test = false;
 	}
 
 
@@ -788,7 +826,7 @@ void Visualization2::update() {
 		}
 		renderer.sphere(ray.at(hit->t), 0.01f, Color3::GREEN);
 
-		if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
+		/*if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
 			if (face.cells[0] != hit->face->cellI) {
 				isCellSet[face.cells[0]] = true;
 			} else {
@@ -797,7 +835,7 @@ void Visualization2::update() {
 		}
 		if (Input::isMouseButtonDown(MouseButton::LEFT)) {
 			isCellSet[hit->face->cellI] = false;
-		}
+		}*/
 	}
 
 
@@ -836,7 +874,19 @@ void Visualization2::update() {
 		renderer.sphereImpostorCube(pos, transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
 	};
 
-	world.step(1.0f / 60.0f);
+	static bool updatePhysics = true;
+	if (Input::isKeyDown(KeyCode::H)) {
+		updatePhysics = !updatePhysics;
+	}
+
+	if (updatePhysics) {
+		world.step(1.0f / 60.0f);
+	}
+	
+
+	const auto tri = world.bodies.back();
+	const auto pp = closestPointOnTriangle(tri->planeNormal, tri->edgeNormal0, tri->edgeNormal1, tri->edgeNormal2, world.bodies[0]->position, tri->v0, tri->v1, tri->v2);
+	renderer.sphere(stereographicProjection(view4 * pp), 0.05f, Color3::RED);
 
 	{
 		struct BodyHit {
