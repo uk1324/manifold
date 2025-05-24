@@ -1,4 +1,4 @@
-#include "Arbiter.hpp"
+#include "ContactConstraint.hpp"
 #include "Body.hpp"
 #include <game/4d.hpp>
 
@@ -130,27 +130,27 @@ Vec4 closestPointOnTriangle(Vec4 planeNormal, Vec4 edgeNormal0, Vec4 edgeNormal1
 //	return v[0];
 //}
 
-int collide2(Contact* contacts, Body* bodyA, Body* bodyB) {
-	CHECK(bodyA->s);
-	const auto p = closestPointOnTriangle(bodyA->planeNormal, bodyA->edgeNormal0, bodyA->edgeNormal1, bodyA->edgeNormal2, bodyB->position, bodyA->v0, bodyA->v1, bodyA->v2);
+int collide2(Contact* contacts, const Body& bodyA, const Body& bodyB) {
+	CHECK(bodyA.s);
+	const auto p = closestPointOnTriangle(bodyA.planeNormal, bodyA.edgeNormal0, bodyA.edgeNormal1, bodyA.edgeNormal2, bodyB.position, bodyA.v0, bodyA.v1, bodyA.v2);
 
 	auto& c = contacts[0];
 	// TODO: What sign should seperation be?
-	c.separation = sphereAngularDistance(p, bodyB->position);
-	if (c.separation > bodyB->radius) {
+	c.separation = sphereAngularDistance(p, bodyB.position);
+	if (c.separation > bodyB.radius) {
 		return 0;
 	}
 	//c.separation = -c.separation;
 	c.position = p;
 
 	//c.normalAtPosition = (bodyB->position - p).normalized();
-	c.normalAtPosition = normalizedDirectionFromAToB(p, bodyB->position);
+	c.normalAtPosition = normalizedDirectionFromAToB(p, bodyB.position);
 	//const auto t1 = c.normalAtPosition.length();
 	//CHECK(abs(t1 - 1.0f) < 0.01f);
 	c.normal = c.normalAtPosition;
-	c.normalAToB = normalizedDirectionFromAToB(p, bodyB->position);
+	c.normalAToB = normalizedDirectionFromAToB(p, bodyB.position);
 	//CHECK(abs(c.normalAToB.length() - 1.0f) < 0.01f);
-	c.normalBToA = -normalizedDirectionFromAToB(bodyB->position, p);
+	c.normalBToA = -normalizedDirectionFromAToB(bodyB.position, p);
 
 	//c.normalAtPosition = normalizedDirectionFromAToB(p, bodyB->position);
 	////const auto t1 = c.normalAtPosition.length();
@@ -164,14 +164,24 @@ int collide2(Contact* contacts, Body* bodyA, Body* bodyB) {
 	return 1;
 }
 
+bool operator<(const BodyIdPair& a1, const BodyIdPair& a2) {
+	if (a1.body1.index() < a2.body1.index())
+		return true;
+
+	if (a1.body1 == a2.body1 && a1.body2.index() < a2.body2.index())
+		return true;
+
+	return false;
+}
+
 // https://media.steampowered.com/apps/valve/2015/DirkGregorius_Contacts.pdf
-int collide(Contact* contacts, Body* bodyA, Body* bodyB) {
-	if (bodyA->s && bodyB->s) {
+int collide(Contact* contacts, const Body& bodyA, const Body& bodyB) {
+	if (bodyA.s && bodyB.s) {
 		return 0;
 	}
-	if (bodyA->s) {
+	if (bodyA.s) {
 		return collide2(contacts, bodyA, bodyB);
-	} else if (bodyB->s) {
+	} else if (bodyB.s) {
 		const auto r = collide2(contacts, bodyB, bodyA);
 		auto& c = contacts[0];
 		std::swap(c.normalAToB, c.normalBToA);
@@ -182,12 +192,12 @@ int collide(Contact* contacts, Body* bodyA, Body* bodyB) {
 		return r;
 	}
 
-	const auto aPos = bodyA->position;
-	const auto bPos = bodyB->position;
+	const auto aPos = bodyA.position;
+	const auto bPos = bodyB.position;
 	const auto normal = bPos - aPos;
 	//const auto distanceSquared = normal.lengthSquared();
 	const auto distance = sphereAngularDistance(aPos, bPos);
-	if (distance > bodyA->radius + bodyB->radius) {
+	if (distance > bodyA.radius + bodyB.radius) {
 		//return std::nullopt;
 		return 0;
 	}
@@ -195,12 +205,12 @@ int collide(Contact* contacts, Body* bodyA, Body* bodyB) {
 	const auto dirFromBToA = normalizedDirectionFromAToB(bPos, aPos);*/
 	const auto dirFromAToB = normalizedDirectionFromAToB(aPos, bPos);
 	const auto dirFromBToA = -normalizedDirectionFromAToB(bPos, aPos);
-	{
-		const auto t0 = dot(dirFromAToB, aPos);
-		const auto t1 = dot(dirFromBToA, bPos);
-		CHECK(t0 < 0.01f);
-		CHECK(t1 < 0.01f);
-	}
+	
+	const auto t0 = dot(dirFromAToB, aPos);
+	const auto t1 = dot(dirFromBToA, bPos);
+	CHECK(t0 < 0.01f);
+	CHECK(t1 < 0.01f);
+
 	//Collision collision;
 	//Contact collision;
 	auto& p = contacts[0];
@@ -210,14 +220,14 @@ int collide(Contact* contacts, Body* bodyA, Body* bodyB) {
 	p.normal = normal.normalized();
 	p.normalAToB = dirFromAToB;
 	p.normalBToA = dirFromBToA;
-	p.separation = -(bodyA->radius + bodyB->radius - distance);
+	p.separation = -(bodyA.radius + bodyB.radius - distance);
 	p.normal = (distance == 0.0f) ? Vec4(0.0f, 0.0f, 0.0f, 1.0f) : p.normal.normalized();
 	//p.pos = aPos + collision.normal * a.radius;
 	//p.position = aPos + p.normal * bodyA->radius;
 	//p.position = aPos + p.normal * bodyA->radius;
 	//p.position = aPos + p.normal * bodyA->radius;
-	p.position = moveForwardOnSphere(aPos, p.normal * bodyA->radius);
-	p.normalAtPosition = normalizedDirectionFromAToB(p.position, bodyB->position);
+	p.position = moveForwardOnSphere(aPos, p.normal * bodyA.radius);
+	p.normalAtPosition = normalizedDirectionFromAToB(p.position, bodyB.position);
 	/*p.id = ContactPointId{ .featureOnA = ContactPointFeature::FACE, .featureOnAIndex = 0, .featureOnB = ContactPointFeature::FACE, .featureOnBIndex = 0 };*/
 	p.feature = FeaturePair{ .value = 0 };
 	return contactCount;

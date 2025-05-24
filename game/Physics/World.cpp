@@ -4,44 +4,48 @@
 #include <game/4d.hpp>
 #include <imgui/imgui.h>
 
-using std::vector;
-using std::map;
-using std::pair;
-
-typedef map<ArbiterKey, Arbiter>::iterator ArbIter;
-typedef pair<ArbiterKey, Arbiter> ArbPair;
-
 bool World::accumulateImpulses = true;
 bool World::warmStarting = true;
 bool World::positionCorrection = true;
 
 void World::clear() {
-	bodies.clear();
+	bodies.reset();
 	//joints.clear();
 	arbiters.clear();
 }
 
 void World::broadPhase() {
-	for (i32 i = 0; i < bodies.size(); i++) {
-		Body* bi = bodies[i];
+	//for (i32 i = 0; i < bodies.aliveCount(); i++) {
+		//Body* bi = bodies[i];
+	for (auto i = bodies.begin(); i != bodies.end(); ++i) {
+		//auto& bi = i;
 
-		for (i32 j = i + 1; j < bodies.size(); j++) {
-			Body* bj = bodies[j];
+		//for (i32 j = i + 1; j < bodies.aliveCount(); j++) {
+		//	Body* bj = bodies[j];
+		auto j = i;
+		++j;
+		for (; j != bodies.end(); ++j) {
 
-			const auto bothStatic = bi->invMass == 0.0f && bj->invMass == 0.0f;
+			const auto bothStatic = i->invMass == 0.0f && j->invMass == 0.0f;
 			if (bothStatic) {
 				continue;
 			}
 
-			Arbiter newArb(bi, bj);
-			ArbiterKey key(bi, bj);
+			BodyIdPair key((*i).id, (*j).id);
+			const auto b1 = bodies.get(key.body1);
+			const auto b2 = bodies.get(key.body2);
+			if (!b1.has_value() || !b2.has_value()) {
+				CHECK_NOT_REACHED();
+				continue;
+			}
+			ContactConstraint newArb(*b1, *b2);
 
 			if (newArb.numContacts > 0) {
-				ArbIter iter = arbiters.find(key);
+				auto iter = arbiters.find(key);
 				if (iter == arbiters.end()) {
-					arbiters.insert(ArbPair(key, newArb));
+					arbiters.insert({ key, newArb });
 				} else {
-					iter->second.Update(newArb.contacts, newArb.numContacts);
+					iter->second.update(newArb.contacts, newArb.numContacts);
 				}
 			} else {
 				arbiters.erase(key);
@@ -55,15 +59,21 @@ void World::settingsGui() {
 	ImGui::InputFloat4("gravity", gravity.data());
 }
 
+void World::createSphere(Vec4 position, f32 radius, f32 mass) {
+	auto body = bodies.create();
+	body->set(radius, mass);
+	body->position = position;
+}
+
 void World::step(f32 dt) {
+	bodies.update();
 	const f32 invDt = dt > 0.0f ? 1.0f / dt : 0.0f;
 
 	// Determine overlapping bodies and update contact points.
 	broadPhase();
 
 	// Integrate forces.
-	for (i32 i = 0; i < bodies.size(); i++) {
-		Body* b = bodies[i];
+	for (auto b : bodies) {
 		if (b->invMass == 0.0f) {
 			b->velocity = Vec4(0.0f);
 			b->position = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -83,10 +93,41 @@ void World::step(f32 dt) {
 		//b->velocity += dt * (gravity + b->invMass * b->force);
 		//b->angularVelocity += dt * b->invI * b->torque;
 	}
+	//for (i32 i = 0; i < bodies.size(); i++) {
+	//	Body* b = bodies[i];
+	//	if (b->invMass == 0.0f) {
+	//		b->velocity = Vec4(0.0f);
+	//		b->position = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	//		continue;
+	//	}
+
+	//	//Vec4 gravity(0.0f, 0.0f, 0.0f, -1.0f);
+	//	//Vec4 gravity(0.0f, 0.0f, 0.0f, 0.0f);
+
+	//	// It doesn't matter if the parts of vectors that are outside the tangent space are removed before or after adding, because the removing is linear.
+	//	Vec4 a = dt * (gravity + b->invMass * b->force);
+	//	//a = projectVectorToSphereTangentSpace(b->position, a);
+	//	b->velocity += a;
+	//	b->velocity *= resistance;
+	//	//b->velocity *= 0.99f;
+	//	b->velocity = projectVectorToSphereTangentSpace(b->position, b->velocity);
+	//	//b->velocity += dt * (gravity + b->invMass * b->force);
+	//	//b->angularVelocity += dt * b->invI * b->torque;
+	//}
+
+	// @Performance: Maybe precompute the references to the bodies somewhere so this doesn't have.
+
 
 	// Perform pre-steps.
 	for (auto& [key, arbiter] : arbiters) {
-		arbiter.PreStep(invDt);
+		auto a = bodies.get(key.body1);
+		auto b = bodies.get(key.body2);
+		if (!a.has_value() || !b.has_value()) {
+			CHECK_NOT_REACHED();
+			continue;
+		}
+			
+		arbiter.preStep(*a, *b, invDt);
 	}
 	/*for (ArbIter arb = arbiters.begin(); arb != arbiters.end(); ++arb) {
 	}*/
@@ -99,7 +140,14 @@ void World::step(f32 dt) {
 	// Perform iterations
 	for (i32 i = 0; i < iterations; i++) {
 		for (auto& [key, arbiter] : arbiters) {
-			arbiter.applyImpulse();
+			auto a = bodies.get(key.body1);
+			auto b = bodies.get(key.body2);
+			if (!a.has_value() || !b.has_value()) {
+				CHECK_NOT_REACHED();
+				continue;
+			}
+
+			arbiter.applyImpulse(*a, *b);
 		}
 		/*for (ArbIter arb = arbiters.begin(); arb != arbiters.end(); ++arb) {
 			arb->second.ApplyImpulse();
@@ -112,7 +160,7 @@ void World::step(f32 dt) {
 	}
 
 	// Integrate Velocities
-	for (auto& b : bodies) {
+	for (auto b : bodies) {
 		b->velocity = projectVectorToSphereTangentSpace(b->position, b->velocity);
 		const auto t = dot(b->position.normalized(), b->velocity.normalized());
 		CHECK(t < 0.02f);
@@ -146,7 +194,7 @@ void World::step(f32 dt) {
 		b->force = Vec4(0.0f);
 		//b->torque = 0.0f;
 	}
-	for (int i = 0; i < (int)bodies.size(); ++i) {
-		Body* b = bodies[i];
-	}
+	//for (int i = 0; i < (int)bodies.size(); ++i) {
+	//	Body* b = bodies[i];
+	//}
 }

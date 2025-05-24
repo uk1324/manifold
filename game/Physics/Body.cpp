@@ -45,3 +45,7 @@ void Body::set(float radiusToSet, float massToSet) {
 		//invI = 0.0f;
 	}
 }
+
+Body BodyDefaultInitialize::operator()() {
+	return Body();
+}

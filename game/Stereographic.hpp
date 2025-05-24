@@ -75,3 +75,5 @@ std::optional<f32> rayStereographicPolygonIntersection(const Ray3& ray, const St
 	plane, View<const Vec4> edgeNormals);
 
 Vec3 moveForwardStereographic(Vec3 initialPosition, Vec3 velocityDirection, f32 velocityLength);
+
+Sphere stereographicSphere(Vec4 center, f32 radius);

@@ -1,4 +1,4 @@
-#include "Arbiter.hpp"
+#include "ContactConstraint.hpp"
 #include "Body.hpp"
 #include "World.hpp"
 #include <algorithm>
@@ -62,22 +62,13 @@ J = [ -n^T, n^T ]
 V = [ p0', p1' ]
 Under this approximation things kinda reduce to normal 3d case.
 
-In spherical geometry object thar are large enough can't be moved apart.
+In spherical geometry object that are large enough can't be moved apart.
 */
-Arbiter::Arbiter(Body* b1, Body* b2) {
-	if (b1 < b2) {
-		body1 = b1;
-		body2 = b2;
-	} else {
-		body1 = b2;
-		body2 = b1;
-	}
-
-	numContacts = collide(contacts, body1, body2);
-	friction = sqrtf(body1->friction * body2->friction);
+ContactConstraint::ContactConstraint(const Body& b1, const Body b2) {
+	numContacts = collide(contacts, b1, b2);
 }
 
-void Arbiter::Update(Contact* newContacts, int numNewContacts) {
+void ContactConstraint::update(Contact* newContacts, int numNewContacts) {
 	Contact mergedContacts[2];
 
 	for (i32 i = 0; i < numNewContacts; ++i) {
@@ -116,7 +107,7 @@ void Arbiter::Update(Contact* newContacts, int numNewContacts) {
 	numContacts = numNewContacts;
 }
 
-void Arbiter::PreStep(f32 invDt) {
+void ContactConstraint::preStep(Body& body1, Body& body2, f32 invDt) {
 	const float k_allowedPenetration = 0.01f;
 	//const float k_allowedPenetration = 0.001f;
 	//float k_biasFactor = World::positionCorrection ? 0.2f : 0.0f;
@@ -131,7 +122,7 @@ void Arbiter::PreStep(f32 invDt) {
 		// Precompute normal mass, tangent mass, and bias.
 		/*float rn1 = dot(r1, c->normal);
 		float rn2 = dot(r2, c->normal);*/
-		float kNormal = body1->invMass + body2->invMass;
+		float kNormal = body1.invMass + body2.invMass;
 		//kNormal += body1->invI * (Dot(r1, r1) - rn1 * rn1) + body2->invI * (Dot(r2, r2) - rn2 * rn2);
 		c->massNormal = 1.0f / kNormal;
 
@@ -152,10 +143,10 @@ void Arbiter::PreStep(f32 invDt) {
 			//Vec4 P = c->Pn * c->normal + c->Pt * tangent;
 			Vec4 P = c->Pn * c->normal;
 
-			body1->velocity -= body1->invMass * c->Pn * c->normalAToB;
+			body1.velocity -= body1.invMass * c->Pn * c->normalAToB;
 			//body1->angularVelocity -= body1->invI * Cross(r1, P);
 
-			body2->velocity += body2->invMass * c->Pn * c->normalBToA;
+			body2.velocity += body2.invMass * c->Pn * c->normalBToA;
 			//body2->angularVelocity += body2->invI * Cross(r2, P);
 		}
 	}
@@ -257,9 +248,9 @@ Vec4 velocityAtPoint(const Body& body, Vec4 point) {
 //	return velocity;
 //}
 
-void Arbiter::applyImpulse() {
-	Body* b1 = body1;
-	Body* b2 = body2;
+void ContactConstraint::applyImpulse(Body& b1, Body& b2) {
+	/*Body* b1 = body1;
+	Body* b2 = body2;*/
 
 	for (i32 i = 0; i < numContacts; i++) {
 		Contact* c = contacts + i;
@@ -271,8 +262,8 @@ void Arbiter::applyImpulse() {
 		//Vec4 dv = b2->velocity - b1->velocity;
 		/*const auto velocityAtPos2 = velocityAtPoint(*b2, c->position);
 		const auto velocityAtPos1 = velocityAtPoint(*b1, c->position);*/
-		const auto velocityAtPos2 = b2->velocity;
-		const auto velocityAtPos1 = b1->velocity;
+		const auto velocityAtPos2 = b2.velocity;
+		const auto velocityAtPos1 = b1.velocity;
 		if (velocityAtPos1.length() > 1.0f) {
 			int x = 5;
 		}
@@ -303,12 +294,12 @@ void Arbiter::applyImpulse() {
 		//Vec4 Pn = dPn * c->normal;
 
 		//b1->velocity -= b1->invMass * Pn;
-		b1->velocity -= b1->invMass * dPn * c->normalAToB;
+		b1.velocity -= b1.invMass * dPn * c->normalAToB;
 		//b1->angularVelocity -= b1->invI * Cross(c->r1, Pn);
 
 		//b2->velocity += b2->invMass * Pn;
 		//b2->velocity += b2->invMass * Pn;
-		b2->velocity += b2->invMass * dPn * c->normalBToA;
+		b2.velocity += b2.invMass * dPn * c->normalBToA;
 		//b2->angularVelocity += b2->invI * Cross(c->r2, Pn);
 
 		// Relative velocity at contact
@@ -462,3 +453,14 @@ void Arbiter::applyImpulse() {
 //		//b2->angularVelocity += b2->invI * Cross(c->r2, Pt);
 //	}
 //}
+
+BodyIdPair::BodyIdPair(BodyId b1, BodyId b2)
+	: body1(BodyId::invalid())
+	, body2(BodyId::invalid()) {
+
+	if (b1.index() < b2.index()) {
+		body1 = b1; body2 = b2;
+	} else {
+		body1 = b2; body2 = b1;
+	}
+}

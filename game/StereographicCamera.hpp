@@ -23,4 +23,7 @@ struct StereographicCamera {
 	void update(float dt);
 	Mat4 viewMatrix() const;
 	Vec3 pos3d() const;
+	Mat4 view4() const;
+	Mat4 view4Inversed() const;
+	Vec4 pos4() const;
 };

@@ -2,13 +2,12 @@
 #include <vector>
 #include <map>
 #include <engine/Math/Vec4.hpp>
-#include "Arbiter.hpp"
+#include "ContactConstraint.hpp"
+#include <game/EntityArray.hpp>
+#include <game/Physics/Body.hpp>
+//void initializeBodyIdPair(BodyId& a, BodyId& b);
 
-struct Body;
-//struct Joint;
-
-struct World
-{
+struct World {
 	World(i32 iterations): iterations(iterations) {}
 
 	void clear();
@@ -21,9 +20,11 @@ struct World
 	Vec4 gravity = Vec4(0.0f);
 	void settingsGui();
 
-	std::vector<Body*> bodies;
+	//std::vector<Body*> bodies;
+	BodyArray bodies;
+	void createSphere(Vec4 position, f32 radius, f32 mass);
 	//std::vector<Joint*> joints;
-	std::map<ArbiterKey, Arbiter> arbiters;
+	std::map<BodyIdPair, ContactConstraint> arbiters;
 	i32 iterations;
 	static bool accumulateImpulses;
 	static bool warmStarting;

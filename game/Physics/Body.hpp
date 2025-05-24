@@ -1,8 +1,8 @@
 #pragma once
 #include <engine/Math/Vec4.hpp>
+#include <game/EntityArray.hpp>
 
-struct Body
-{
+struct Body {
 	Body();
 	void set(float radiusToSet, float massToSet);
 
@@ -31,3 +31,10 @@ struct Body
 	float mass, invMass;
 	//float I, invI;
 };
+
+struct BodyDefaultInitialize {
+	Body operator()();
+};
+
+using BodyArray = EntityArray<Body, BodyDefaultInitialize>;
+using BodyId = EntityArrayId<Body>;

@@ -151,6 +151,16 @@ Vec3 moveForwardStereographic(Vec3 initialPosition, Vec3 velocityDirection, f32 
 	return stereographicProjection(Vec4(point.x, point.y, point.z, point.w));
 }
 
+Sphere stereographicSphere(Vec4 center, f32 radius) {
+	const auto p = stereographicProjection(center);
+	const auto p0 = moveForwardStereographic(p, Vec3(1.0f, 0.0f, 0.0f), radius);
+	const auto p1 = moveForwardStereographic(p, Vec3(0.0f, 1.0f, 0.0f), radius);
+	const auto p2 = moveForwardStereographic(p, Vec3(0.0f, 0.0f, 1.0f), radius);
+	const auto p3 = moveForwardStereographic(p, Vec3(-1.0f, 0.0f, 0.0f), radius);
+	const auto s = Sphere::thoughPoints(p0, p1, p2, p3);
+	return s;
+}
+
 CircularSegment::CircularSegment(Vec3 start, Vec3 initialVelocity, Vec3 center, f32 angle)
 	: start(start)
 	, initialVelocity(initialVelocity)

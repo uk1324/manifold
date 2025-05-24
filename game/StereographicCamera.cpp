@@ -122,10 +122,25 @@ void StereographicCamera::update(float dt) {
 	gramSchmidtOrthonormalize(view(transformation.basis));
 }
 
+// The view matrix part is done in 4D already so this just returns the identity and 0 position.
 Mat4 StereographicCamera::viewMatrix() const {
 	return Mat4::identity;
 }
 
+
 Vec3 StereographicCamera::pos3d() const {
 	return Vec3(0.0f);
+}
+
+Mat4 StereographicCamera::view4() const {
+	return transformation.inversed();
+}
+
+Mat4 StereographicCamera::view4Inversed() const {
+	return transformation;
+}
+
+Vec4 StereographicCamera::pos4() const {
+	// This is just extracting the 4th column of the matrix.
+	return transformation * Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 }
