@@ -1,4 +1,4 @@
-#include "PerlinNoise.hpp">
+#include "PerlinNoise.hpp"
 #include <engine/Math/Interpolation.hpp>
 #include <engine/Math/Angles.hpp>
 
@@ -8,8 +8,8 @@ PerlinNoise::PerlinNoise(uint64_t seed)
 
     for (size_t i = 0; i < GRADIENT_TABLE_SIZE; i++)
     {
-        m_permutations[i] = i;
-        m_permutations[GRADIENT_TABLE_SIZE + i] = i;
+        m_permutations[i] = u8(i);
+        m_permutations[GRADIENT_TABLE_SIZE + i] = u8(i);
     }
 
     std::shuffle(m_permutations, m_permutations + GRADIENT_TABLE_SIZE * 2, randomGenerator);

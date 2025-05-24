@@ -1,6 +1,8 @@
 #include "GameRenderer.hpp"
 #include <gfx/ShaderManager.hpp>
 #include <engine/Window.hpp>
+#include <engine/Math/Color.hpp>
+#include <game/Math.hpp>
 #include <imgui/imgui.h>
 #include <engine/Math/Interpolation.hpp>
 #include <game/Polyhedra.hpp>
@@ -258,115 +260,20 @@ GameRenderer GameRenderer::make() {
 	}
 	auto sphereImpostorMeshTri = makeMesh<SphereImpostorShader>(constView(sphereImpostorMeshVertices), constView(sphereImpostorMeshIndices), instancesVbo);
 
-	auto makeRectVertex = [&](f32 x, f32 y) {
-		return Vertex3Pnt{ Vec3(x, y, 0.0f), Vec3(0.0f, 0.0f, 1.0f), Vec2(x, y) };
-	};
-	Vertex3Pnt rectVertices[]{
-		makeRectVertex(0.0f, 0.0f),
-		makeRectVertex(1.0f, 0.0f),
-		makeRectVertex(1.0f, 1.0f),
-		makeRectVertex(0.0f, 1.0f)
-	};
-	i32 rectIndices[]{ 0, 1, 2, 3 };
-	auto bulletRectMesh = makeMesh<BulletShader>(constView(rectVertices), constView(rectIndices), instancesVbo);
-
-	auto cubemapMesh = makeMesh<CubemapShader>(constView(cubeMapVertices), constView(cubemapIndices), instancesVbo);
-
-	auto opaqueFbo = Fbo::generate();
-	auto opaqueColorTexture = Texture::generate();
-	auto depthTexture = Texture::generate();
-	{
-		opaqueColorTexture.bind();
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		depthTexture.bind();
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		opaqueFbo.bind();
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, opaqueColorTexture.handle(), 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture.handle(), 0);
-		Fbo::unbind();
-	}
-
-	auto revealTexture = Texture::generate();
-	auto accumulateTexture = Texture::generate();
-	auto transparentFbo = Fbo::generate();
-	{
-
-		accumulateTexture.bind(GL_TEXTURE_2D);		
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		revealTexture.bind(GL_TEXTURE_2D);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		
-		transparentFbo.bind();
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, accumulateTexture.handle(), 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, revealTexture.handle(), 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture.handle(), 0);
-		const GLenum transparentDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-		glDrawBuffers(2, transparentDrawBuffers);
-		Fbo::unbind();
-	}
-
 	auto gfx2d = Gfx2d::make();
 
-
-	//const auto icosphere = makeIcosphere(10, 1.0f);
-	const auto icosphere = makeIcosphere(30, 1.0f);
-	std::vector<SphericalPolygonVertex> icosphereVertices;
-	for (i32 i = 0; i < icosphere.positions.size(); i++) {
-		icosphereVertices.push_back(SphericalPolygonVertex{
-			.position = icosphere.positions[i],
-			.normal = icosphere.normals[i]
-		});
-	}
-	auto sphereMesh = makeMesh<SphericalPolygonShader>(constView(icosphereVertices), constView(icosphere.indices), instancesVbo);
-	/*auto quadPtVao = Vao::generate();
-	quadPtVao.bind();
-	createInstancingVao<TexturedFullscreenQuadShader>(gfx2d.quad2dPtVbo, gfx2d.quad2dPtIbo, instancesVbo);
-	TexturedFullscreenQuadShader::addAttributesToVao(quadPtVao, gfx2d.quad2dPtVbo, instancesVbo);
-	gfx2d.quad2dPtVbo.bind();
-	gfx2d.quad2dPtIbo.bind();
-	Vao::unbind();
-	Ibo::unbind();*/
 	auto quadPtVao = createInstancingVao<TexturedFullscreenQuadShader>(gfx2d.quad2dPtVbo, gfx2d.quad2dPtIbo, instancesVbo); 
 
 	GameRenderer renderer{
-		MOVE(opaqueFbo),
-		MOVE(opaqueColorTexture),
-		MOVE(depthTexture),
-		MOVE(transparentFbo),
-		MOVE(accumulateTexture),
-		MOVE(revealTexture),
-		.transparencyCompositingShader = MAKE_GENERATED_SHADER(TRANSPARENCY_COMPOSITING),
-		MOVE(quadPtVao),
-		.fullscreenTexturedQuadShader = MAKE_GENERATED_SHADER(TEXTURED_FULLSCREEN_QUAD),
 		.transform = Mat4::identity,
 		.view = Mat4::identity,
 		.projection = Mat4::identity,
-		MOVE(sphereMesh),
-		.sphericalPolygonShader = MAKE_GENERATED_SHADER(SPHERICAL_POLYGON),
-		MOVE(cubemapMesh),
-		.cubemapShader = MAKE_GENERATED_SHADER(CUBEMAP),
-		MOVE(bulletRectMesh),
-		.bulletShader = MAKE_GENERATED_SHADER(BULLET),
 		.coloredShader = MAKE_GENERATED_SHADER(COLORED),
 		MOVE(hemisphere),
 		MOVE(coneMesh),
 		MOVE(circleMesh),
 		MOVE(cyllinderMesh),
 		MOVE(cubeMesh),
-		.surfaceTriangles = TriangleRenderer<Vertex3Pnt>::make<SurfaceShader>(instancesVbo),
-		.surfaceShader = MAKE_GENERATED_SHADER(SURFACE),
 		.coloredShadingTriangles = TriangleRenderer<Vertex3Pnc>::make<ColoredShadingShader>(instancesVbo),
 		.coloredShadingShader = MAKE_GENERATED_SHADER(COLORED_SHADING),
 		.homogenousShader = MAKE_GENERATED_SHADER(HOMOGENOUS),
@@ -379,68 +286,9 @@ GameRenderer GameRenderer::make() {
 		MOVE(instancesVbo),
 	};
 
-	renderer.resizeBuffers(Vec2T<i32>(Window::size()));
-
 	return renderer;
 }
 
-void GameRenderer::resizeBuffers(Vec2T<i32> screenSize) {
-	const auto lastScreenSize = currentScreenSize;
-	currentScreenSize = screenSize;
-	if (lastScreenSize.has_value() && *lastScreenSize == screenSize) {
-		return;
-	}
-	opaqueColorTexture.bind();
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenSize.x, screenSize.y, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
-	depthTexture.bind();
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, screenSize.x, screenSize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-	accumulateTexture.bind(GL_TEXTURE_2D);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenSize.x, screenSize.y, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
-	revealTexture.bind(GL_TEXTURE_2D);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, screenSize.x, screenSize.y, 0, GL_RED, GL_FLOAT, NULL);
-}
-
-void GameRenderer::renderCubemap() {
-	//shaderSetUniforms(cubemapShader, CubemapVertUniforms{
-	//	/*.transform = view.removedTranslation() * projection,*/
-	//	.transform = projection * view.removedTranslation(),
-	//});
-	shaderSetUniforms(cubemapShader, CubemapVertUniforms{
-		/*.transform = view.removedTranslation() * projection,*/
-		.transform = projection * view.removedTranslation()
-	});
-	CubemapFragUniforms cubemapShaderFragUniforms;
-	/*cubemapShaderFragUniforms.directionalLightDirection = directionalLightDirection;
-	cubemapShaderFragUniforms.time = elapsed;*/
-	shaderSetUniforms(cubemapShader, cubemapShaderFragUniforms);
-	CubemapInstance instance{};
-
-	cubemapShader.use();
-	glDepthMask(GL_FALSE);
-	drawMeshInstances(cubemapMesh, constView(instance), instancesVbo);
-	glDepthMask(GL_TRUE);
-}
-
-void GameRenderer::drawRectMeshInstances(usize count) {
-	glDrawElementsInstanced(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, nullptr, GLsizei(count));
-}
-
-void GameRenderer::bullet(f32 size, Vec3 position, Vec4 color) {
-	bulletInstances.push_back(BulletInstance{
-		.positionScale = Vec4(position.x, position.y, position.z, size),
-		.color = color,
-	});
-}
-
-void GameRenderer::renderBullets(const Mat4& rotateMatrix) {
-	bulletShader.use();
-	shaderSetUniforms(bulletShader, BulletVertUniforms{
-		.transform = transform,
-		.rotate = rotateMatrix
-	});
-	drawInstances(bulletRectMesh.vao, instancesVbo, constView(bulletInstances), drawRectMeshInstances);
-	bulletInstances.clear();
-}
 
 void GameRenderer::initColoredShader() {
 	coloredShader.use();
@@ -548,16 +396,6 @@ void GameRenderer::line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps) {
 	}
 }
 
-void GameRenderer::renderSurfaceTriangles(f32 opacity) {
-	shaderSetUniforms(surfaceShader, SurfaceFragUniforms{
-		.opacity = opacity
-	});
-	shaderSetUniforms(surfaceShader, SurfaceVertUniforms{
-		.transform = transform
-	});
-	renderTriangles(surfaceShader, surfaceTriangles);
-}
-
 void GameRenderer::renderColoredShadingTriangles(const ColoredShadingInstance& instance) {
 	shaderSetUniforms(coloredShadingShader, ColoredShadingVertUniforms{
 		.transform = transform,
@@ -568,7 +406,7 @@ void GameRenderer::renderColoredShadingTriangles(const ColoredShadingInstance& i
 }
 
 void GameRenderer::coloredShadingTrianglesAddMesh(const std::vector<Vec3>& positions, const std::vector<Vec3>& normals, const std::vector<i32>& indices, Vec3 color) {
-	const auto offset = coloredShadingTriangles.vertices.size();
+	const auto offset = i32(coloredShadingTriangles.vertices.size());
 	for (i32 i = 0; i < positions.size(); i++) {
 		coloredShadingTriangles.addVertex(Vertex3Pnc{
 			.position = positions[i],
@@ -607,127 +445,6 @@ void GameRenderer::renderInfinitePlanes() {
 	infinitePlanes.clear();
 }
 
-void GameRenderer::renderSphericalPolygons() {
-	sphericalPolygonShader.use();
-	shaderSetUniforms(
-		sphericalPolygonShader,
-		SphericalPolygonVertUniforms{
-			.transform = transform
-		}
-	);
-	shaderSetUniforms(
-		sphericalPolygonShader,
-		SphericalPolygonFragUniforms{
-			.cameraPos = cameraPos4,
-			.viewInverse4 = viewInverse4
-		}
-	);
-
-	static bool wireframe = false;
-	ImGui::Checkbox("wireframe", &wireframe);
-	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	for (auto& lod : sphereLods) {
-		drawInstances(lod.mesh.vao, instancesVbo, constView(lod.instances), [&](GLsizei count) {
-			glDrawElementsInstanced(GL_TRIANGLES, lod.mesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
-		});
-		lod.instances.clear();
-	}
-
-	/*drawInstances(sphereMesh.vao, instancesVbo, constView(sphericalPolygonInstances), [&](usize count) {
-		glDrawElementsInstanced(GL_TRIANGLES, sphereMesh.indexCount, GL_UNSIGNED_INT, nullptr, count);
-	});
-	sphericalPolygonInstances.clear();*/
-	if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-}
-
-void GameRenderer::renderSphericalPolygon(f32 radius, Vec3 center, Mat4 transform, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
-	const auto instance = SphericalPolygonInstance{
-		.transform = transform,
-		.n0 = n0,
-		.n1 = n1,
-		.n2 = n2,
-		.n3 = n3,
-		.planeNormal = planeNormal,
-		.sphereCenter = center,
-		.sphereRadius = radius
-	};
-
-	i32 lodLevelToUse = i32(sphereLods.size()) - 1;
-	for (; lodLevelToUse > 0; lodLevelToUse--) {
-		if (radius > sphereLods[lodLevelToUse].setting.minRadius) {
-			//lodLevelToUse--;
-			break;
-		}
-	}
-	ImGui::Text("lod level: %d, ", lodLevelToUse);
-	ImGui::Text("lod radius %g", sphereLods[lodLevelToUse].setting.minRadius);
-	ImGui::Text("radius %g", radius);
-	auto& lod = sphereLods[lodLevelToUse];
-	ImGui::Text("triangle count %d", (lod.mesh.indexCount) / 3);
-	lod.instances.push_back(instance);
-}
-
-void GameRenderer::generateSphereLods(const std::vector<SphereLodSetting>& settings) {
-	sphereLods.clear();
-	// The bigger the sphere the closer it gets to passing though 0. So to limit the number of vertices drawn this will generate the sphere at 0 with radius 1. Then scale it and translate it so that a point passes though 0 and then discard vertices that are too far away.
-	for (const auto& setting : settings) {
-		auto sphere = makeIcosphere(setting.divisionCount, 1.0f);
-		//std::vector<i32> verticesToDiscard;
-		const auto VERTEX_REMOVED = -1;
-		std::vector<i32> oldIndexToNewIndex;
-		i32 newIndexCount = 0;
-		for (i32 i = 0; i < sphere.positions.size(); i++) {
-			const auto v = sphere.positions[i];
-			// sphereLodCenter gets mapped to 0.
-			const auto transformedV = v * setting.minRadius - sphereLodCenter.normalized() * setting.minRadius;
-			const auto fogFar = 20.0f;
-			//const auto r = fogFar + 10.0f;
-			const auto r = fogFar + 2.0f;
-			if (Vec3(0.0f).distanceTo(transformedV) > r) {
-				oldIndexToNewIndex.push_back(VERTEX_REMOVED);
-			} else {
-				oldIndexToNewIndex.push_back(newIndexCount);
-				newIndexCount++;
-			}
-		}
-		//MeshTriPn mesh;
-		std::vector<SphericalPolygonVertex> vertices;
-		std::vector<i32> indices;
-		for (i32 i = 0; i < sphere.positions.size(); i++) {
-			if (oldIndexToNewIndex[i] == VERTEX_REMOVED) {
-				continue;
-			}
-			vertices.push_back(SphericalPolygonVertex{
-				.position = sphere.positions[i],
-				.normal = sphere.normals[i]
-			});
-		}
-		for (i32 i = 0; i < sphere.indices.size(); i += 3) {
-			bool faceRemoved = false;
-			for (i32 j = 0; j < 3; j++) {
-				if (oldIndexToNewIndex[sphere.indices[i + j]] == VERTEX_REMOVED) {
-					faceRemoved = true;
-					break;
-				}
-			}
-			if (faceRemoved) {
-				continue;
-			}
-			for (i32 j = 0; j < 3; j++) {
-				const auto index = oldIndexToNewIndex[sphere.indices[i + j]];
-				ASSERT(index != VERTEX_REMOVED);
-				indices.push_back(index);
-			}
-		}
-		sphereLods.push_back(SphereLodLevel{
-			.setting = setting,
-			.mesh = makeMesh<SphericalPolygonShader>(constView(vertices), constView(indices), instancesVbo),
-		});
-	}
-
-}
-
-#include <game/Stereographic.hpp>
 
 void GameRenderer::sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 	sphereImpostors.push_back(SphereImpostorInstance{
@@ -804,6 +521,205 @@ void GameRenderer::renderSphereImpostors() {
 	}
 }
 
+void GameRenderer::stereographicLineSegment(Vec4 e0, Vec4 e1) {
+	const auto width = 0.02f;
+	const auto segment = StereographicSegment::fromEndpoints(e0, e1);
+	switch (segment.type) {
+		using enum StereographicSegment::Type;
 
+	case LINE: {
+		const auto& p0 = segment.line.e[0];
+		const auto& p1 = segment.line.e[1];
+		if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
+			CHECK_NOT_REACHED();
+			return;
+		}
+		if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
+			auto atInfinity = p0;
+			auto finite = p1;
+			if (isPointAtInfinity(finite)) {
+				std::swap(atInfinity, finite);
+			}
+			const auto direction = finite.normalized();
+			line(Vec3(0.0f), direction * 1000.0f, width, Color3::WHITE);
+			line(Vec3(0.0f), -direction * 1000.0f, width, Color3::WHITE);
+		}
+		break;
+	}
 
+	case CIRCULAR: {
+		auto& s = segment.circular;
+		lineGenerator.addStereographicArc(segment, width);
+		break;
+	}
 
+	}
+}
+
+void GameRenderer::planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 planeNormal) {
+
+	Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
+	const auto rotation = unitSphereRotateAToB(untransformedPlaneMeshNormal, plane.n);
+
+	infinitePlanes.push_back(HomogenousInstance{
+		.transform =
+			Mat4::translation(plane.d * plane.n) *
+			Mat4(rotation.inverseIfNormalized().toMatrix()),
+		.n0 = edgeNormal0,
+		.n1 = edgeNormal1,
+		.n2 = edgeNormal2,
+		.n3 = edgeNormal2,
+		.planeNormal = planeNormal,
+	});
+}
+
+void GameRenderer::sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+	//const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
+	// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
+
+	//{
+	//	const auto t0 = sphere.center.distanceSquaredTo(sp0);
+	//	const auto t1 = sphere.center.distanceSquaredTo(sp1);
+	//	const auto t2 = sphere.center.distanceSquaredTo(sp2);
+	//	const auto t3 = sphere.center.distanceSquaredTo(sp3);
+	//	const auto t4 = 0.0f;
+	//}
+	/*
+	Finding if a point on a sphere belongs to a polyhedron.
+	I don't think the lines projected liens are geodesics of the projected sphere.
+
+	It is probably simplest to work in R^4 for this.
+	An intersection of a 3-plane going though 0 with the 3 sphere is a sphere that has it's center at 0.
+	Then on that sphere we have the vertices of a polygon.
+	If we consider jsut the 3-plane subspace then we can calculate 2-planes going though the origin and pairs of vertices. To check on which side a point is we just need to calculate the dot product with it's normal. We can extend the normal from the 3 space to the whole 4 space and then it will define a 3-plane that still bounds the polygon. Then to check if a point lies on the polygon we just need to calculate the dot products of the points with the normals of the spheres.
+
+	Could probably find an approximate solution by calculating the distance from the plane spanned by the vectors that are the vertices of the plane (there is probably an alaogous formula as for the distance from a line in 3-space). This will only be approximate because it will be the linear distance and not the spherical distance. This is kind of similar what I did with the endpoints in the 2d stereographic line rendering code.
+	*/
+	//const auto plane3Normal = crossProduct(p0 - p3, p1 - p3, p2 - p3).normalized();
+	//{
+	//	// These should be 0, because the plane should pass though 0.
+	//	const auto t0 = dot(p0, plane3Normal);
+	//	const auto t1 = dot(p1, plane3Normal);
+	//	const auto t2 = dot(p2, plane3Normal);
+	//	const auto t3 = dot(p3, plane3Normal);
+	//}
+	/*
+	It might be possible to just calculate the plane the 2 points and the antipodal point are in and then use that for checking which side is it on. The issue would be how to determine the correct orientation. Then instead of sending the 4d plane though 0. It would sent the plane passing though the projected points. One way to calculate this plane might be to fist calculate the original plane (could be precomputed) and then calculate the 3d plane (using a cross product) and the compare the signs of the 2 planes.
+	*/
+
+	// Move a vertex of the polygon to some vertex of the sphere, because the deviation from the sphere is the smallest at he vertices and biggest at the centers of the faces.
+	//const auto anyVertex = icosahedronVertices[0];
+	//const auto anyVertex = renderer.sphereLodCenter;
+	//const auto rotation = unitSphereRotateAToB(
+	//	(sp0 - sphere.center).normalized(),
+	//	anyVertex.normalized());
+
+	//const auto transform =
+	//	Mat4::translation(sphere.center) *
+	//	Mat4(rotation.toMatrix()) *
+	//	Mat4(Mat3::scale(sphere.radius));
+	//renderer.renderSphericalPolygon(sphere.radius, sphere.center, transform, n0, n1, n2, n3, planeNormal);
+
+	//ImGui::Checkbox("use triangle impostors", &useImpostorsTriangles);
+	static f32 impostorsTriangleScale = 1.2f;
+	if (useImpostorsTriangles) {
+		//ImGui::SliderFloat("impostorsTriangleScale", &impostorsTriangleScale, 1.0f, 2.0f);
+	}
+
+	if (useImpostorsTriangles) {
+		// map (0, 0, 0) -> v0, (1, 0, 0) -> v1, (0, 1, 0) -> v2
+		auto transformTriangle = [](Vec3 v0, Vec3 v1, Vec3 v2) -> Mat4 {
+			const auto center = (v0 + v1 + v2) / 3.0f;
+			auto t = [&](Vec3& v) {
+				v -= center;
+				//v *= 2.0f;
+				v *= impostorsTriangleScale;
+				v += center;
+				};
+			t(v0);
+			t(v1);
+			t(v2);
+			// The 4th coordinate of all these points is 1.
+			return Mat4(
+				Vec4(v0 - v2, 0.0f),
+				Vec4(v1 - v2, 0.0f),
+				//Vec4(0.0f),
+				Vec4(0.0f, 0.0f, 0.0f, 0.0f),
+				Vec4(v2, 1.0f)
+			);
+			};
+		sphereImpostor(transformTriangle(sp0, sp1, sp2), sphere.center, sphere.radius, n0, n1, n2, n2, planeNormal);
+		/*renderer.sphereImpostor(transformTriangle(sp0, sp2, sp3), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);*/
+	} else {
+		const auto transform =
+			Mat4::translation(sphere.center) *
+			Mat4(Mat3::scale(sphere.radius));
+		sphereImpostor(transform, sphere.center, sphere.radius, n0, n1, n2, n2, planeNormal);
+	}
+}
+
+void GameRenderer::stereographicTriangle(Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2) {
+	const auto p4 = -p0;
+	const auto sp0 = stereographicProjection(p0);
+	const auto sp1 = stereographicProjection(p1);
+	const auto sp2 = stereographicProjection(p2);
+	const auto sp3 = stereographicProjection(p4);
+
+	/*renderer.sphere(sp0, width * 3.0f, Color3::RED);
+	renderer.sphere(sp1, width * 3.0f, Color3::RED);
+	renderer.sphere(sp2, width * 3.0f, Color3::RED);
+	renderer.sphere(sp3, width * 3.0f, Color3::GREEN);*/
+
+	const Vec3 points[]{ sp0, sp1, sp2, sp3 };
+	std::vector<Vec3> finitePoints;
+	for (const auto& point : points) {
+		if (!isPointAtInfinity(point)) {
+			finitePoints.push_back(point);
+		}
+	}
+	struct PlaneData {
+		Plane plane;
+		f32 distanceTo4thPoint;
+	};
+	std::vector<PlaneData> possiblePlanes;
+
+	/*auto& face = faces[faceI];
+	const auto n0 = view4 * face.edgeNormals[0];
+	const auto n1 = view4 * face.edgeNormals[1];
+	const auto n2 = view4 * face.edgeNormals[2];*/
+	//const auto n3 = view4 * face.edgeNormals[3];
+
+	if (finitePoints.size() == 4) {
+		/*
+		Tried computing all the planes by choosing triples of points and then comparing the distance to the 4th point to find the best one and the rendering a plane if the 4th points is close enough. This isn't really a good metric, because the plane can still be far away from the edges of the polygon even if it's close to the vertices.
+
+		Could use an alternative fitting method like least squares, but it also probably doesn't make sense, because the user doesn't see the 4th point with relation to the other points. The 4th point is only a helper point to construct the sphere. It doesn't lie on the polygon.
+
+		So it seems like a good metric might finding the maximum deviation of the edges from a plane.
+		Not sure if this is correct, but is seems to me that the maximum distance would happen at the midpoint of the circle curve. So it would make sense to calculate the max of the distances of these midpoints to the plane.
+
+		It might also be good to scale the importance based on the distance from the camera, because objects further away appear smaller so errors are less noticible.
+		*/
+
+		const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
+
+		auto isInf = [](f32 v) {
+			return isinf(v) || isnan(v);
+			};
+
+		if (isInf(sphere.radius) || isInf(sphere.center.x) || isInf(sphere.center.y) || isInf(sphere.center.z)) {
+			const auto planeThoughPolygonVertices = Plane::fromPoints(sp0, sp1, sp2);
+			planeTriangle(planeThoughPolygonVertices, edgeNormal0, edgeNormal1, edgeNormal2, planeNormal4);
+		} else {
+			sphericalTriangle(sp0, sp1, sp2, sphere, edgeNormal0, edgeNormal1, edgeNormal2, planeNormal4);
+		}
+	}
+}
+
+void GameRenderer::stereographicSphere(Vec4 pos, f32 radius) {
+	const auto s = ::stereographicSphere(pos, radius);
+	const auto transform =
+		Mat4::translation(s.center) *
+		Mat4(Mat3::scale(s.radius));
+	sphereImpostorCube(pos, transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
+}

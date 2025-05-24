@@ -45,11 +45,11 @@ void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i
 	for (const auto faceVertexCount : verticesPerFace) {
 		ASSERT(faceVertexCount >= 3);
 
-		const FaceIndex faceIndex = faces.size();
+		const FaceIndex faceIndex = FaceIndex(faces.size());
 		faces.push_back(Face{});
-		const i32 faceVerticesStartOffset = vertices.size();
+		const i32 faceVerticesStartOffset = i32(vertices.size());
 
-		const i32 faceHalfedgesStartOffset = halfedges.size();
+		const i32 faceHalfedgesStartOffset = i32(halfedges.size());
 		faces[faceIndex].halfedge = faceHalfedgesStartOffset;
 		const auto faceEdgeCount = faceVertexCount;
 
@@ -57,7 +57,7 @@ void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i
 			const auto startVertexIndex = facesIndices[offsetInFacesIndices + i];
 			const auto endVertexIndex = facesIndices[offsetInFacesIndices + (i + 1) % faceVertexCount];
 
-			const auto halfedgeIndex = halfedges.size();
+			const auto halfedgeIndex = HalfedgeIndex(halfedges.size());
 			halfedges.push_back(Halfedge{});
 			auto& halfedge = halfedges.back();
 
@@ -75,7 +75,7 @@ void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i
 			ASSERT(newItem);
 		}
 
-		auto previousHalfedgeIndex = halfedges.size() - 1;
+		auto previousHalfedgeIndex = HalfedgeIndex(halfedges.size()) - 1;
 		for (i32 i = 0; i < faceEdgeCount; i++) {
 			const auto startVertexIndex = facesIndices[offsetInFacesIndices + i];
 			const auto endVertexIndex = facesIndices[offsetInFacesIndices + (i + 1) % faceVertexCount];
@@ -131,7 +131,7 @@ void DoublyConnectedEdgeList::initialize(View<const Vec3> vertices, View<const i
 		HalfedgeIndex previousHalfedgeIndex = NULL_HALFEDGE_INDEX; // Filled in later.
 		// This way pointers are set is based on just drawing and image of a hole and trying to make the hole go in the opposite way to the faces.
 		do {
-			const auto oppositeIndex = halfedges.size();
+			const auto oppositeIndex = HalfedgeIndex(halfedges.size());
 			halfedges.push_back(Halfedge{});
 			auto& opposite = halfedges.back();
 
@@ -203,7 +203,7 @@ DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::ver
 }
 
 DoublyConnectedEdgeList::VerticesAroundFaceIterator DoublyConnectedEdgeList::verticesAroundFace(const Face& face) {
-	return verticesAroundFace(&face - &*faces.begin());
+	return verticesAroundFace(FaceIndex(&face - &*faces.begin()));
 }
 
 Vec3 DoublyConnectedEdgeList::computeFaceCentroid(FaceIndex face) {

@@ -23,8 +23,9 @@ struct World {
 	//std::vector<Body*> bodies;
 	BodyArray bodies;
 	void createSphere(Vec4 position, f32 radius, f32 mass);
+	EntityArrayPair<Body> createWall(Vec4 v0, Vec4 v1, Vec4 v2, Vec4 edgeV2ToV0InwardNormal, Vec4 edgeV0ToV1InwardNormal, Vec4 edgeV1ToV2InwardNormal, Vec4 polygonPlaneNormal);
 	//std::vector<Joint*> joints;
-	std::map<BodyIdPair, ContactConstraint> arbiters;
+	std::map<BodyIdPair, ContactConstraint> contactConstraints;
 	i32 iterations;
 	static bool accumulateImpulses;
 	static bool warmStarting;

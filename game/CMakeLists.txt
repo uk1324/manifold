@@ -1,4 +1,4 @@
-add_executable(game "main.cpp" "MainLoop.cpp"  "GameRenderer.cpp" "Surfaces/Torus.cpp" "Surfaces/RectParametrization.cpp" "Surface.cpp" "Tri3d.cpp" "MeshUtils.cpp" "FpsCamera3d.cpp" "SurfaceCamera.cpp" "Constants.cpp" "Surfaces/KleinBottle.cpp" "Surfaces/GenerateParametrization.cpp" "Polyhedra.cpp" "DoublyConnectedEdgeList.cpp"  "PerlinNoise.cpp" "Permutations.cpp" "Stereographic.cpp" "LineGenerator.cpp" "Bezier.cpp" "Game.cpp" "Polytopes.cpp" "Combinatorics.cpp" "StereographicCamera.cpp" "Math.cpp" "Physics/World.cpp" "Physics/Joint.cpp" "Physics/Body.cpp" "4d.cpp" "Physics/ContactConstraint.cpp" "Physics/Collide.cpp")
+add_executable(game "main.cpp" "MainLoop.cpp"  "GameRenderer.cpp" "Tri3d.cpp" "MeshUtils.cpp" "FpsCamera3d.cpp" "Constants.cpp" "Polyhedra.cpp" "DoublyConnectedEdgeList.cpp"  "PerlinNoise.cpp" "Permutations.cpp" "Stereographic.cpp" "LineGenerator.cpp" "Bezier.cpp" "Game.cpp" "Polytopes.cpp" "Combinatorics.cpp" "StereographicCamera.cpp" "Math.cpp" "Physics/World.cpp"  "Physics/Body.cpp" "4d.cpp" "Physics/ContactConstraint.cpp" "Physics/Collide.cpp")
 
 target_link_libraries(game PUBLIC engine)
 

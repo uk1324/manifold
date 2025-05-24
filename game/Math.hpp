@@ -27,3 +27,6 @@ std::array<Vec4, 3> orthonormalBasisFor3Space(Vec4 normal);
 std::array<Vec4, 2> basisForOrthogonalComplement(Vec4 v0, Vec4 v1);
 // a and b are points on the unit sphere
 Quat unitSphereRotateAToB(Vec3 a, Vec3 b);
+
+f32 randomF32m1To1();
+Vec4 randomVec4m1To1();

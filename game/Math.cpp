@@ -136,3 +136,16 @@ Quat unitSphereRotateAToB(Vec3 a, Vec3 b) {
 	}
 	return Quat(rotationAngle, rotationAxis);
 }
+
+f32 randomF32m1To1() {
+	return 2.0f * (f32(rand()) / f32(RAND_MAX) - 0.5f);
+}
+
+Vec4 randomVec4m1To1() {
+	return Vec4(
+		randomF32m1To1(),
+		randomF32m1To1(),
+		randomF32m1To1(),
+		randomF32m1To1()
+	);
+}

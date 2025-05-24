@@ -16,3 +16,5 @@ f32 parallelogramArea(Vec4 v0, Vec4 v1);
 f32 parallelepipedArea(Vec4 v0, Vec4 v1, Vec4 v2);
 f32 distanceFromPlaneToPoint(Vec4 planePoint, Vec4 planeSpanning0, Vec4 planeSpanning1, Vec4 point);
 f32 sphereAngularDistance(Vec4 v0, Vec4 v1);
+
+std::array<Vec4, 3> orthonormalBasisFor3SpaceContainingTriangle(Vec4 v0, Vec4 v1, Vec4 v2);

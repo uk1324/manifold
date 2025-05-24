@@ -90,7 +90,7 @@ Quat mat3ToQuatUnchecked(const Mat3& ma) {
 			result = Quat(m(1, 2) - m(2, 1), m(2, 0) - m(0, 2), m(0, 1) - m(1, 0), t);
 		}
 	}
-	result *= 0.5 / sqrt(t);
+	result *= 0.5f / sqrt(t);
 	return result.normalized();
 }
 
@@ -315,7 +315,7 @@ FlatShadingResult flatShadeRegularPolyhedron(View<const Vec3> vertices, View<con
 			result.positions.push_back(vertices[vertexIndex]);
 			result.normals.push_back(normal);
 		}
-		f32 triangleFanCentralVertexIndexInFace = 0;
+		i32 triangleFanCentralVertexIndexInFace = 0;
 		for (i32 i = 0; i < verticesPerFace - 2; i++) {
 			result.indices.push_back(faceOffset + triangleFanCentralVertexIndexInFace);
 			result.indices.push_back(faceOffset + i + 1);
@@ -546,7 +546,7 @@ MeshTriPn makeIcosphere(i32 edgeDivisions, f32 radius) {
 					result.positions[leftIndex],
 					result.positions[rightIndex],
 					f32(i) / f32(verticesOnLayer - 1));
-				faceIndices.push_back(result.positions.size());
+				faceIndices.push_back(i32(result.positions.size()));
 				result.positions.push_back(vertex);
 			}
 			faceIndices.push_back(rightIndex);

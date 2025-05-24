@@ -601,11 +601,11 @@ Polytope make600cell() {
 
 	r.cells.push_back(Polytope::CellsN{});
 	auto& faces = r.cells.back();
-	addCells(faces, std::size(faces600cell) / 3, constView(edgeToFaces600cell), 5);
+	addCells(faces, i32(std::size(faces600cell)) / 3, constView(edgeToFaces600cell), 5);
 
 	r.cells.push_back(Polytope::CellsN{});
 	auto& cells = r.cells.back();
-	addCells(cells, std::size(cells600cell) / 4, constView(faceToCells600cell), 2);
+	addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
 
 	return r;
 }

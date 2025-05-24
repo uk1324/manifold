@@ -1,6 +1,8 @@
 #include "4d.hpp"
 #include <engine/Math/Quat.hpp>
 #include <game/Math.hpp>
+#include <View.hpp>
+#include <engine/Math/GramSchmidt.hpp>
 #include <algorithm>
 
 Vec4 quatMul(Vec4 a, Vec4 b) {
@@ -130,4 +132,10 @@ f32 distanceFromPlaneToPoint(Vec4 planePoint, Vec4 planeSpanning0, Vec4 planeSpa
 
 f32 sphereAngularDistance(Vec4 v0, Vec4 v1) {
 	return acos(std::clamp(dot(v0, v1), -1.0f, 1.0f));
+}
+
+std::array<Vec4, 3> orthonormalBasisFor3PlaneContainingTriangle(Vec4 v0, Vec4 v1, Vec4 v2) {
+	std::array<Vec4, 3> basis{ v0, v1, v2 };
+	gramSchmidtOrthonormalize(View<Vec4>(basis.data(), basis.size()));
+	return basis;
 }

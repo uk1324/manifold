@@ -39,6 +39,11 @@ struct Game {
 	std::vector<Vec4> vertices;
 	std::vector<Vec3> verticesColors;
 	
+	struct Triangle {
+		i32 vertices[3];
+		Vec4 edgeNormals[3];
+	};
+
 	struct Edge {
 		i32 vertices[2];
 	};
@@ -46,6 +51,7 @@ struct Game {
 		std::vector<i32> vertices;
 		std::vector<Vec4> edgeNormals;
 		StaticList<i32, 2> cells;
+		std::vector<Triangle> triangulation;
 	};
 	struct Cell {
 		std::vector<i32> faces;
@@ -57,10 +63,6 @@ struct Game {
 
 	std::vector<bool> isCellSet;
 
-	Vbo linesVbo;
-	Ibo linesIbo;
-	Vao linesVao;
-	//Polytope crossPolytope;
 	enum class CameraType {
 		NORMAL,
 		STEREOGRAPHIC,
@@ -71,8 +73,6 @@ struct Game {
 		PUSHING
 	};
 	Tool tool = Tool::BUILDING;
-
-	LineGenerator lineGenerator;
 
 	World world;
 	bool cellsModified = false;
