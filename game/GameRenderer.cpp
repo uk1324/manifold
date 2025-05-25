@@ -556,7 +556,7 @@ void GameRenderer::stereographicLineSegment(Vec4 e0, Vec4 e1) {
 	}
 }
 
-void GameRenderer::planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 planeNormal) {
+void GameRenderer::planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3, Vec4 planeNormal) {
 
 	Vec3 untransformedPlaneMeshNormal = Vec3(0.0f, 1.0f, 0.0f);
 	const auto rotation = unitSphereRotateAToB(untransformedPlaneMeshNormal, plane.n);
@@ -568,12 +568,12 @@ void GameRenderer::planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edge
 		.n0 = edgeNormal0,
 		.n1 = edgeNormal1,
 		.n2 = edgeNormal2,
-		.n3 = edgeNormal2,
+		.n3 = edgeNormal3,
 		.planeNormal = planeNormal,
 	});
 }
 
-void GameRenderer::sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 planeNormal) {
+void GameRenderer::sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal) {
 	//const auto sphere = Sphere::thoughPoints(sp0, sp1, sp2, sp3);
 	// Though if it would be possible to replace the spheres with just their projectsions. That is to render planes instead of spheres. If you did that the circular segments would also need to be replaced with straight lines, because otherwise there would be gaps. If they are replaced then their widht wouldn't change with distance because they wouldn't get further away. You also wouldn't be able to calculate the distance both in 3d and 4d in the shader, because the points are in wrong positions so fading based on distance and shading would be impossible.
 
@@ -648,17 +648,17 @@ void GameRenderer::sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere&
 				Vec4(v2, 1.0f)
 			);
 			};
-		sphereImpostor(transformTriangle(sp0, sp1, sp2), sphere.center, sphere.radius, n0, n1, n2, n2, planeNormal);
+		sphereImpostor(transformTriangle(sp0, sp1, sp2), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
 		/*renderer.sphereImpostor(transformTriangle(sp0, sp2, sp3), sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);*/
 	} else {
 		const auto transform =
 			Mat4::translation(sphere.center) *
 			Mat4(Mat3::scale(sphere.radius));
-		sphereImpostor(transform, sphere.center, sphere.radius, n0, n1, n2, n2, planeNormal);
+		sphereImpostor(transform, sphere.center, sphere.radius, n0, n1, n2, n3, planeNormal);
 	}
 }
 
-void GameRenderer::stereographicTriangle(Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2) {
+void GameRenderer::stereographicTriangle(Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3) {
 	const auto p4 = -p0;
 	const auto sp0 = stereographicProjection(p0);
 	const auto sp1 = stereographicProjection(p1);
@@ -709,9 +709,9 @@ void GameRenderer::stereographicTriangle(Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNo
 
 		if (isInf(sphere.radius) || isInf(sphere.center.x) || isInf(sphere.center.y) || isInf(sphere.center.z)) {
 			const auto planeThoughPolygonVertices = Plane::fromPoints(sp0, sp1, sp2);
-			planeTriangle(planeThoughPolygonVertices, edgeNormal0, edgeNormal1, edgeNormal2, planeNormal4);
+			planeTriangle(planeThoughPolygonVertices, edgeNormal0, edgeNormal1, edgeNormal2, edgeNormal3, planeNormal4);
 		} else {
-			sphericalTriangle(sp0, sp1, sp2, sphere, edgeNormal0, edgeNormal1, edgeNormal2, planeNormal4);
+			sphericalTriangle(sp0, sp1, sp2, sphere, edgeNormal0, edgeNormal1, edgeNormal2, edgeNormal3, planeNormal4);
 		}
 	}
 }

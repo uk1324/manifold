@@ -289,10 +289,12 @@ void Game::update() {
 
 	world.settingsGui();
 
+	// @Performance: Frustum culling is probably the simplest optimization to implement to reduce the amount of triangles rendered.
 	auto renderFace = [&](i32 faceI, const Cell& cell) {
 		const auto& face = faces[faceI];
 
-		for (const auto& tri : face.triangulation) {
+		// This method renders shader edges for each triangle. Maybe it's possible to do it without that happenning. Maybe pass the adjacent face edge normals. The issue is with which face edges to pick for which triangle.
+		/*for (const auto& tri : face.triangulation) {
 			const auto& p0 = transformedVertices4[tri.vertices[0]];
 			const auto& p1 = transformedVertices4[tri.vertices[1]];
 			const auto& p2 = transformedVertices4[tri.vertices[2]];
@@ -306,21 +308,28 @@ void Game::update() {
 			const auto n1 = view4 * tri.edgeNormals[1];
 			const auto n2 = view4 * tri.edgeNormals[2];
 			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2);
-		}
+		}*/
 
-		//const auto& p0 = transformedVertices4[face.vertices[0]];
-		//const auto& p1 = transformedVertices4[face.vertices[1]];
-		//const auto& p2 = transformedVertices4[face.vertices[2]];
-		//Vec4 normal(0.0f);
-		//for (i32 i = 0; i < cell.faces.size(); i++) {
-		//	if (cell.faces[i] == faceI) {
-		//		normal = cell.faceNormals[i];
-		//	}
-		//}
-		//const auto n0 = view4 * face.edgeNormals[0];
-		//const auto n1 = view4 * face.edgeNormals[1];
-		//const auto n2 = view4 * face.edgeNormals[2];
-		//renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2);
+		const auto& p0 = transformedVertices4[face.vertices[0]];
+		const auto& p1 = transformedVertices4[face.vertices[1]];
+		const auto& p2 = transformedVertices4[face.vertices[2]];
+		Vec4 normal(0.0f);
+		for (i32 i = 0; i < cell.faces.size(); i++) {
+			if (cell.faces[i] == faceI) {
+				normal = cell.faceNormals[i];
+			}
+		}
+		const auto n0 = view4 * face.edgeNormals[0];
+		const auto n1 = view4 * face.edgeNormals[1];
+		const auto n2 = view4 * face.edgeNormals[2];
+		if (face.vertices.size() == 3) {
+			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n2);
+		} else if (face.vertices.size() == 4) {
+			const auto n3 = view4 * face.edgeNormals[3];
+			const auto& p3 = transformedVertices4[face.vertices[3]];
+			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n3);
+			renderer.stereographicTriangle(p0, p2, p3, normal, n0, n1, n2, n3);
+		}
 		
 		//const auto faceCenter = ((p0 + p1 + p2) / 3.0f).normalized();
 		//const auto transformedFaceCenter = stereographicProjection(faceCenter);
