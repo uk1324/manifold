@@ -9,6 +9,7 @@
 #include <engine/Math/Vec4.hpp>
 #include <StaticList.hpp>
 #include <game/Physics/World.hpp>
+#include <set>
 
 struct Game {
 	static Game make();
@@ -34,8 +35,11 @@ struct Game {
 	};
 	struct Cell {
 		std::vector<i32> faces;
+		//std::vector<i32> neighbouringCells;
 		std::vector<Vec4> faceNormals;
 	};
+	std::vector<std::set<i32>> cellsVertices;
+
 	std::vector<Edge> edges;
 	std::vector<Face> faces;
 	std::vector<Cell> cells;
@@ -61,6 +65,11 @@ struct Game {
 	};
 	std::vector<CellBody> cellsBodies;
 	void updateCellsBodies();
+
+	bool updateGameOfLife = false;
+	void gameOfLifeStep();
+	i32 frame = 0;
+	std::vector<std::vector<i32>> cellToNeighbouringCells;
 
 	GameRenderer renderer;
 	FpsCamera3d camera;

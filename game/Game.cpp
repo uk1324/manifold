@@ -16,6 +16,20 @@
 #include <game/4d.hpp>
 #include <game/Physics/Body.hpp>
 
+// https://stackoverflow.com/questions/46770028/is-it-possible-to-use-stdset-intersection-to-check-if-two-sets-have-any-elem
+template <class I1, class I2>
+bool haveCommonElement(I1 first1, I1 last1, I2 first2, I2 last2) {
+	while (first1 != last1 && first2 != last2) {
+		if (*first1 < *first2)
+			++first1;
+		else if (*first2 < *first1)
+			++first2;
+		else
+			return true;
+	}
+	return false;
+}
+
 Game Game::make() {
 	auto renderer = GameRenderer::make();
 
@@ -67,8 +81,8 @@ Game Game::make() {
 
 	//const auto c = crossPolytope(4);
 	//const auto c = hypercube(4);
-	//const auto c = subdiviedHypercube4(4);
-	const auto c = makeSnub24cell();
+	const auto c = subdiviedHypercube4(4);
+	//const auto c = make600cell();
 	for (i32 i = 0; i < c.vertices.size(); i++) {
 		const auto t = f32(i) / f32(c.vertices.size() - 1);
 		const auto& vertex = c.vertices[i];
@@ -133,12 +147,18 @@ Game Game::make() {
 		r.faces.push_back(f);
 	}
 	for (const auto& cell : c.cellsOfDimension(3)) {
+		const auto currentCellI = i32(r.cells.size());
+
 		std::vector<Vec4> faceNormals;
 		for (i32 faceI : cell) {
 			const auto normal = outwardPointingFaceNormal(r.vertices, r.faces, cell, faceI);
 			faceNormals.push_back(normal);
 		}
-		r.cells.push_back(Cell{ .faces = cell, .faceNormals = std::move(faceNormals) });
+
+		r.cells.push_back(Cell{ 
+			.faces = cell, 
+			.faceNormals = std::move(faceNormals),
+		});
 	}
 	r.isCellSet.resize(r.cells.size(), false);
 	r.isCellSet[0] = true;
@@ -167,6 +187,39 @@ Game Game::make() {
 			}
 		}
 	}
+
+	for (i32 cellI = 0; cellI < r.cells.size(); cellI++) {
+		auto& cell = r.cells[cellI];
+		/*for (const auto& faceI : cell.faces) {
+			auto& face = r.faces[faceI];
+			if (face.cells[0] == cellI) {
+				cell.neighbouringCells.push_back(face.cells[1]);
+			} else {
+				cell.neighbouringCells.push_back(face.cells[0]);
+			}
+		}*/
+
+		std::set<i32> vertices;
+		for (const auto& faceI : cell.faces) {
+			for (const auto& vertex : r.faces[faceI].vertices) {
+				vertices.insert(vertex);
+			}
+		}
+		r.cellsVertices.push_back(std::move(vertices));
+	}
+
+	r.cellToNeighbouringCells.resize(r.cells.size());
+	for (i32 cellI = 0; cellI < r.cells.size(); cellI++) {
+		for (i32 cellJ = cellI + 1; cellJ < r.cells.size(); cellJ++) {
+			auto& vI = r.cellsVertices[cellI];
+			auto& vJ = r.cellsVertices[cellJ];
+			if (haveCommonElement(vI.begin(), vI.end(), vJ.begin(), vJ.end())) {
+				r.cellToNeighbouringCells[cellI].push_back(cellJ);
+				r.cellToNeighbouringCells[cellJ].push_back(cellI);
+			}
+		}
+	}
+
 	return r;
 }
 
@@ -198,6 +251,8 @@ void Game::update() {
 	if (Input::isKeyDown(KeyCode::TAB)) {
 		selectedCamera = static_cast<CameraType>((static_cast<int>(selectedCamera) + 1) % 2);
 	}
+
+	gameOfLifeStep();
 
 	auto view = Mat4::identity;
 	Vec3 cameraPosition = Vec3(0.0f);
@@ -242,6 +297,17 @@ void Game::update() {
 	glDisable(GL_BLEND);
 
 	ImGui::Combo("tool", reinterpret_cast<int*>(&tool), "building\0pushing\0");
+
+	ImGui::Checkbox("update game of life", &updateGameOfLife);
+	if (ImGui::Button("randomly initialize")) {
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::bernoulli_distribution d(0.04f);
+
+		for (i32 i = 0; i < cells.size(); i++) {
+			isCellSet[i] = d(gen);
+		}
+	}
 
 	std::vector<Vec4> transformedVertices4;
 	for (const auto& vertex : vertices) {
@@ -542,4 +608,30 @@ void Game::update() {
 }
 
 void Game::updateCellsBodies() {
+}
+
+void Game::gameOfLifeStep() {
+	if (!updateGameOfLife) {
+		return;
+	}
+	frame++;
+	if (frame % 30 != 0) {
+		return;
+	}
+
+	auto oldIsCellSet = isCellSet;
+	for (i32 cellI = 0; cellI < cells.size(); cellI++) {
+		i32 setNeighbourCount = 0;
+		for (const auto& neighbourCellI : cellToNeighbouringCells[cellI]) {
+			if (oldIsCellSet[neighbourCellI]) {
+				setNeighbourCount++;
+			}
+		}
+		if (const auto isAlive = oldIsCellSet[cellI]) {
+			isCellSet[cellI] = setNeighbourCount >= 2 && setNeighbourCount <= 3;
+		} else {
+			isCellSet[cellI] = setNeighbourCount == 3;
+		}
+	}
+	cellsModified = true;
 }
