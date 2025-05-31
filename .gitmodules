@@ -1,3 +1,6 @@
 [submodule "engine"]
 	path = engine
 	url = https://github.com/uk1324/engine.git
+[submodule "dependencies/qhull"]
+	path = dependencies/qhull
+	url = https://github.com/qhull/qhull.git

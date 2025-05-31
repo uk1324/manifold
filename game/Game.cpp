@@ -67,8 +67,8 @@ Game Game::make() {
 
 	//const auto c = crossPolytope(4);
 	//const auto c = hypercube(4);
-	const auto c = subdiviedHypercube4(4);
-	//const auto c = make600cell();
+	//const auto c = subdiviedHypercube4(4);
+	const auto c = make120cell();
 	for (i32 i = 0; i < c.vertices.size(); i++) {
 		const auto t = f32(i) / f32(c.vertices.size() - 1);
 		const auto& vertex = c.vertices[i];
@@ -337,6 +337,13 @@ void Game::update() {
 		//renderer.sphere(transformedFaceCenter, 0.03f, Color3::RED);
 		//renderer.line(transformedFaceCenter, transformedFaceCenter + transformedNormal.normalized(), 0.02f, Color3::MAGENTA);
 	};
+
+	//for (const auto& edge : edges) {
+	//	renderer.stereographicLineSegment(
+	//		transformedVertices4[edge.vertices[0]],
+	//		transformedVertices4[edge.vertices[1]]
+	//	);
+	//}
 
 	for (const auto& face : exposedFaces) {
 		renderFace(face.faceI, cells[face.cellI]);

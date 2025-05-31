@@ -2,6 +2,7 @@
 #include "Combinatorics.hpp"
 #include <algorithm>
 #include <unordered_map>
+#include <game/ConvexHull.hpp>
 #include <engine/Math/Quat.hpp>
 #include <game/600cell.hpp>
 #include <View.hpp>
@@ -608,6 +609,28 @@ Polytope make600cell() {
 	addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
 
 	return r;
+}
+
+Polytope make120cell() {
+	const auto c = make600cell();
+	//const auto c = subdiviedHypercube4(0);
+	std::vector<Vec4> vertices;
+	for (const auto& v : c.vertices) {
+		vertices.push_back(Vec4(v[0], v[1], v[2], v[3]));
+	}
+
+	//std::vector<Vec4> vertices;
+	//const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+	//vertices.push_back(Vec4(2.0f, 0.0f, 0.0f, 0.0f));
+	//vertices.push_back(Vec4(0.0f, 2.0f, 0.0f, 0.0f));
+	//vertices.push_back(Vec4(0.0f, 0.0f, 2.0f, 0.0f));
+	//vertices.push_back(Vec4(0.0f, 0.0f, 0.0f, 2.0f));
+	//vertices.push_back(Vec4(p, p, p, p));
+	//for (auto& vertex : vertices) {
+	//	vertex -= Vec4(1.0f, 1.0f, 1.0f, 1.0f) / (2.0f - 1.0f / p);
+	//}
+
+	return convexHull(vertices);
 }
 
 std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, i32 faceIndex) {

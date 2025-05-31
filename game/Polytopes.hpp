@@ -31,3 +31,4 @@ Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex);
 
 
 Polytope make600cell();
+Polytope make120cell();
