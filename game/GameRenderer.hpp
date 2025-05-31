@@ -74,7 +74,7 @@ struct GameRenderer {
 	Mesh sphereImpostorMeshTri;
 	std::vector<SphereImpostorInstance> sphereImpostors;
 	std::vector<SphereImpostor2Instance> sphereImpostorsCubes;
-	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
+	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 n4, Vec4 planeNormal);
 	void sphereImpostorCube(Vec4 center4, Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
 	void renderSphereImpostors();
 
@@ -82,9 +82,9 @@ struct GameRenderer {
 
 	void stereographicLineSegment(Vec4 e0, Vec4 e1);
 
-	void planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3, Vec4 planeNormal);
-	void sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
-	void stereographicTriangle(Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3);
+	void planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3, Vec4 edgeNormal4, Vec4 planeNormal);
+	void sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 n4, Vec4 planeNormal);
+	void stereographicTriangle(Vec4 p0, Vec4 p1, Vec4 p2, Vec4 planeNormal4, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3, Vec4 edgeNormal4);
 
 	void stereographicSphere(Vec4 pos, f32 radius);
 

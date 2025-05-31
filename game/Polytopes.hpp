@@ -3,10 +3,29 @@
 #include <engine/Math/Vec4.hpp>
 #include <vector>
 
+/*
+Generating convex polytopes.
+
+A convex polygon is fully defined by it's vertices, because it can be defined as the convex hull of it's vertices.
+
+We can create dual of a polytope by choosing the vertices to be the centroids of the original cells.
+
+Some polytopes have nice combinatorial constructions. For the cells of a simplex can be found by chosing k-tuples  of vertices. Similarly the cross polytope and the hypercube have nice constructions. They can be found in Coexter "Regular Polytopes".
+
+For regular figures the edges faces and cells can be found by choosing tuples of vertices that are close to eachother in angular distance.
+
+Vertices of some polytopes may be found on wikipedia. This website contains many more https://www.qfbox.info/4d/uniform.
+
+https://en.wikipedia.org/wiki/Semiregular_polytope
+Semiregular polytopes are vertex transitive polytopes that have regular polytopes as cells. There are only 3 of them. 
+
+A more general class is the class of uniform polytopes. They are the vertex transitive polytopes that have uniform polytopes as cells. In 2D the uniform polytopes are just the regular polygons so 3D uniform polytopes are the same as 3D semiregular polytopes.
+*/
+
 struct Polytope {
 	// Storing just the sets of vertices making a 3-cell for example would only work if all of them were of the same type. For example if all of them were simplicies. This is why this needs to store the references to the one lower cells instead of vertices.
 	using PointN = std::vector<f32>;
-	using CellN = std::vector<i32>; // faces
+	using CellN = std::vector<i32>;
 	using CellsN = std::vector<CellN>;
 	std::vector<PointN> vertices;
 	std::vector<CellsN> cells;
@@ -30,5 +49,15 @@ std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, const Polytope
 Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex);
 
 
+// regular
 Polytope make600cell();
 Polytope make120cell();
+Polytope make24cell();
+Polytope make5cell();
+
+// semi-regular
+Polytope makeRectified5cell();
+Polytope makeRectified600cell();
+Polytope makeSnub24cell();
+
+// uniform

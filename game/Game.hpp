@@ -10,27 +10,6 @@
 #include <StaticList.hpp>
 #include <game/Physics/World.hpp>
 
-struct PolytopeEdge {
-	i32 vertices[2];
-};
-
-struct PolytopeFace {
-	std::vector<i32> edges;
-};
-
-struct PolytopeCell3 {
-	std::vector<i32> faces;
-};
-
-struct Polytope4 {
-	Polytope4(const Polytope& p);
-
-	std::vector<Vec4> vertices;
-	std::vector<PolytopeEdge> edges;
-	std::vector<PolytopeFace> faces;
-	std::vector<PolytopeCell3> cells;
-};
-
 struct Game {
 	static Game make();
 

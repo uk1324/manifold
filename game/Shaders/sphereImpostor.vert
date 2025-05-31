@@ -8,7 +8,8 @@ layout(location = 7) in vec4 instanceN0;
 layout(location = 8) in vec4 instanceN1; 
 layout(location = 9) in vec4 instanceN2; 
 layout(location = 10) in vec4 instanceN3; 
-layout(location = 11) in vec4 instancePlaneNormal; 
+layout(location = 11) in vec4 instanceN4; 
+layout(location = 12) in vec4 instancePlaneNormal; 
 
 uniform mat4 transform; 
 
@@ -21,6 +22,7 @@ out vec4 n0;
 out vec4 n1; 
 out vec4 n2; 
 out vec4 n3; 
+out vec4 n4; 
 out vec4 planeNormal; 
 
 void passToFragment() {
@@ -30,6 +32,7 @@ void passToFragment() {
     n1 = instanceN1; 
     n2 = instanceN2; 
     n3 = instanceN3; 
+    n4 = instanceN4; 
     planeNormal = instancePlaneNormal; 
 }
 

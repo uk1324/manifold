@@ -68,7 +68,7 @@ Game Game::make() {
 	//const auto c = crossPolytope(4);
 	//const auto c = hypercube(4);
 	//const auto c = subdiviedHypercube4(4);
-	const auto c = make120cell();
+	const auto c = makeSnub24cell();
 	for (i32 i = 0; i < c.vertices.size(); i++) {
 		const auto t = f32(i) / f32(c.vertices.size() - 1);
 		const auto& vertex = c.vertices[i];
@@ -323,12 +323,20 @@ void Game::update() {
 		const auto n1 = view4 * face.edgeNormals[1];
 		const auto n2 = view4 * face.edgeNormals[2];
 		if (face.vertices.size() == 3) {
-			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n2);
+			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n2, n2);
 		} else if (face.vertices.size() == 4) {
 			const auto n3 = view4 * face.edgeNormals[3];
 			const auto& p3 = transformedVertices4[face.vertices[3]];
-			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n3);
-			renderer.stereographicTriangle(p0, p2, p3, normal, n0, n1, n2, n3);
+			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n3, n3);
+			renderer.stereographicTriangle(p0, p2, p3, normal, n0, n1, n2, n3, n3);
+		} else if (face.vertices.size() == 5) {
+			const auto n3 = view4 * face.edgeNormals[3];
+			const auto& p3 = transformedVertices4[face.vertices[3]];
+			const auto n4 = view4 * face.edgeNormals[4];
+			const auto& p4 = transformedVertices4[face.vertices[4]];
+			renderer.stereographicTriangle(p0, p1, p2, normal, n0, n1, n2, n3, n4);
+			renderer.stereographicTriangle(p0, p2, p3, normal, n0, n1, n2, n3, n4);
+			renderer.stereographicTriangle(p0, p3, p4, normal, n0, n1, n2, n3, n4);
 		}
 		
 		//const auto faceCenter = ((p0 + p1 + p2) / 3.0f).normalized();
@@ -534,19 +542,4 @@ void Game::update() {
 }
 
 void Game::updateCellsBodies() {
-}
-
-Polytope4::Polytope4(const Polytope& p) {
-	for (const auto& vertex : p.vertices) {
-		vertices.push_back(Vec4(vertex[0], vertex[1], vertex[2], vertex[3]));
-	}
-	for (const auto& edge : p.cells[0]) {
-		edges.push_back(PolytopeEdge{ .vertices = { edge[0], edge[1] } });
-	}
-	for (const auto& face : p.cells[1]) {
-		faces.push_back(PolytopeFace{ .edges = face });
-	}
-	for (const auto& cell : p.cells[2]) {
-		cells.push_back(PolytopeCell3{ .faces = cell });
-	}
 }

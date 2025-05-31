@@ -2,9 +2,12 @@
 #include "Combinatorics.hpp"
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
+#include <array>
 #include <game/ConvexHull.hpp>
 #include <engine/Math/Quat.hpp>
 #include <game/600cell.hpp>
+#include <StaticList.hpp>
 #include <View.hpp>
 
 void addPyramid(
@@ -569,68 +572,218 @@ Polytope make600cell() {
 	//addCells(cells, constView(cells600cell), 4);
 
 
-	for (i32 i = 0; i < std::size(vertices600cell); i++) {
-		const auto& p = vertices600cell[i];
-		r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
-	}
-	auto addCells = [](Polytope::CellsN& out, i32 cellCount, View<const i32> subCellToCells, i32 cellsPerSubCell) {
-		out.resize(cellCount);
+for (i32 i = 0; i < std::size(vertices600cell); i++) {
+	const auto& p = vertices600cell[i];
+	r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
+}
+auto addCells = [](Polytope::CellsN& out, i32 cellCount, View<const i32> subCellToCells, i32 cellsPerSubCell) {
+	out.resize(cellCount);
 
-		for (i32 subCellI = 0; subCellI < subCellToCells.size() / cellsPerSubCell; subCellI++) {
-			for (i32 i = 0; i < cellsPerSubCell; i++) {
-				auto cellI = subCellToCells[subCellI * cellsPerSubCell + i];
-				out[cellI].push_back(subCellI);
-			}
+	for (i32 subCellI = 0; subCellI < subCellToCells.size() / cellsPerSubCell; subCellI++) {
+		for (i32 i = 0; i < cellsPerSubCell; i++) {
+			auto cellI = subCellToCells[subCellI * cellsPerSubCell + i];
+			out[cellI].push_back(subCellI);
 		}
-		/*for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
-			Polytope::CellN cell;
-			for (i32 j = 0; j < subCellsPerCell; j++) {
-				cell.push_back(in[i + j]);
-			}
-			out.push_back(std::move(cell));
-		}*/
-	};
-	r.cells.push_back(Polytope::CellsN{});
-	auto& edges = r.cells.back();
-	for (i32 i = 0; i < std::size(edges600cell); i += 2) {
+	}
+	/*for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
 		Polytope::CellN cell;
-		for (i32 j = 0; j < 2; j++) {
-			cell.push_back(edges600cell[i + j]);
+		for (i32 j = 0; j < subCellsPerCell; j++) {
+			cell.push_back(in[i + j]);
 		}
-		edges.push_back(std::move(cell));
+		out.push_back(std::move(cell));
+	}*/
+	};
+r.cells.push_back(Polytope::CellsN{});
+auto& edges = r.cells.back();
+for (i32 i = 0; i < std::size(edges600cell); i += 2) {
+	Polytope::CellN cell;
+	for (i32 j = 0; j < 2; j++) {
+		cell.push_back(edges600cell[i + j]);
 	}
+	edges.push_back(std::move(cell));
+}
 
-	r.cells.push_back(Polytope::CellsN{});
-	auto& faces = r.cells.back();
-	addCells(faces, i32(std::size(faces600cell)) / 3, constView(edgeToFaces600cell), 5);
+r.cells.push_back(Polytope::CellsN{});
+auto& faces = r.cells.back();
+addCells(faces, i32(std::size(faces600cell)) / 3, constView(edgeToFaces600cell), 5);
 
-	r.cells.push_back(Polytope::CellsN{});
-	auto& cells = r.cells.back();
-	addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
+r.cells.push_back(Polytope::CellsN{});
+auto& cells = r.cells.back();
+addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
 
+return r;
+}
+
+struct Vec4SignSwitchIterator {
+	Vec4 v;
+	Vec4SignSwitchIterator(f32 x, f32 y, f32 z, f32 w, bool switchSignX, bool switchSignY, bool switchSignZ, bool switchSignW);
+	Vec4SignSwitchIterator(Vec4 v, bool switchSignX, bool switchSignY, bool switchSignZ, bool switchSignW);
+	Vec4SignSwitchIterator(Vec4 v, StaticList<i32, 4> indicesToSwitch, i32 i);
+	StaticList<i32, 4> indicesToSwitch;
+	i32 i = 0;
+
+	Vec4SignSwitchIterator begin();
+	Vec4SignSwitchIterator end();
+	Vec4 operator*() const;
+	bool operator==(const Vec4SignSwitchIterator& other) const;
+	bool operator!=(const Vec4SignSwitchIterator& other) const;
+
+	Vec4SignSwitchIterator& operator++();
+};
+
+struct HashVec4 {
+	usize operator()(Vec4 v) const {
+		return hashCombine(v.x, hashCombine(v.y, hashCombine(v.z, v.w)));
+	}
+};
+using VertexSet = std::unordered_set<Vec4, HashVec4>;
+std::vector<Vec4> vertexSetToVertexList(const VertexSet& v) {
+	std::vector<Vec4> r;
+	for (const auto& vertex : v) {
+		r.push_back(vertex);
+	}
 	return r;
 }
 
-Polytope make120cell() {
-	const auto c = make600cell();
-	//const auto c = subdiviedHypercube4(0);
-	std::vector<Vec4> vertices;
-	for (const auto& v : c.vertices) {
-		vertices.push_back(Vec4(v[0], v[1], v[2], v[3]));
+bool isPermuationEven(const std::array<i32, 4>& p) {
+	i32 inversionCount = 0;
+	for (i32 i = 0; i < p.size(); i++) {
+		for (i32 j = i + 1; j < p.size(); j++) {
+			if (p[i] > p[j]) inversionCount++;
+		}
 	}
+	return inversionCount % 2;
+}
 
-	//std::vector<Vec4> vertices;
-	//const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
-	//vertices.push_back(Vec4(2.0f, 0.0f, 0.0f, 0.0f));
-	//vertices.push_back(Vec4(0.0f, 2.0f, 0.0f, 0.0f));
-	//vertices.push_back(Vec4(0.0f, 0.0f, 2.0f, 0.0f));
-	//vertices.push_back(Vec4(0.0f, 0.0f, 0.0f, 2.0f));
-	//vertices.push_back(Vec4(p, p, p, p));
-	//for (auto& vertex : vertices) {
-	//	vertex -= Vec4(1.0f, 1.0f, 1.0f, 1.0f) / (2.0f - 1.0f / p);
-	//}
+void addPermuations(VertexSet& vertices, f32 x, f32 y, f32 z, f32 w, bool switchSignX, bool switchSignY, bool switchSignZ, bool switchSignW, bool addOnlyEvenPermuations = false) {
+	for (const auto& v : Vec4SignSwitchIterator(x, y, z, w, switchSignX, switchSignY, switchSignZ, switchSignW)) {
+		std::array<i32, 4> permuation{ 0, 1, 2, 3 };
+		//i32 i = 0;
+		do {
+			if (!addOnlyEvenPermuations || isPermuationEven(permuation)) {
+				//CHECK(isPermuationEven(permuation));
+				Vec4 permutedV(v[permuation[0]], v[permuation[1]], v[permuation[2]], v[permuation[3]]);
+				vertices.insert(permutedV);
+			}
+			//i++;
+		} while (std::next_permutation(permuation.begin(), permuation.end()));
+	}
+}
 
+void addPermuations(VertexSet& vertices, f32 x, f32 y, f32 z, f32 w, bool addOnlyEvenPermuations = false) {
+	bool switchSignX = x != 0.0f;
+	bool switchSignY = y != 0.0f;
+	bool switchSignZ = z != 0.0f;
+	bool switchSignW = w != 0.0f;
+	for (const auto& v : Vec4SignSwitchIterator(x, y, z, w, switchSignX, switchSignY, switchSignZ, switchSignW)) {
+		std::array<i32, 4> permuation{ 0, 1, 2, 3 };
+		//i32 i = 0;
+		do {
+			if (!addOnlyEvenPermuations || isPermuationEven(permuation)) {
+				//CHECK(isPermuationEven(permuation));
+				Vec4 permutedV(v[permuation[0]], v[permuation[1]], v[permuation[2]], v[permuation[3]]);
+				vertices.insert(permutedV);
+			}
+			//i++;
+		} while (std::next_permutation(permuation.begin(), permuation.end()));
+	}
+}
+
+
+void add24CellVertices(VertexSet& vertices) {
+	addPermuations(vertices, 0.0f, 0.0f, 2.0f, 2.0f, 0, 0, 1, 1);
+}
+
+Polytope make120cell() {
+	//https://en.wikipedia.org/wiki/120-cell#%E2%88%9A8_radius_coordinates
+	VertexSet v;
+	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+	const auto p2 = p * p;
+	const auto pm1 = 1.0f / p;
+	const auto pm2 = 1.0f / p2;
+	const auto s5 = sqrt(5.0f);
+	add24CellVertices(v);
+	addPermuations(v, p, p, p, pm2, 1, 1, 1, 1);
+	addPermuations(v, 1.0f, 1.0f, 1.0f, s5, 1, 1, 1, 1);
+	addPermuations(v, pm1, pm1, pm1, p2, 1, 1, 1, 1);
+	addPermuations(v, 0.0f, pm1, p, s5, 0, 1, 1, 1, true);
+	addPermuations(v, 0.0f, pm2, 1.0f, p2, 0, 1, 1, 1, true);
+	addPermuations(v, pm1, 1.0f, p, 2.0f, 1, 1, 1, 1, true);
+	const auto vertices = vertexSetToVertexList(v);
 	return convexHull(vertices);
+}
+
+Polytope make24cell() {
+	VertexSet v;
+	add24CellVertices(v);
+	const auto vertices = vertexSetToVertexList(v);
+	return convexHull(vertices);
+}
+
+Polytope make5cell() {
+	// https://en.wikipedia.org/wiki/5-cell#Coordinates
+	std::vector<Vec4> vertices;
+	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+	vertices.push_back(Vec4(2.0f, 0.0f, 0.0f, 0.0f));
+	vertices.push_back(Vec4(0.0f, 2.0f, 0.0f, 0.0f));
+	vertices.push_back(Vec4(0.0f, 0.0f, 2.0f, 0.0f));
+	vertices.push_back(Vec4(0.0f, 0.0f, 0.0f, 2.0f));
+	vertices.push_back(Vec4(p, p, p, p));
+	for (auto& vertex : vertices) {
+		vertex -= Vec4(1.0f, 1.0f, 1.0f, 1.0f) / (2.0f - 1.0f / p);
+	}
+	return convexHull(vertices);
+}
+
+Polytope makeRectified5cell() {
+	// https://en.wikipedia.org/wiki/Rectified_5-cell#Coordinates
+	std::vector<Vec4> v;
+
+	const auto s2o5 = sqrt(2.0f / 5.0f);
+	const auto s1o6 = sqrt(1.0f / 6.0f);
+	const auto s1o3 = sqrt(1.0f / 3.0f);
+
+	v.push_back(Vec4(s2o5, 2.0f * s1o6, 2.0f * s1o3, 0.0f));
+
+	v.push_back(Vec4(s2o5, 2.0f * s1o6, -1.0f * s1o3, 1.0f));
+	v.push_back(Vec4(s2o5, 2.0f * s1o6, -1.0f * s1o3, -1.0f));
+
+	v.push_back(Vec4(s2o5, -2.0f * s1o6, 1.0f * s1o3, 1.0f));
+	v.push_back(Vec4(s2o5, -2.0f * s1o6, 1.0f * s1o3, -1.0f));
+
+	v.push_back(Vec4(s2o5, -2.0f * s1o6, -2.0f * s1o3, 0.0f));
+
+	v.push_back(Vec4(-3.0f / sqrt(10.0f), s1o6, s1o3, 1.0f));
+	v.push_back(Vec4(-3.0f / sqrt(10.0f), s1o6, s1o3, -1.0f));
+
+	v.push_back(Vec4(-3.0f / sqrt(10.0f), s1o6, -2.0f * s1o3, 0.0f));
+
+	v.push_back(Vec4(-3.0f / sqrt(10.0f), -sqrt(3.0f / 2.0f), 0.0f, 0.0f));
+	return convexHull(v);
+}
+
+Polytope makeRectified600cell() {
+	// https://www.qfbox.info/4d/rect600cell
+	VertexSet v;
+	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+	const auto p2 = p * p;
+	const auto p3 = p2 * p;
+	addPermuations(v, 0, 0, 2 * p, 2 * p2);
+	addPermuations(v, 1, 1, p3, p3);
+	addPermuations(v, 0, 1, p, 1 + 3 * p, true);
+	addPermuations(v, 0, p2, p3, 2 + p, true);
+	addPermuations(v, 1, p, 2 * p2, p2, true);
+	addPermuations(v, p, p2, 2 * p, p3, true);
+	return convexHull(vertexSetToVertexList(v));
+}
+
+Polytope makeSnub24cell() {
+	// https://www.qfbox.info/4d/snub24cell
+	VertexSet v;
+	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+	const auto p2 = p * p;
+	addPermuations(v, 0.0f, 1.0f, p, p2, true);
+	return convexHull(vertexSetToVertexList(v));
 }
 
 std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, i32 faceIndex) {
@@ -663,4 +816,56 @@ Polytope::CellsN& Polytope::cellsOfDimension(i32 n) {
 
 const Polytope::CellsN& Polytope::cellsOfDimension(i32 n) const {
 	return cells[n - 1];
+}
+
+Vec4SignSwitchIterator::Vec4SignSwitchIterator(f32 x, f32 y, f32 z, f32 w, bool switchSignX, bool switchSignY, bool switchSignZ, bool switchSignW) 
+	: Vec4SignSwitchIterator(Vec4(x, y, z, w), switchSignX, switchSignY, switchSignZ, switchSignW) {}
+
+Vec4SignSwitchIterator::Vec4SignSwitchIterator(Vec4 v, bool switchSignX, bool switchSignY, bool switchSignZ, bool switchSignW)
+	: v(v) {
+	if (switchSignX) indicesToSwitch.add(0);
+	if (switchSignY) indicesToSwitch.add(1);
+	if (switchSignZ) indicesToSwitch.add(2);
+	if (switchSignW) indicesToSwitch.add(3);
+}
+
+Vec4SignSwitchIterator::Vec4SignSwitchIterator(Vec4 v, StaticList<i32, 4> indicesToSwitch, i32 i)
+	: v(v)
+	, indicesToSwitch(indicesToSwitch)
+	, i(i) {}
+
+Vec4SignSwitchIterator Vec4SignSwitchIterator::begin() {
+	auto copy = *this;
+	copy.i = 0;
+	return copy;
+}
+
+Vec4SignSwitchIterator Vec4SignSwitchIterator::end() {
+	auto copy = *this;
+	copy.i = integerToNonNegativePower(2, i32(copy.indicesToSwitch.size()));
+	return copy;
+}
+
+Vec4 Vec4SignSwitchIterator::operator*() const {
+	Vec4 result = v;
+	for (i32 j = 0; j < indicesToSwitch.size(); j++) {
+		f32 sign = (i >> j & 1) ? -1.0f : 1.0f;
+		result[indicesToSwitch[j]] *= sign;
+	}
+	return result;
+}
+
+bool Vec4SignSwitchIterator::operator==(const Vec4SignSwitchIterator& other) const {
+	CHECK(v == other.v);
+	return i == other.i;
+}
+
+bool Vec4SignSwitchIterator::operator!=(const Vec4SignSwitchIterator& other) const {
+	CHECK(v == other.v);
+	return i != other.i;
+}
+
+Vec4SignSwitchIterator& Vec4SignSwitchIterator::operator++() {
+	i++;
+	return *this;
 }

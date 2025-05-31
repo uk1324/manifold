@@ -13,6 +13,7 @@ in vec4 n0;
 in vec4 n1; 
 in vec4 n2; 
 in vec4 n3; 
+in vec4 n4; 
 in vec4 planeNormal; 
 out vec4 fragColor;
 
@@ -57,6 +58,7 @@ void main() {
 	if (dot(pos4, n1) < e) discard;
 	if (dot(pos4, n2) < e) discard;
 	if (dot(pos4, n3) < e) discard;
+	if (dot(pos4, n4) < e) discard;
 
     vec4 clipPos = transform * vec4(hitPos, 1.0);
     gl_FragDepth = (clipPos.z / clipPos.w + 1.0) / 2.0;
@@ -68,9 +70,11 @@ void main() {
     float d1 = abs(dot(pos4, n1));
     float d2 = abs(dot(pos4, n2));
     float d3 = abs(dot(pos4, n3));
+    float d4 = abs(dot(pos4, n4));
     float d = min(d0, d1);
     d = min(d, d2);
     d = min(d, d3);
+    d = min(d, d4);
 
     d = smoothstep(0.01, 0.011, d);
     fragColor = shade(hitPos, cameraPos4, -viewInverse4 * pos4, planeNormal);

@@ -204,7 +204,7 @@ StereographicSegment StereographicSegment::fromEndpoints(Vec4 e0, Vec4 e1) {
 			std::swap(atInfinity, finite);
 		}
 		const auto direction = finite.normalized();
-
+		// TODO:
 	} else {
 		auto p2 = antipodalPoint(p0);
 		if (isPointAtInfinity(p2)) {
@@ -226,10 +226,10 @@ StereographicSegment StereographicSegment::fromEndpoints(Vec4 e0, Vec4 e1) {
 		const auto t0 = dot(b0, b1);
 		auto coordinatesInBasis = [&b0, &b1](Vec3 v) -> Vec2 {
 			return Vec2(dot(v, b0), dot(v, b1));
-			};
+		};
 		auto fromCoordinatesInBasis = [&b0, &b1, &origin](Vec2 v) -> Vec3 {
 			return v.x * b0 + v.y * b1 + origin;
-			};
+		};
 		const auto c0 = Vec2(0.0f);
 		const auto c1 = coordinatesInBasis(v0);
 		const auto c2 = coordinatesInBasis(v1);
@@ -241,7 +241,7 @@ StereographicSegment StereographicSegment::fromEndpoints(Vec4 e0, Vec4 e1) {
 
 		auto circularDistance = [](Vec3 a, Vec3 b) {
 			return acos(std::clamp(dot(a.normalized(), b.normalized()), -1.0f, 1.0f));
-			};
+		};
 		/*
 		Wanted to try calculating the arclength by calculating it normally between p0, p1 then checking the the endpoint is correct (by checking the distance of the evavluated curve endpoint to the correct endpoint) and
 		*/
@@ -314,6 +314,7 @@ StereographicPlane StereographicPlane::fromVertices(Vec4 v0, Vec4 v1, Vec4 v2) {
 			const auto circularMid = s.circular.sample(s.circular.angle / 2.0f);
 			return planeThoughPolygonVertices.distance(circularMid);
 		}
+		return 0.0f;
 	};
 	const auto deviation = std::max(
 		deviationFromPlane(v0, v1),

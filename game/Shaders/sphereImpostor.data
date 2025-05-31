@@ -23,6 +23,7 @@ shader SphereImpostor {
 		Vec4 n1;
 		Vec4 n2;
 		Vec4 n3;
+		Vec4 n4;
 		Vec4 planeNormal;
 	};
 	vertOut = {
