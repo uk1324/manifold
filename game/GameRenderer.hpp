@@ -9,8 +9,10 @@
 #include <game/Shaders/homogenousData.hpp>
 #include <game/Shaders/sphereImpostorData.hpp>
 #include <game/Shaders/sphereImpostor2Data.hpp>
-#include <game/Polyhedra.hpp>
+#include <game/Shaders/text3Data.hpp>
 #include <game/Cubemap.hpp>
+#include <game/StereographicCamera.hpp>
+#include <gfx2d/FontRendering/Font.hpp>
 
 struct Mesh {
 	Vbo vbo;
@@ -21,6 +23,8 @@ struct Mesh {
 
 struct GameRenderer {
 	static GameRenderer make();
+
+	void frameUpdate(Mat4 view, Vec3 cameraPosition, const StereographicCamera& camera);
 
 	Mat4 transform;
 	Mat4 view;
@@ -80,7 +84,8 @@ struct GameRenderer {
 
 	bool useImpostorsTriangles = true;
 
-	void stereographicLineSegment(Vec4 e0, Vec4 e1);
+	void stereographicLineSegment(Vec4 e0, Vec4 e1, f32 width = 0.02f, bool scaleWidth = true);
+	void stereographicLineSegment(const StereographicSegment& segment, f32 width = 0.02f, bool scaleWidth = true);
 
 	void planeTriangle(const Plane& plane, Vec4 edgeNormal0, Vec4 edgeNormal1, Vec4 edgeNormal2, Vec4 edgeNormal3, Vec4 edgeNormal4, Vec4 planeNormal);
 	void sphericalTriangle(Vec3 sp0, Vec3 sp1, Vec3 sp2, const Sphere& sphere, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 n4, Vec4 planeNormal);
@@ -89,6 +94,13 @@ struct GameRenderer {
 	void stereographicSphere(Vec4 pos, f32 radius);
 
 	LineGenerator lineGenerator;
+
+	std::vector<Text3Instance> text3Instances;
+	Mesh text3QuadMesh;
+	ShaderProgram& text3Shader;
+	void centertedText(Vec3 center, f32 size, std::string_view text, Vec3 color);
+	void renderText();
+	Font font;
 
 	Gfx2d gfx2d;
 

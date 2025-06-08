@@ -1,50 +1,21 @@
 #pragma once
 
 #include <game/GameRenderer.hpp>
-#include <game/PerlinNoise.hpp>
 #include <game/FpsCamera3d.hpp>
 #include <game/StereographicCamera.hpp>
-#include <game/Polytopes.hpp>
-#include <game/Polyhedra.hpp>
-#include <engine/Math/Vec4.hpp>
-#include <StaticList.hpp>
 #include <game/Physics/World.hpp>
-#include <set>
+#include <game/Tiling.hpp>
 
 struct Game {
 	static Game make();
 
-	void update();
+	void update(GameRenderer& renderer);
 
-	std::vector<Vec4> vertices;
-	std::vector<Vec3> verticesColors;
-	
-	struct Triangle {
-		i32 vertices[3];
-		Vec4 edgeNormals[3];
-	};
-
-	struct Edge {
-		i32 vertices[2];
-	};
-	struct Face {
-		std::vector<i32> vertices;
-		std::vector<Vec4> edgeNormals;
-		StaticList<i32, 2> cells;
-		std::vector<Triangle> triangulation;
-	};
-	struct Cell {
-		std::vector<i32> faces;
-		//std::vector<i32> neighbouringCells;
-		std::vector<Vec4> faceNormals;
-	};
-	std::vector<std::set<i32>> cellsVertices;
-
-	std::vector<Edge> edges;
-	std::vector<Face> faces;
-	std::vector<Cell> cells;
-
+	Tiling t;
 	std::vector<bool> isCellSet;
+
+	std::vector<std::vector<i32>> cellToNeighbouringCells;
+
 
 	enum class CameraType {
 		NORMAL,
@@ -69,9 +40,15 @@ struct Game {
 	bool updateGameOfLife = false;
 	void gameOfLifeStep();
 	i32 frame = 0;
-	std::vector<std::vector<i32>> cellToNeighbouringCells;
 
-	GameRenderer renderer;
+	bool randomizeSeed = true;
+	i32 noiseSeed = 0;
+	f32 noiseScale = 1.0f;
+	f32 noiseGain = 0.5f;
+	f32 noiseLacunarity = 2.0f;
+	void terrainGenerationGui();
+	void generateTerrain();
+
 	FpsCamera3d camera;
 	StereographicCamera stereographicCamera;
 };

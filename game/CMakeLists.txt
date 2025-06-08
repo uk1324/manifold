@@ -1,4 +1,4 @@
-add_executable(game "main.cpp" "MainLoop.cpp"  "GameRenderer.cpp" "Tri3d.cpp" "MeshUtils.cpp" "FpsCamera3d.cpp" "Constants.cpp" "Polyhedra.cpp" "DoublyConnectedEdgeList.cpp"  "PerlinNoise.cpp" "Permutations.cpp" "Stereographic.cpp" "LineGenerator.cpp" "Bezier.cpp" "Game.cpp" "Polytopes.cpp" "Combinatorics.cpp" "StereographicCamera.cpp" "Math.cpp" "Physics/World.cpp"  "Physics/Body.cpp" "4d.cpp" "Physics/ContactConstraint.cpp" "Physics/Collide.cpp" "ConvexHull.cpp")
+add_executable(game "main.cpp" "MainLoop.cpp"  "GameRenderer.cpp" "Tri3d.cpp" "MeshUtils.cpp" "FpsCamera3d.cpp" "Constants.cpp" "Polyhedra.cpp" "DoublyConnectedEdgeList.cpp"  "PerlinNoise.cpp" "Permutations.cpp" "Stereographic.cpp" "LineGenerator.cpp" "Bezier.cpp" "Game.cpp" "Polytopes.cpp" "Combinatorics.cpp" "StereographicCamera.cpp" "Math.cpp" "Physics/World.cpp"  "Physics/Body.cpp" "4d.cpp" "Physics/ContactConstraint.cpp" "Physics/Collide.cpp" "ConvexHull.cpp" "Noise.cpp" "Minesweeper.cpp" "Tiling.cpp" "WindowUtils.cpp" "Animation.cpp")
 
 target_link_libraries(game PUBLIC engine)
 
@@ -13,6 +13,9 @@ target_link_libraries(game PUBLIC gfx2d)
 
 target_include_directories(game PUBLIC "../dependencies/qhull/src/")
 target_link_libraries(game PUBLIC qhullcpp)
+
+target_include_directories(game PUBLIC "../dependencies/FastNoise2/include/")
+target_link_libraries(game PUBLIC FastNoise2)
 
 configure_file(
 	"${CMAKE_CURRENT_SOURCE_DIR}/../engine/dependencies/freetype.dll" 

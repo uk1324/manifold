@@ -92,6 +92,8 @@ i32 infinitePlaneIndices[]{
 	0, 4, 1
 };
 
+#define FONT_FOLDER "engine/assets/fonts"
+
 GameRenderer GameRenderer::make() {
 	auto instancesVbo = Vbo(1024ull * 20);
 
@@ -260,6 +262,18 @@ GameRenderer GameRenderer::make() {
 	}
 	auto sphereImpostorMeshTri = makeMesh<SphereImpostorShader>(constView(sphereImpostorMeshVertices), constView(sphereImpostorMeshIndices), instancesVbo);
 
+	auto text3QuadMesh = [&] {
+		Vertex3P quad3Vertices[]{
+			Vertex3P{ Vec3(-1.0f, 1.0f, 0.0f) },
+			Vertex3P{ Vec3(1.0f, 1.0f, 0.0f) },
+			Vertex3P{ Vec3(-1.0f, -1.0f, 0.0f) },
+			Vertex3P{ Vec3(1.0f, -1.0f, 0.0f) }
+		};
+		i32 quad3Indices[]{ 0, 1, 2, 2, 1, 3 };
+		return makeMesh<Text3Shader>(constView(quad3Vertices), constView(quad3Indices), instancesVbo);
+	}();
+
+
 	auto gfx2d = Gfx2d::make();
 
 	auto quadPtVao = createInstancingVao<TexturedFullscreenQuadShader>(gfx2d.quad2dPtVbo, gfx2d.quad2dPtIbo, instancesVbo); 
@@ -282,11 +296,36 @@ GameRenderer GameRenderer::make() {
 		.sphereImpostors2Shader = MAKE_GENERATED_SHADER(SPHERE_IMPOSTOR_2),
 		MOVE(sphereImpostorMesh),
 		MOVE(sphereImpostorMeshTri),
+		MOVE(text3QuadMesh),
+		.text3Shader = MAKE_GENERATED_SHADER(TEXT_3),
+		.font = Font::loadSdfWithCachingAtDefaultPath(FONT_FOLDER, "RobotoMono-Regular"),
 		MOVE(gfx2d),
 		MOVE(instancesVbo),
 	};
 
 	return renderer;
+}
+
+void GameRenderer::frameUpdate(Mat4 view, Vec3 cameraPosition, const StereographicCamera& stereographicCamera) {
+	this->viewInverse4 = stereographicCamera.view4Inversed();
+	this->cameraPos4 = stereographicCamera.pos4();
+	const auto cameraForward = (Vec4(Vec3::FORWARD, 0.0f) * view.inversed()).xyz().normalized();
+	const auto aspectRatio = Window::aspectRatio();
+	//const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.1f, 1000.0f);
+	const auto projection = Mat4::perspective(PI<f32> / 2.0f, aspectRatio, 0.01f, 200.0f);
+	this->transform = projection * view;
+	this->view = view;
+	this->projection = projection;
+	this->cameraForward = cameraForward;
+	this->cameraPosition = cameraPosition;
+
+	glViewport(0, 0, i32(Window::size().x), i32(Window::size().y));
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_BLEND);
 }
 
 
@@ -314,15 +353,6 @@ void GameRenderer::renderHemispheres() {
 	initColoredShader();
 	drawMeshInstances(hemisphere, constView(hemispheres), instancesVbo);
 	hemispheres.clear();
-}
-
-Vec3 anyPerpendicularVector(Vec3 v) {
-	v = v.normalized();
-	const auto attempt = cross(v, Vec3(1.0f, 0.0f, 0.0f));
-	if (attempt.lengthSquared() == 0.0f) {
-		return cross(v, Vec3(0.0f, 1.0f, 0.0f)).normalized();
-	}
-	return attempt.normalized();
 }
 
 // Transforms a radially symmetric mesh such that (0, 0, 0) is mapped to a and (0, 0, 1) is mapped to (b - a).normalized().
@@ -522,35 +552,44 @@ void GameRenderer::renderSphereImpostors() {
 	}
 }
 
-void GameRenderer::stereographicLineSegment(Vec4 e0, Vec4 e1) {
-	const auto width = 0.02f;
+void GameRenderer::stereographicLineSegment(Vec4 e0, Vec4 e1, f32 width, bool scaleWidth) {
 	const auto segment = StereographicSegment::fromEndpoints(e0, e1);
+	stereographicLineSegment(segment, width, scaleWidth);
+}
+
+void GameRenderer::stereographicLineSegment(const StereographicSegment& segment, f32 width, bool scaleWidth) {
 	switch (segment.type) {
 		using enum StereographicSegment::Type;
 
 	case LINE: {
-		const auto& p0 = segment.line.e[0];
-		const auto& p1 = segment.line.e[1];
-		if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
-			CHECK_NOT_REACHED();
-			return;
-		}
-		if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
-			auto atInfinity = p0;
-			auto finite = p1;
-			if (isPointAtInfinity(finite)) {
-				std::swap(atInfinity, finite);
-			}
-			const auto direction = finite.normalized();
-			line(Vec3(0.0f), direction * 1000.0f, width, Color3::WHITE);
-			line(Vec3(0.0f), -direction * 1000.0f, width, Color3::WHITE);
-		}
+		//const auto& p0 = segment.line.e[0];
+		//const auto& p1 = segment.line.e[1];
+		//if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
+		//	CHECK_NOT_REACHED();
+		//	return;
+		//}
+		//if (isPointAtInfinity(p0) || isPointAtInfinity(p1)) {
+		//	auto atInfinity = p0;
+		//	auto finite = p1;
+		//	if (isPointAtInfinity(finite)) {
+		//		std::swap(atInfinity, finite);
+		//	}
+		//	const auto direction = finite.normalized();
+		//	line(finite, finite + direction * 1000.0f, width, Color3::WHITE);
+		//}
 		break;
 	}
 
 	case CIRCULAR: {
 		auto& s = segment.circular;
-		lineGenerator.addStereographicArc(segment, width);
+		if (scaleWidth) {
+			lineGenerator.addStereographicArc(segment, width);
+		} else {
+			const auto e0 = s.center + s.start;
+			const auto e1 = s.sample(s.angle);
+			//line(e0, e1, width, Color3::WHITE);
+			lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
+		}
 		break;
 	}
 
@@ -724,4 +763,76 @@ void GameRenderer::stereographicSphere(Vec4 pos, f32 radius) {
 		Mat4::translation(s.center) *
 		Mat4(Mat3::scale(s.radius));
 	sphereImpostorCube(pos, transform, s.center, s.radius, Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f), Vec4(0.0f));
+}
+
+
+
+Vec2 textCenteredPosition(const Font& font, Vec2 center, f32 maxHeight, std::string_view text) {
+	/*const auto info = font.textInfo(maxHeight, text, Constants::additionalTextSpacing);*/
+	const auto info = font.textInfo(maxHeight, text);
+	Vec2 position = center;
+	position.y -= info.bottomY;
+	position -= info.size / 2.0f;
+	return position;
+}
+
+void GameRenderer::centertedText(Vec3 center, f32 size, std::string_view text, Vec3 color) {
+	//const auto toUiSpace = Mat3x2::scale(Vec2(2.0f)) * gfx.camera.worldToCameraToNdc();
+	Vec2 center2(0.0f);
+	Vec2 bottomLeftPosition = textCenteredPosition(font, center2, size, text);
+
+	const auto right = view[0].xyz();
+	const auto up = view[2].xyz();
+	const auto forward = view[3].xyz();
+	TextRenderInfoIterator iterator(font, bottomLeftPosition, Mat3x2::identity, size, text);
+	for (auto info = iterator.next(); info.has_value(); info = iterator.next()) {
+		const auto& t = info->transform;
+		const auto t3 = Mat4(
+			Vec4(t[0][0], t[0][1], 0.0f, 0.0f),
+			Vec4(t[1][0], t[1][1], 0.0f, 0.0f),
+			Vec4(0.0f, 0.0f, 1.0f, 0.0f),
+			Vec4(t[2][0], t[2][1], 0.0f, 1.0f)
+		);
+		/*const auto transform = this->transform * t3 * view.inversed().removedTranslation();*/
+		//const auto transform = this->transform * Mat4::translation(Vec3(0.0f, 0.0f, 1.0f)) * Mat4(Mat3::scale(0.1f));
+		//const auto transform = this->transform * Mat4::translation(center) * Mat4(Mat3::scale(0.1f));
+		const auto transform = this->transform * Mat4::translation(center) * view.inversed().removedTranslation() * t3;
+		//const auto transform = projection * view;
+		//const auto transform = projection * view * t3 * view.inversed().removedTranslation();
+		/*Vec2 pos2 = Vec2(0.0f) * info->transform;
+		Vec3 pos3 = center + pos2.x * right;*/
+
+
+		text3Instances.push_back(Text3Instance{
+			.transform = transform,
+			//.transform = info->transform,
+			.offsetInAtlas = info->offsetInAtlas,
+			.sizeInAtlas = info->sizeInAtlas,
+			.color = color,
+		});
+	}
+
+	//gameText(textCenteredPosition(font, position, maxHeight, text), maxHeight, text, hoverT, color);
+	/*flowParticles.push_back(FlowParticleInstance{
+		.positionScale = Vec4(position.x, position.y, position.z, size),
+		.color = color,
+	});*/
+}
+
+void GameRenderer::renderText() {
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+
+	text3Shader.use();
+	text3Shader.setTexture("fontAtlas", 0, font.fontAtlas);
+	//shaderSetUniforms(text3Shader, FlowParticleVertUniforms{
+	//	.transform = transform,
+	//	.rotate = rotateMatrix
+	//	});
+
+	//drawInstances(text3QuadMesh.vao, instancesVbo, constView(text3Instances), drawMeshInstances);
+	drawMeshInstances(text3QuadMesh, constView(text3Instances), instancesVbo);
+	text3Instances.clear();
+	glDisable(GL_BLEND);
 }

@@ -1,0 +1,20 @@
+struct Vertex3P {
+	Vec3 position;
+}
+
+shader Text3 {
+	vertexStruct = Vertex3P;
+	vertInstance = {
+		Mat4 transform;
+		Vec2 offsetInAtlas;
+		Vec2 sizeInAtlas;
+	};
+	fragInstance = {
+		Vec3 color;
+	};
+	vertOut = {
+		Vec2 texturePosition;
+		Vec2 atlasMin;
+		Vec2 atlasMax;
+	};
+}

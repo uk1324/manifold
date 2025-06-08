@@ -1,6 +1,7 @@
 #pragma once
 
 #include <game/Game.hpp>
+#include <game/Minesweeper.hpp>
 
 struct MainLoop {
 	MainLoop();
@@ -8,4 +9,6 @@ struct MainLoop {
 	void update();
 
 	Game game;
+	Minesweeper minesweeper;
+	GameRenderer renderer;
 };

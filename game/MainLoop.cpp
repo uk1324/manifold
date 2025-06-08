@@ -3,11 +3,13 @@
 
 MainLoop::MainLoop()
 	: game(Game::make())
+	, renderer(GameRenderer::make())
 {
 
 }
 
 void MainLoop::update() {
 	ShaderManager::update();
-	game.update();
+	//game.update(renderer);
+	minesweeper.update(renderer);
 }

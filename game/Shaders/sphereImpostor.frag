@@ -76,7 +76,9 @@ void main() {
     d = min(d, d3);
     d = min(d, d4);
 
-    d = smoothstep(0.01, 0.011, d);
+
+    //d = smoothstep(0.005, 0.0051, d);
+    d = smoothstep(0.001, 0.0011, d);
     fragColor = shade(hitPos, cameraPos4, -viewInverse4 * pos4, planeNormal);
 
     fragColor.xyz = mix(vec3(0.7), fragColor.xyz, d);

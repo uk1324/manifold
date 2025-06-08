@@ -4,3 +4,6 @@
 [submodule "dependencies/qhull"]
 	path = dependencies/qhull
 	url = https://github.com/qhull/qhull.git
+[submodule "dependencies/FastNoise2"]
+	path = dependencies/FastNoise2
+	url = https://github.com/Auburn/FastNoise2.git

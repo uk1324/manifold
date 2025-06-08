@@ -17,3 +17,7 @@ add_subdirectory(game)
 
 set(BUILD_APPLICATIONS OFF)
 add_subdirectory("dependencies/qhull")
+
+set(FASTNOISE2_TESTS OFF CACHE BOOL "Build Noise Tests" FORCE)
+set(FASTNOISE2_NOISETOOL OFF CACHE BOOL "Build Noise Tool" FORCE) # don't build graph tool
+add_subdirectory("dependencies/FastNoise2")

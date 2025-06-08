@@ -241,7 +241,57 @@ void LineGenerator::addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRa
 	addCircularArc(p0, velocityOutOfP0, circleCenter, angleBetween, tubeRadius);
 }
 
+
 void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius) {
+
+	i32 subdivisionCount;
+	{
+		const auto radius = aRelativeToCenter.length();
+		const auto a = arclength;
+		// If I approximate a circular arc of angle a by subdividing it n times then I can calculate the maximum deviation from a cicrcle by calculating (radius - distance of midpoint of segment from center).
+		// midpoint 
+		//	= (r * (cos(a/n), sin(a/n)) + r * (1, 0)) / 2 =
+		//	= ((cos(a/n) + 1, sin(a/n))) * (r / 2)
+		//  length(midpoint) = (r/2) * sqrt((cos(a/n) + 1)^2 + sin(a/n)^2) = (*1)
+		// (cos(a/n) + 1)^2 + sin(a/n)^2 =
+		// cos(a/n)^2 + 2 cos(a/n) + 1 + sin(a/n)^2 =
+		// 2 cos(a/n) + 2
+		// (*1) = (r/2) * sqrt(2 cos(a/n) + 2)
+		// So the deviation is
+		// r - (r/2) * sqrt(2 cos(a/n) + 2)
+
+		// Let x = a/n.
+		// I want to solve the inequality
+		// x in range (0, pi / 2)
+		// r - (r/2) * sqrt(2 cos(x) + 2) < a
+		//
+		// The solution found in desmos is
+		// x < arccos(2(a/r - 1)^2 - 1)
+		// 
+		/*const auto v0 = icosahedronVertices[icosahedronEdges[0]].normalized();
+		const auto v1 = icosahedronVertices[icosahedronEdges[1]].normalized();
+		const auto unsubdividedAngleBetweenVertices = v0.shortestAngleTo(v1);*/
+		// x = a / n
+		// a / n < arccos(2(a/r - 1)^2 - 1)
+		// 1 / n < arccos(2(a/r - 1)^2 - 1) / a
+		// n > a / arccos(2(a/r - 1)^2 - 1)
+		const auto desiredDeviation = 0.007f;
+		const auto k = acos(2.0f * pow(desiredDeviation / radius - 1.0f, 2.0f) - 1.0f);
+		const auto n = i32(std::ceil(a / k));
+		subdivisionCount = n;
+	}
+	subdivisionCount = std::min(subdivisionCount, 20);
+	if (subdivisionCount < 0) {
+		return;
+	}
+	subdivisionCount = std::max(2, subdivisionCount);
+
+	static i32 pointCount = 0;
+	static i32 drawnCount = 0;
+
+	pointCount += subdivisionCount;
+	drawnCount += 1;
+	const auto a = f32(pointCount) / f32(drawnCount);
 
 	velocityOutOfA = velocityOutOfA.normalized() * aRelativeToCenter.length();
 	const auto t0 = aRelativeToCenter.length();
@@ -256,7 +306,7 @@ void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, 
 
 	const auto offset = vertexCount();
 
-	const auto count = 100;
+	const auto count = subdivisionCount;
 	const auto curveBinormal = cross(aRelativeToCenter, velocityOutOfA).normalized();
 	for (i32 curveI = 0; curveI < count; curveI++) {
 		const auto curveAngle = lerp(0.0f, arclength, f32(curveI) / f32(count - 1));
@@ -272,9 +322,6 @@ void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, 
 			const auto surfacePosition = curvePosition + surfaceNormal;
 			positions.push_back(surfacePosition);
 			normals.push_back(surfaceNormal);
-		}
-		for (i32 circleI = 0; circleI < circlePointCount; circleI++) {
-			
 		}
 	}
 	for (i32 circleI = 0; circleI < count - 1; circleI++) {

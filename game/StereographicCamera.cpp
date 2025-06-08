@@ -132,6 +132,10 @@ Vec3 StereographicCamera::pos3d() const {
 	return Vec3(0.0f);
 }
 
+Vec3 StereographicCamera::forward3d() const {
+	return Vec3(0.0f, 0.0f, 1.0f);
+}
+
 Mat4 StereographicCamera::view4() const {
 	return transformation.inversed();
 }
