@@ -26,6 +26,7 @@ struct StereographicCamera {
 	Vec3 forward3d() const;
 
 	// Moves the cameraPosition to (0, 0, 0, 1), forward to (0, 0, 1, 0), up to (0, 1, 0, 0) and right to (1, 0, 0, 0). It serves the same purpose as the normal view matrix. That is it moves everyhing to the origin before rendering.
+	// This changes from frame to frame even if there is no movement, because it tries to renomralize it each frame.
 	Mat4 view4() const;
 
 	Mat4 view4Inversed() const;

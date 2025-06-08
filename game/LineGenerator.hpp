@@ -5,12 +5,14 @@
 #include <game/Stereographic.hpp>
 #include <vector>
 
+std::optional<i32> circleArcPointCountRequiredToAchiveError(f32 desiredMaxDeviation, f32 radius, f32 arcAngleLength, i32 maxAllowedPointCount);
+
 struct LineGenerator {
 	void addLine(const std::vector<Vec3>& curvePoints);
 	void addPlaneCurve(const std::vector<Vec3>& curvePoints, Vec3 planeNormal);
 	void addFlatCurve(const std::vector<Vec3>& curvePoints, Vec3 cameraForward);
-	void addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRadius);
-	void addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius);
+	//void addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRadius);
+	void addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius, i32 pointCount);
 
 	void addStereographicArc(const StereographicSegment& segment, f32 radius);
 

@@ -218,17 +218,18 @@ StereographicSegment StereographicSegment::fromEndpoints(Vec4 e0, Vec4 e1) {
 		const auto velocity4 = (e1 - dot(e1, e0.normalized()) * e0.normalized()).normalized();
 		const auto velocity3 = stereographicProjectionJacobian(e0, velocity4);
 
-		const auto origin = p0;
-		Vec3 v0 = p2 - origin;
-		Vec3 v1 = p1 - origin;
+		const auto coordinateSystemOrigin = p0;
+		Vec3 v0 = p2 - coordinateSystemOrigin;
+		Vec3 v1 = p1 - coordinateSystemOrigin;
 		const auto b0 = v0.normalized();
 		const auto b1 = (v1 - dot(v1, b0) * b0).normalized();
-		const auto t0 = dot(b0, b1);
+		//const auto t0 = dot(b0, b1);
+
 		auto coordinatesInBasis = [&b0, &b1](Vec3 v) -> Vec2 {
 			return Vec2(dot(v, b0), dot(v, b1));
 		};
-		auto fromCoordinatesInBasis = [&b0, &b1, &origin](Vec2 v) -> Vec3 {
-			return v.x * b0 + v.y * b1 + origin;
+		auto fromCoordinatesInBasis = [&b0, &b1, &coordinateSystemOrigin](Vec2 v) -> Vec3 {
+			return v.x * b0 + v.y * b1 + coordinateSystemOrigin;
 		};
 		const auto c0 = Vec2(0.0f);
 		const auto c1 = coordinatesInBasis(v0);
@@ -262,14 +263,25 @@ StereographicSegment StereographicSegment::fromEndpoints(Vec4 e0, Vec4 e1) {
 		f32 d = circularDistance(p0 - center, p1 - center);
 		const auto p = (p0 - center);
 		const auto v = velocity3.normalized() * p.length();
+		//{
+		//	const auto calculatedEndpoint = center + p * cos(d) + v * sin(d);
+		//	//renderer.sphere(calculatedEndpoint, width * 3, Color3::CYAN);
+		//	const auto correctEndpoint = p1;
+		//	if (calculatedEndpoint.distanceTo(correctEndpoint) > 0.02f) {
+		//		d = TAU<f32> -d;
+		//	}
+		//}
+
 		{
-			const auto calculatedEndpoint = center + p * cos(d) + v * sin(d);
+			const auto calculatedEndpoint0 = center + p * cos(d) + v * sin(d);
+			const auto calculatedEndpoint1 = center + p * cos(TAU<f32> - d) + v * sin(TAU<f32> - d);
 			//renderer.sphere(calculatedEndpoint, width * 3, Color3::CYAN);
 			const auto correctEndpoint = p1;
-			if (calculatedEndpoint.distanceTo(correctEndpoint) > 0.01f) {
-				d = TAU<f32> -d;
+			if (calculatedEndpoint0.distanceTo(correctEndpoint) > calculatedEndpoint1.distanceTo(correctEndpoint)) {
+				d = TAU<f32> - d;
 			}
 		}
+
 		// This isn't actually the midpoint so there can the correct between this and p0 and p1 might not be the shortest.
 
 		//const auto midpoint = stereographicProjection((e0 + e1).normalized());

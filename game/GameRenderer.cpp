@@ -588,7 +588,11 @@ void GameRenderer::stereographicLineSegment(const StereographicSegment& segment,
 			const auto e0 = s.center + s.start;
 			const auto e1 = s.sample(s.angle);
 			//line(e0, e1, width, Color3::WHITE);
-			lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
+			if (s.initialVelocity.length() > 200.0f) {
+				line(e0, e1, width, Color3::WHITE);
+			} else {
+				//lineGenerator.addCircularArc(s.start, s.initialVelocity, s.center, s.angle, width);
+			}
 		}
 		break;
 	}

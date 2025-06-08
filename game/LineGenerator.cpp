@@ -5,6 +5,52 @@
 #include <engine/Math/Angles.hpp>
 #include <game/MeshUtils.hpp>
 
+std::optional<i32> circleArcPointCountRequiredToAchiveError(f32 desiredMaxDeviation, f32 radius, f32 arcAngleLength, i32 maxAllowedPointCount) {
+	const auto a = arcAngleLength;
+	// If I approximate a circular arc of angle a by subdividing it n times then I can calculate the maximum deviation from a cicrcle by calculating (radius - distance of midpoint of segment from center).
+	// midpoint 
+	//	= (r * (cos(a/n), sin(a/n)) + r * (1, 0)) / 2 =
+	//	= ((cos(a/n) + 1, sin(a/n))) * (r / 2)
+	//  length(midpoint) = (r/2) * sqrt((cos(a/n) + 1)^2 + sin(a/n)^2) = (*1)
+	// (cos(a/n) + 1)^2 + sin(a/n)^2 =
+	// cos(a/n)^2 + 2 cos(a/n) + 1 + sin(a/n)^2 =
+	// 2 cos(a/n) + 2
+	// (*1) = (r/2) * sqrt(2 cos(a/n) + 2)
+	// So the deviation is
+	// r - (r/2) * sqrt(2 cos(a/n) + 2)
+
+	// Let x = a/n.
+	// I want to solve the inequality
+	// x in range (0, pi / 2)
+	// r - (r/2) * sqrt(2 cos(x) + 2) < m
+	//
+	// The solution found in desmos is
+	// x < arccos(2(m/r - 1)^2 - 1)
+	// 
+	/*const auto v0 = icosahedronVertices[icosahedronEdges[0]].normalized();
+	const auto v1 = icosahedronVertices[icosahedronEdges[1]].normalized();
+	const auto unsubdividedAngleBetweenVertices = v0.shortestAngleTo(v1);*/
+	// x = a / n
+	// a / n < arccos(2(m/r - 1)^2 - 1)
+	// 1 / n < arccos(2(m/r - 1)^2 - 1) / a
+	// n > a / arccos(2(m/r - 1)^2 - 1)
+	//const auto desiredDeviation = 0.007f;
+	const auto k = acos(2.0f * pow(desiredMaxDeviation / radius - 1.0f, 2.0f) - 1.0f);
+	const auto n = i32(std::ceil(a / k));
+	auto divisionCount = n;
+
+	divisionCount = std::min(divisionCount, 20);
+
+	// This happens when something is nan. So for example when k = 0.
+	if (divisionCount < 0) {
+		return std::nullopt;
+	}
+
+	i32 pointCount = divisionCount + 1;
+	pointCount = std::clamp(pointCount, 2, maxAllowedPointCount);
+	return pointCount;
+}
+
 void LineGenerator::addLine(const std::vector<Vec3>& curvePoints) {
 	if (curvePoints.size() < 4) {
 		return;
@@ -224,74 +270,25 @@ void LineGenerator::addFlatCurve(const std::vector<Vec3>& curvePoints, Vec3 came
 	}
 }
 
-void LineGenerator::addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRadius) {
-	const auto p0 = a - circleCenter;
-	const auto p1 = b - circleCenter;
-	const auto p0Length = p0.length();
-	const auto p1Length = p1.length();
-	const auto angleBetween = acos(std::clamp(dot(p0, p1) / p0Length / p1Length, -1.0f, 1.0f));
-	const auto u0 = p0 / p0Length;
+//void LineGenerator::addCircularArc(Vec3 a, Vec3 b, Vec3 circleCenter, f32 tubeRadius, i32 pointCount) {
+//	const auto p0 = a - circleCenter;
+//	const auto p1 = b - circleCenter;
+//	const auto p0Length = p0.length();
+//	const auto p1Length = p1.length();
+//	const auto angleBetween = acos(std::clamp(dot(p0, p1) / p0Length / p1Length, -1.0f, 1.0f));
+//	const auto u0 = p0 / p0Length;
+//
+//	// Gram-Schmidt orthogonalization.
+//	const auto velocityOutOfP0 = (p1 - dot(p1, u0) * u0).normalized() * p0Length;
+//	if (velocityOutOfP0.length() == 0) {
+//		// antipodal or eqals points because p0, p1 colinear
+//		return;
+//	}
+//	addCircularArc(p0, velocityOutOfP0, circleCenter, angleBetween, tubeRadius, pointCount);
+//}
 
-	// Gram-Schmidt orthogonalization.
-	const auto velocityOutOfP0 = (p1 - dot(p1, u0) * u0).normalized() * p0Length;
-	if (velocityOutOfP0.length() == 0) {
-		// antipodal or eqals points because p0, p1 colinear
-		return;
-	}
-	addCircularArc(p0, velocityOutOfP0, circleCenter, angleBetween, tubeRadius);
-}
 
-
-void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius) {
-
-	i32 subdivisionCount;
-	{
-		const auto radius = aRelativeToCenter.length();
-		const auto a = arclength;
-		// If I approximate a circular arc of angle a by subdividing it n times then I can calculate the maximum deviation from a cicrcle by calculating (radius - distance of midpoint of segment from center).
-		// midpoint 
-		//	= (r * (cos(a/n), sin(a/n)) + r * (1, 0)) / 2 =
-		//	= ((cos(a/n) + 1, sin(a/n))) * (r / 2)
-		//  length(midpoint) = (r/2) * sqrt((cos(a/n) + 1)^2 + sin(a/n)^2) = (*1)
-		// (cos(a/n) + 1)^2 + sin(a/n)^2 =
-		// cos(a/n)^2 + 2 cos(a/n) + 1 + sin(a/n)^2 =
-		// 2 cos(a/n) + 2
-		// (*1) = (r/2) * sqrt(2 cos(a/n) + 2)
-		// So the deviation is
-		// r - (r/2) * sqrt(2 cos(a/n) + 2)
-
-		// Let x = a/n.
-		// I want to solve the inequality
-		// x in range (0, pi / 2)
-		// r - (r/2) * sqrt(2 cos(x) + 2) < a
-		//
-		// The solution found in desmos is
-		// x < arccos(2(a/r - 1)^2 - 1)
-		// 
-		/*const auto v0 = icosahedronVertices[icosahedronEdges[0]].normalized();
-		const auto v1 = icosahedronVertices[icosahedronEdges[1]].normalized();
-		const auto unsubdividedAngleBetweenVertices = v0.shortestAngleTo(v1);*/
-		// x = a / n
-		// a / n < arccos(2(a/r - 1)^2 - 1)
-		// 1 / n < arccos(2(a/r - 1)^2 - 1) / a
-		// n > a / arccos(2(a/r - 1)^2 - 1)
-		const auto desiredDeviation = 0.007f;
-		const auto k = acos(2.0f * pow(desiredDeviation / radius - 1.0f, 2.0f) - 1.0f);
-		const auto n = i32(std::ceil(a / k));
-		subdivisionCount = n;
-	}
-	subdivisionCount = std::min(subdivisionCount, 20);
-	if (subdivisionCount < 0) {
-		return;
-	}
-	subdivisionCount = std::max(2, subdivisionCount);
-
-	static i32 pointCount = 0;
-	static i32 drawnCount = 0;
-
-	pointCount += subdivisionCount;
-	drawnCount += 1;
-	const auto a = f32(pointCount) / f32(drawnCount);
+void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, Vec3 circleCenter, f32 arclength, f32 tubeRadius, i32 pointCount) {
 
 	velocityOutOfA = velocityOutOfA.normalized() * aRelativeToCenter.length();
 	const auto t0 = aRelativeToCenter.length();
@@ -306,7 +303,7 @@ void LineGenerator::addCircularArc(Vec3 aRelativeToCenter, Vec3 velocityOutOfA, 
 
 	const auto offset = vertexCount();
 
-	const auto count = subdivisionCount;
+	const auto count = pointCount;
 	const auto curveBinormal = cross(aRelativeToCenter, velocityOutOfA).normalized();
 	for (i32 curveI = 0; curveI < count; curveI++) {
 		const auto curveAngle = lerp(0.0f, arclength, f32(curveI) / f32(count - 1));
@@ -428,3 +425,4 @@ Moving forward can be calulcated using the exponential map.
 
 Another way could be to first calculate 3 points and find the sphere though them. Then for the mesh points to match always start from the point that is in the direction of the normal for example.
 */
+
