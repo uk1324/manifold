@@ -13,62 +13,112 @@
 #include <engine/Math/Circle.hpp>
 #include <engine/Math/Angles.hpp>
 
+/*
+if bomb count = cell count then just set win on first move.
+*/
+
 Minesweeper::Minesweeper()
-	: t(make120cell())
+	: t(Polytope())
 	, rng(dev()) {
-	cellToNeighbours = t.cellsNeighbouringToCell();
-	cellHoverAnimationT.resize(t.cells.size(), 0.0f);
-	initialize();
 
-	auto moveTo = [&](Vec4 p) {
-		Vec4 origin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		const auto movement = movementForwardOnSphere(
-			origin,
-			normalizedDirectionFromAToB(origin, p) * sphereAngularDistance(origin, p)
-		);
-		stereographicCamera.transformation = movement;
-	};
-	const auto a = t.vertices[t.edges[0].vertices[0]];
-	const auto b = t.vertices[t.edges[0].vertices[1]];
-	const auto target = (a + b).normalized();
-	moveTo(target);
-	//const auto a = stereographicCamera.pos4();
-	//const auto b = t.cells[2].centroid;
-	//const auto movement = movementForwardOnSphere(
-	//	a,
-	//	normalizedDirectionFromAToB(a, b) * sphereAngularDistance(a, b)
-	//);
+	auto& style = ImGui::GetStyle();
+	ImVec4* colors = style.Colors;
+	colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	colors[ImGuiCol_WindowBg] = ImVec4(0.75f, 0.75f, 0.75f, 1.00f);
+	colors[ImGuiCol_Border] = ImVec4(0.00f, 0.33f, 0.89f, 1.00f);
+	colors[ImGuiCol_FrameBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.54f);
+	colors[ImGuiCol_FrameBgHovered] = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
+	colors[ImGuiCol_FrameBgActive] = ImVec4(1.00f, 1.00f, 1.00f, 0.67f);
+	colors[ImGuiCol_TitleBg] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	colors[ImGuiCol_TitleBgActive] = ImVec4(0.00f, 0.33f, 0.89f, 1.00f);
+	colors[ImGuiCol_CheckMark] = ImVec4(0.13f, 0.63f, 0.12f, 1.00f);
+	colors[ImGuiCol_SliderGrab] = ImVec4(0.13f, 0.63f, 0.12f, 1.00f);
+	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.13f, 0.63f, 0.12f, 1.00f);
+	colors[ImGuiCol_Button] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_ButtonHovered] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_ButtonActive] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_TitleBg] = ImVec4(0.00f, 0.33f, 0.89f, 1.00f);
+	colors[ImGuiCol_SliderGrab] = ImVec4(0.47f, 0.47f, 0.47f, 0.78f);
+	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.47f, 0.47f, 0.47f, 1.00f);
+	colors[ImGuiCol_ButtonHovered] = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
+	colors[ImGuiCol_PopupBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_Header] = ImVec4(0.00f, 0.46f, 1.00f, 0.00f);
+	colors[ImGuiCol_HeaderHovered] = ImVec4(0.00f, 0.46f, 1.00f, 0.77f);
+	colors[ImGuiCol_TabSelected] = ImVec4(0.00f, 0.44f, 1.00f, 1.00f);
+	colors[ImGuiCol_TabSelectedOverline] = ImVec4(0.00f, 0.46f, 1.00f, 1.00f);
+	colors[ImGuiCol_TextSelectedBg] = ImVec4(0.00f, 0.46f, 1.00f, 0.35f);
 
-	//const auto t = moveForwardOnSphere(a, normalizedDirectionFromAToB(a, b) * sphereAngularDistance(a, b));
+	style.WindowBorderSize = 1;
+	style.FrameBorderSize = 1;
+	style.PopupBorderSize = 0;
+	style.FrameRounding = 4;
+	style.PopupRounding = 4;
+	style.GrabRounding = 3;
 
-	//stereographicCamera.transformation = stereographicCamera.transformation * movement;
-
-	/*const auto p = stereographicCamera.pos4();
-	const auto aa = 1;*/
-	/*stereographicCamera.transformation = Mat4(
-		Vec4(1.0f, 0.0f, 0.0f, 0.0f),
-		Vec4(0.0f, 1.0f, 0.0f, 0.0f),
-		Vec4(0.0f, 0.0f, 1.0f, 0.0f),
-		t.cells[0].centroid
-	);*/
+	loadBoard(Board::CELL_120);
 }
 
+bool ButtonCenteredOnLine(const char* label, float alignment = 0.5f) {
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	float size = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+	float avail = ImGui::GetContentRegionAvail().x;
+
+	float off = (avail - size) * alignment;
+	if (off > 0.0f)
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+	return ImGui::Button(label);
+}
+
+struct GameInput {
+	bool leftMouseDown = false;
+	bool rightMouseDown = false;
+};
+
 void Minesweeper::update(GameRenderer& renderer) {
-	togglableCursorUpdate();
+	if (Input::isKeyDown(KeyCode::ESCAPE)) {
+		Window::toggleCursor();
+	}
+	{
+		const auto cursorEnabled = Window::isCursorEnabled();
+		const auto flags =
+			ImGuiConfigFlags_NavNoCaptureKeyboard |
+			ImGuiConfigFlags_NoMouse |
+			ImGuiConfigFlags_NoMouseCursorChange;
+
+		if (cursorEnabled) {
+			Input::ignoreImGuiWantCapture = false;
+			ImGui::GetIO().ConfigFlags &= ~flags;
+		} else {
+			Input::ignoreImGuiWantCapture = true;
+			ImGui::GetIO().ConfigFlags |= flags;
+		}
+		if (cursorEnabled) {
+			menuGui();
+		}
+	}
+	GameInput input;
+	const auto updateMovement = !Window::isCursorEnabled();
+	if (updateMovement) {
+		if (Input::isMouseButtonDown(MouseButton::LEFT)) {
+			input.leftMouseDown = true;
+		}
+		if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
+			input.rightMouseDown = true;
+		}
+	}
+
+	//togglableCursorUpdate();
 
 	if (Input::isKeyDown(KeyCode::X)) {
 		Window::close();
 	}
 
-	ImGui::Begin("minesweeper");
-	if (ImGui::Button("new game")) {
-		gameResetButNotStarted = false;
-	}
-	ImGui::End();
-
 	const auto ray = Ray3(stereographicCamera.pos3d(), stereographicCamera.forward3d());
-	stereographicCamera.update(Constants::dt);
 	stereographicCamera.movementSpeed = 0.4f;
+	stereographicCamera.update(Constants::dt);
+	
 	const auto view = stereographicCamera.viewMatrix();
 	const auto cameraPosition = stereographicCamera.pos3d();
 	renderer.frameUpdate(view, cameraPosition, stereographicCamera);
@@ -119,7 +169,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 	if (closestHit.has_value()) {
 		updateConstantSpeedT(cellHoverAnimationT[closestHit->cellI], hoverAnimationTimeToFinish, true);
 		//renderer.sphere(ray.at(closestHit->t), 0.01f, Color3::WHITE);
-		if (!isMarked[closestHit->cellI] && Input::isMouseButtonDown(MouseButton::LEFT)) {
+		if (!isMarked[closestHit->cellI] && input.leftMouseDown) {
 			if (state == State::BEFORE_FIRST_MOVE) {
 				startGame(closestHit->cellI);
 			} else {
@@ -127,7 +177,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 			}
 		}
 
-		if (Input::isMouseButtonDown(MouseButton::RIGHT)) {
+		if (input.rightMouseDown) {
 			if (!isRevealed[closestHit->cellI]) {
 				isMarked[closestHit->cellI] = !isMarked[closestHit->cellI];
 			}
@@ -140,8 +190,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 			cellsRevealed++;
 		}
 	}
-	// should also win if every non bomb cell is revealed
-	ImGui::Text("%d/%d cells revealed", cellsRevealed, t.cells.size());
+	//ImGui::Text("%d/%d cells revealed", cellsRevealed, t.cells.size());
 
 	for (CellIndex i = 0; i < t.cells.size(); i++) {
 		if (closestHit.has_value() && closestHit->cellI == i) {
@@ -218,8 +267,8 @@ void Minesweeper::update(GameRenderer& renderer) {
 	static i32 maxAllowedPointCount = 20;*/
 	static f32 desiredDeviation = 0.1;
 	static i32 maxAllowedPointCount = 5;
-	ImGui::SliderFloat("desired deviation", &desiredDeviation, 0.007, 0.1f);
-	ImGui::SliderInt("max allowed point count", &maxAllowedPointCount, 5, 20);
+	/*ImGui::SliderFloat("desired deviation", &desiredDeviation, 0.007, 0.1f);
+	ImGui::SliderInt("max allowed point count", &maxAllowedPointCount, 5, 20);*/
 	auto drawSegment = [&renderer, &frustum](Vec4 e0, Vec4 e1) {
 		const auto width = 0.005f;
 
@@ -376,6 +425,22 @@ void Minesweeper::update(GameRenderer& renderer) {
 		//break;
 		//Box3 box{ .center = segment.circular }
 	}
+
+	 //should also win if every non bomb cell is revealed
+	const auto nonBombCellsCount = t.cells.size() - bombCount;
+	if (state == State::GAME_IN_PROGRESS) {
+		i32 nonBombCellsUncovered = 0;
+		for (CellIndex i = 0; i < t.cells.size(); i++) {
+			if (!isBomb[i] && isRevealed[i]) {
+				nonBombCellsUncovered++;
+			}
+		}
+		if (nonBombCellsUncovered == nonBombCellsCount) {
+			state = State::WON;
+			openMenu();
+		}
+	}
+
 	ImGui::Text("%d/%d edges drawn", edgesDrawn, t.edges.size());
 
 	renderer.renderHemispheres();
@@ -400,6 +465,173 @@ void Minesweeper::update(GameRenderer& renderer) {
 	glEnable(GL_DEPTH_TEST);
 }
 
+void Minesweeper::menuGui() {
+	auto uiTableBegin = [](const char* id) -> bool {
+		return ImGui::BeginTable("menu", 2);
+	};
+	auto uiTableEnd = []() -> void {
+		ImGui::EndTable();
+	};
+
+	thread_local std::string string;
+	auto prependWithHashHash = [](const char* str) -> const char* const {
+		const auto offset = string.size();
+		string += "##";
+		string += str;
+		string += '\0';
+		return string.data() + offset;
+	};
+
+	auto leafNodeBegin = [](const char* name) {
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+		/*ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+		ImGui::TreeNodeEx(name, flags);*/
+		ImGui::Text(name);
+		ImGui::TableSetColumnIndex(1);
+		ImGui::SetNextItemWidth(-FLT_MIN);
+	};
+
+	auto combo = [&](const char* name, i32* currentItem,  View<const char* const> items) -> bool {
+		leafNodeBegin(name);
+		return ImGui::Combo(prependWithHashHash(name), currentItem, items.data(), items.size());
+	};
+
+	auto sliderFloat = [&](const char* name, f32& value, f32 min, f32 max) {
+		leafNodeBegin(name);
+		ImGui::SliderFloat(prependWithHashHash(name), &value, min, max);
+		value = std::clamp(value, min, max);
+	};
+
+	auto sliderInt = [&](const char* name, i32& value, i32 min, i32 max) {
+		leafNodeBegin(name);
+		ImGui::SliderInt(prependWithHashHash(name), &value, min, max);
+		value = std::clamp(value, min, max);
+	};
+
+	const auto& io = ImGui::GetIO();
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 3.0f, 0.0f), ImGuiCond_Always);
+	auto& style = ImGui::GetStyle();
+	//ImGuiStyleVar_WindowTitleAlign
+	style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
+
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+	std::string title;
+	switch (state) {
+		using enum State;
+	case BEFORE_FIRST_MOVE: title = ""; break;
+	case GAME_IN_PROGRESS: title = ""; break;
+	case LOST: title = "you lost"; break;
+	case WON: title = "you won"; break;
+	}
+	title += "##menu";
+
+	ImGui::Begin(title.c_str(), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+	ImGui::PopStyleColor();
+	// display cell count maybe.
+
+	if (uiTableBegin("game")) {
+		if (combo("board", reinterpret_cast<int*>(&boardSetting), constView(boardStrings))) {
+			switch (boardSetting) {
+				using enum Board;
+			case CELL_120:
+				bombCountSetting = 10;
+				break;
+			case CELL_600:
+				bombCountSetting = 50;
+				break;
+			case Board::CELL_600_RECTIFIED:
+				bombCountSetting = 20;
+				break;
+			case Board::CELL_24_SNUB:
+				bombCount = 20;
+				break;
+			}
+		}
+		sliderInt("bomb count", bombCountSetting, 0, t.cells.size());
+
+		ImGui::EndTable();
+	}
+
+	if (ImGui::TreeNode("controls")) {
+		if (ImGui::BeginTable("menu", 2)) {
+			auto addEntry = [](const char* a, const char* b) {
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				ImGui::Text(a);
+				ImGui::TableSetColumnIndex(1);
+				ImGui::Text(b);
+				//ImGui::SetNextItemWidth(-FLT_MIN);
+			};
+			//addEntry("move forward", "W");
+			//addEntry("move forward", "W");
+			addEntry("reveal", "left click");
+			addEntry("mark", "right click");
+			addEntry("toggle menu", "escape");
+			ImGui::EndTable();
+		}
+		//ImGui::Text("left click to reveal");
+		//ImGui::Text("right click to mark");
+		//ImGui::Text("escape to toggle the menu");
+
+		if (uiTableBegin("controls")) {
+			sliderFloat("mouse sensitivity", mouseSensitivity, 0.5, 2.0f);
+			stereographicCamera.rotationSpeed = 0.1f * mouseSensitivity;
+
+			uiTableEnd();
+		}
+
+		ImGui::TreePop();
+	}
+
+	if (ButtonCenteredOnLine("new game")) {
+		loadBoard(boardSetting);
+		state = State::BEFORE_FIRST_MOVE;
+		closeMenu();
+	}
+	ImGui::End();
+
+	
+}
+
+void Minesweeper::openMenu() {
+	Window::enableCursor();
+}
+
+void Minesweeper::closeMenu() {
+	Window::disableCursor();
+}
+
+void Minesweeper::loadBoard(Board board) {
+	switch (board) {
+		using enum Board;
+	case CELL_120: loadBoard(make120cell()); break;
+	case CELL_600: loadBoard(make600cell()); break;
+	case CELL_600_RECTIFIED: loadBoard(makeRectified600cell()); break;
+	case CELL_24_SNUB: loadBoard(makeSnub24cell()); break;
+	}
+}
+
+void Minesweeper::loadBoard(const Polytope& polytope) {
+	t = Tiling(polytope);
+	cellToNeighbours = t.cellsNeighbouringToCell();
+	cellHoverAnimationT.resize(t.cells.size(), 0.0f);
+	initialize();
+
+	auto moveTo = [&](Vec4 p) {
+		Vec4 origin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		const auto movement = movementForwardOnSphere(
+			origin,
+			normalizedDirectionFromAToB(origin, p) * sphereAngularDistance(origin, p)
+		);
+		stereographicCamera.transformation = movement;
+	};
+	const auto a = t.vertices[t.edges[0].vertices[0]];
+	const auto b = t.vertices[t.edges[0].vertices[1]];
+	const auto target = (a + b).normalized();
+	moveTo(target);
+}
 
 void Minesweeper::initialize() {
 	isBomb.clear();
@@ -450,15 +682,45 @@ void Minesweeper::reveal(CellIndex cell) {
 
 void Minesweeper::gameOver() {
 	state = State::LOST;
+	openMenu();
 	for (CellIndex i = 0; i < t.cells.size(); i++) {
 		isRevealed[i] = true;
 	}
 }
+/*
+First move.
 
+1. Allow bomb on first move.
+
+2. If bomb on first move, move to it some predetermined position. For example to the first cell or if locked to the next one and so on.
+
+3. Regenerate the board untill the cell is empty.
+
+4. Remove the first clicked cell from the bomb generating pool.
+
+5. Move the map, such that the first click contains no bomb. This would require some symmetry in the map so that you actually move pieces to eachother. This might also fail.
+
+Intuitively the 5th option seems most fair to me, because it almost always (expect the rare additional case) actually generates a fully random board.
+*/
 void Minesweeper::startGame(CellIndex firstUncoveredCell) {
+	bombCount = bombCountSetting;
+	std::set<CellIndex> cellsToAvoid;
+	switch (firstMoveSetting) {
+		using enum FirstMoveSetting;
+	case FIRST_MOVE_NO_BOMB:
+		cellsToAvoid.insert(firstUncoveredCell);
+		break;
+	case FIRST_MOVE_EMPTY_CELL:
+		cellsToAvoid.insert(firstUncoveredCell);
+		for (const auto& neighbour : cellToNeighbours[firstUncoveredCell]) {
+			cellsToAvoid.insert(neighbour);
+		}
+		break;
+	}
+
 	std::vector<CellIndex> possibleBombLocations;
 	for (CellIndex i = 0; i < t.cells.size(); i++) {
-		if (i != firstUncoveredCell) {
+		if (!cellsToAvoid.contains(i)) {
 			possibleBombLocations.push_back(i);
 		}
 	}
@@ -467,7 +729,7 @@ void Minesweeper::startGame(CellIndex firstUncoveredCell) {
 		possibleBombLocations.begin(),
 		possibleBombLocations.end(),
 		std::back_inserter(bombLocations),
-		15,
+		bombCount,
 		rng
 	);
 	for (const auto& cellI : bombLocations) {
@@ -486,3 +748,4 @@ void Minesweeper::startGame(CellIndex firstUncoveredCell) {
 	reveal(firstUncoveredCell);
 	state = State::GAME_IN_PROGRESS;
 }
+

@@ -7,6 +7,9 @@
 struct Minesweeper {
 	Minesweeper();
 	void update(GameRenderer& renderer);
+	void menuGui();
+	void openMenu();
+	void closeMenu();
 
 	Tiling t;
 
@@ -25,7 +28,35 @@ struct Minesweeper {
 	};
 	State state = State::BEFORE_FIRST_MOVE;
 
+	enum class FirstMoveSetting {
+		FIRST_MOVE_NO_BOMB,
+		FIRST_MOVE_EMPTY_CELL,
+	};
+	FirstMoveSetting firstMoveSetting = FirstMoveSetting::FIRST_MOVE_EMPTY_CELL;
+
+	enum class Board {
+		CELL_24_SNUB,
+		CELL_120,
+		CELL_600,
+		CELL_600_RECTIFIED,
+	};
+	static constexpr const char* boardStrings[] = {
+		"snub 24 cell",
+		"120 cell",
+		"600 cell",
+		"rectified 600 cell",
+	};
+	void loadBoard(Board board);
+	void loadBoard(const Polytope& polytope);
+
+	Board boardSetting = Board::CELL_120;
+	i32 bombCountSetting = 10;
+
+	i32 bombCount = 0;
+
 	bool gameResetButNotStarted = true;
+
+	f32 mouseSensitivity = 1.0f;
 
 	std::vector<f32> cellHoverAnimationT;
 

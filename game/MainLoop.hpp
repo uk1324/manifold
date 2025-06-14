@@ -8,7 +8,7 @@ struct MainLoop {
 
 	void update();
 
-	Game game;
+	//Game game;
 	Minesweeper minesweeper;
 	GameRenderer renderer;
 };

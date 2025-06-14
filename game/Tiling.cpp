@@ -17,6 +17,10 @@ bool haveCommonElement(I1 first1, I1 last1, I2 first2, I2 last2) {
 }
 
 Tiling::Tiling(const Polytope& c) {
+	if (c.cells.size() == 0) {
+		return;
+	}
+
 	auto outwardPointingFaceNormal = [&](const std::vector<Vec4>& vertices, const std::vector<Face>& faces, const std::vector<i32>& cellFaces, i32 faceI) {
 		const auto& face = faces[faceI];
 

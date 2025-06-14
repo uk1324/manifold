@@ -21,7 +21,8 @@ static Vec3 log(Quat unitQuat) {
 //	return -p.inverseIfNormalized();
 //}
 void StereographicCamera::update(float dt) {
-	if (Window::isCursorEnabled()) {
+	const auto updateMovement = !Window::isCursorEnabled();
+	if (!updateMovement) {
 		lastMousePosition = std::nullopt;
 	}
 
@@ -39,12 +40,14 @@ void StereographicCamera::update(float dt) {
 	//// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.
 	Vec3 movementDirection(0.0f);
 
-	if (Input::isKeyHeld(KeyCode::A)) movementDirection += Vec3::LEFT;
-	if (Input::isKeyHeld(KeyCode::D)) movementDirection += Vec3::RIGHT;
-	if (Input::isKeyHeld(KeyCode::W)) movementDirection += Vec3::FORWARD;
-	if (Input::isKeyHeld(KeyCode::S)) movementDirection += Vec3::BACK;
-	if (Input::isKeyHeld(KeyCode::SPACE)) movementDirection += Vec3::UP;
-	if (Input::isKeyHeld(KeyCode::LEFT_SHIFT)) movementDirection += Vec3::DOWN;
+	if (updateMovement) {
+		if (Input::isKeyHeld(KeyCode::A)) movementDirection += Vec3::LEFT;
+		if (Input::isKeyHeld(KeyCode::D)) movementDirection += Vec3::RIGHT;
+		if (Input::isKeyHeld(KeyCode::W)) movementDirection += Vec3::FORWARD;
+		if (Input::isKeyHeld(KeyCode::S)) movementDirection += Vec3::BACK;
+		if (Input::isKeyHeld(KeyCode::SPACE)) movementDirection += Vec3::UP;
+		if (Input::isKeyHeld(KeyCode::LEFT_SHIFT)) movementDirection += Vec3::DOWN;
+	}
 
 	movementDirection = movementDirection.normalized();
 
