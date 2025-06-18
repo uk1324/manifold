@@ -13,6 +13,7 @@
 #include <engine/Math/Circle.hpp>
 #include <engine/Math/Angles.hpp>
 
+// cells are neighbours if they share a vertex.
 /*
 if bomb count = cell count then just set win on first move.
 */
@@ -116,9 +117,8 @@ void Minesweeper::update(GameRenderer& renderer) {
 	}
 
 	const auto ray = Ray3(stereographicCamera.pos3d(), stereographicCamera.forward3d());
-	stereographicCamera.movementSpeed = 0.4f;
 	stereographicCamera.update(Constants::dt);
-	
+
 	const auto view = stereographicCamera.viewMatrix();
 	const auto cameraPosition = stereographicCamera.pos3d();
 	renderer.frameUpdate(view, cameraPosition, stereographicCamera);
@@ -130,8 +130,33 @@ void Minesweeper::update(GameRenderer& renderer) {
 	for (const auto& vertex : t.vertices) {
 		transformedVertices4.push_back(view4 * vertex);
 	}
-	
-	f32 textSize = 0.1f;
+
+	f32 diameter = 0.0f;
+	{
+		std::vector<Vec4> v;
+		auto& vertices = t.cells[0].vertices;
+		for (const auto& vertex : vertices) {
+			v.push_back(t.vertices[vertex]);
+		}
+
+		for (i32 i = 0; i < v.size(); i++) {
+			for (i32 j = i + 1; j < v.size(); j++) {
+				const auto d = (v[i] - v[j]).length();
+				if (d > diameter) {
+					diameter = d;
+				}
+			}
+		}
+	}
+
+	// Non regular polytopes have multiple cell sizes, but it looks good as is so I will leave it like that.
+	//const auto edgeLength = (t.vertices[t.edges[0].vertices[0]] - t.vertices[t.edges[0].vertices[1]]).length();
+	const auto polytopeScale = diameter / 0.756f; 
+	stereographicCamera.movementSpeed = polytopeScale * 0.4f;
+	const auto textSize = 0.1f * polytopeScale;
+	const auto sphereRadius = textSize / 2.5f;
+	const auto segmentWidth = 0.005f * polytopeScale;
+
 
 	std::vector<Vec3> cellCentersTransformed;
 	for (const auto& cell : t.cells) {
@@ -145,44 +170,64 @@ void Minesweeper::update(GameRenderer& renderer) {
 		CellIndex cellI;
 		f32 t;
 	};
+	std::optional<Hit> closestUnrevealedHit;
 	std::optional<Hit> closestHit;
 	for (CellIndex cellI = 0; cellI < t.cells.size(); cellI++) {
-		if (isRevealed[cellI]) {
-			continue;
-		}
 		auto& center = cellCentersTransformed[cellI];
-		const auto radius = textSize / 2.5f;
 		//renderer.sphere(center, radius, Color3::GREEN);
-		const auto i = raySphereIntersection(ray, center, radius);
+		const auto i = raySphereIntersection(ray, center, sphereRadius);
 
 		if (!i.has_value()) {
 			continue;
 		}
-		if (!closestHit.has_value() || *i < closestHit->t) {
-			closestHit = Hit{
-				.cellI = cellI,
-				.t = *i
-			};
+
+		if (!isRevealed[cellI]) {
+			if (!closestUnrevealedHit.has_value() || *i < closestUnrevealedHit->t) {
+				closestUnrevealedHit = Hit{
+					.cellI = cellI,
+					.t = *i
+				};
+			}
 		}
+
+		if (!isRevealed[cellI] || (isRevealed[cellI] && neighbouringBombsCount[cellI] != 0)) {
+			if (!closestHit.has_value() || *i < closestHit->t) {
+				closestHit = Hit{
+					.cellI = cellI,
+					.t = *i
+				};
+			}
+		}
+		
 	}
 	const auto hoverAnimationTimeToFinish = 0.1f;
-	if (closestHit.has_value()) {
-		updateConstantSpeedT(cellHoverAnimationT[closestHit->cellI], hoverAnimationTimeToFinish, true);
+	if (closestUnrevealedHit.has_value()) {
+		updateConstantSpeedT(cellHoverAnimationT[closestUnrevealedHit->cellI], hoverAnimationTimeToFinish, true);
 		//renderer.sphere(ray.at(closestHit->t), 0.01f, Color3::WHITE);
-		if (!isMarked[closestHit->cellI] && input.leftMouseDown) {
+		if (!isMarked[closestUnrevealedHit->cellI] && input.leftMouseDown) {
 			if (state == State::BEFORE_FIRST_MOVE) {
-				startGame(closestHit->cellI);
+				startGame(closestUnrevealedHit->cellI);
 			} else {
-				reveal(closestHit->cellI);
+				reveal(closestUnrevealedHit->cellI);
 			}
 		}
 
 		if (input.rightMouseDown) {
-			if (!isRevealed[closestHit->cellI]) {
-				isMarked[closestHit->cellI] = !isMarked[closestHit->cellI];
+			if (!isRevealed[closestUnrevealedHit->cellI]) {
+				isMarked[closestUnrevealedHit->cellI] = !isMarked[closestUnrevealedHit->cellI];
 			}
 		}
 	}
+	if (closestHit.has_value()) {
+		if (Input::isMouseButtonDown(MouseButton::MIDDLE)) {
+			if (highlightNeighbours.has_value() && *highlightNeighbours == closestHit->cellI) {
+				highlightNeighbours = std::nullopt;
+			} else {
+				highlightNeighbours = closestHit->cellI;
+			}
+		}
+	}
+
 
 	i32 cellsRevealed = 0;
 	for (const auto& revaled : isRevealed) {
@@ -193,7 +238,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 	//ImGui::Text("%d/%d cells revealed", cellsRevealed, t.cells.size());
 
 	for (CellIndex i = 0; i < t.cells.size(); i++) {
-		if (closestHit.has_value() && closestHit->cellI == i) {
+		if (closestUnrevealedHit.has_value() && closestUnrevealedHit->cellI == i) {
 			continue;
 		}
 		updateConstantSpeedT(cellHoverAnimationT[i], hoverAnimationTimeToFinish, false);
@@ -206,6 +251,15 @@ void Minesweeper::update(GameRenderer& renderer) {
 	std::ranges::sort(cellsSortedByDistance, [&](i32 a, i32 b) {
 		return cellCentersTransformed[a].z > cellCentersTransformed[b].z;
 	});
+	std::vector<bool> isHighligtedCellNeighbour;
+	isHighligtedCellNeighbour.resize(t.cells.size(), false);
+	if (highlightNeighbours.has_value()) {
+		for (const auto& neighbour : cellToNeighbours[*highlightNeighbours]) {
+			isHighligtedCellNeighbour[neighbour] = true;
+		}
+	}
+
+
 	for (const auto& cellI : cellsSortedByDistance) {
 		const auto& center = cellCentersTransformed[cellI];
 		// Because they are sorted every one after will also have negative z
@@ -240,22 +294,42 @@ void Minesweeper::update(GameRenderer& renderer) {
 		}
 
 		color = lerp(color, color * 0.5f, cellHoverAnimationT[cellI]);
-		const auto sphereRadius = textSize / 2.5f;
+
+		const auto highlightedCellNeighbour = isHighligtedCellNeighbour[cellI];
+		const auto highlightedCell = highlightNeighbours.has_value() && cellI == *highlightNeighbours;
+
+		auto highlightedColor = [&](Vec3 color) {
+			if (highlightedCell) {
+
+				//return Vec3(1.0f, 0.9f, 0.5f);
+				return Vec3(0.3f, 1.0f, 0.2f);
+			}
+			if (highlightedCellNeighbour) {
+				return Color3::YELLOW;
+			} 
+			return color;
+		};
 
 		if (isRevealed[cellI]) {
 			if (isBomb[cellI]) {
-				renderer.sphere(center, sphereRadius, Vec3(0.05f));
+				renderer.sphere(center, sphereRadius, highlightedColor(Vec3(0.05f)));
 			} else {
 				if (c >= 1) {
-					renderer.centertedText(center, textSize, std::to_string(c), color);
+					renderer.centertedText(center, textSize, std::to_string(c), highlightedColor(color));
 				}
 			}
 		} else {
 			Vec3 color;
 			if (isMarked[cellI]) {
-				color = Color3::RED;
+				if (highlightedCell) {
+					color = Vec3(1.0f, 0.44, 0.0f);
+				} else if (highlightedCellNeighbour) {
+					color = Vec3(1.0f, 0.24, 0.0f);
+				} else {
+					color = Color3::RED;
+				}
 			} else {
-				color = Color3::WHITE;
+				color = highlightedColor(Color3::WHITE);
 			}
 			color = lerp(color * 0.5f, color, cellHoverAnimationT[cellI]);
 			renderer.sphere(center, sphereRadius, color);
@@ -269,8 +343,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 	static i32 maxAllowedPointCount = 5;
 	/*ImGui::SliderFloat("desired deviation", &desiredDeviation, 0.007, 0.1f);
 	ImGui::SliderInt("max allowed point count", &maxAllowedPointCount, 5, 20);*/
-	auto drawSegment = [&renderer, &frustum](Vec4 e0, Vec4 e1) {
-		const auto width = 0.005f;
+	auto drawSegment = [&renderer, &frustum, &segmentWidth](Vec4 e0, Vec4 e1) {
 
 		const auto p0 = stereographicProjection(e0);
 		const auto p1 = stereographicProjection(e1);
@@ -281,12 +354,12 @@ void Minesweeper::update(GameRenderer& renderer) {
 			return velocity3;
 		};
 
-		auto drawLineWithFrustumCulling = [&renderer, &width, &frustum](Vec3 v0, Vec3 v1) {
-			const auto box = Box3::containingRoundCappedCyllinder(v0, v1, width);
+		auto drawLineWithFrustumCulling = [&renderer, &segmentWidth, &frustum](Vec3 v0, Vec3 v1) {
+			const auto box = Box3::containingRoundCappedCyllinder(v0, v1, segmentWidth);
 			if (!frustum.intersects(box)) {
 				return;
 			}
-			renderer.line(v0, v1, width, Color3::WHITE);
+			renderer.line(v0, v1, segmentWidth, Color3::WHITE);
 		};
 
 		if (isPointAtInfinity(p0) && isPointAtInfinity(p1)) {
@@ -359,7 +432,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 				// If the angle is too small then the above check may not work due to floating point errors. This guess can sometimes be wrong that is when the case abs(d - TAU<f32>) actually happens, but it seems to work fine for now.
 				drawLineWithFrustumCulling(p0, p1);
 			} else {
-				const auto box = Box3::containingCircleArcTube(center, p, v, d, width);
+				const auto box = Box3::containingCircleArcTube(center, p, v, d, segmentWidth);
 				
 				if (frustum.intersects(box)) {
 					const auto pointCount = circleArcPointCountRequiredToAchiveError(desiredDeviation, radius, d, maxAllowedPointCount);
@@ -367,9 +440,9 @@ void Minesweeper::update(GameRenderer& renderer) {
 						return;
 					}
 					if (*pointCount == 2) {
-						renderer.line(p0, p1, width, Color3::WHITE);
+						renderer.line(p0, p1, segmentWidth, Color3::WHITE);
 					} else {
-						renderer.lineGenerator.addCircularArc(p, v, center, d, width, *pointCount);
+						renderer.lineGenerator.addCircularArc(p, v, center, d, segmentWidth, *pointCount);
 					}
 				}
 			}
@@ -381,49 +454,6 @@ void Minesweeper::update(GameRenderer& renderer) {
 		const auto e0 = transformedVertices4[edge.vertices[0]];
 		const auto e1 = transformedVertices4[edge.vertices[1]];
 		drawSegment(e0, e1);
-		//break;
-		//const auto width = 0.005f;
-
-		//const auto e0 = transformedVertices4[edge.vertices[0]];
-		//const auto e1 = transformedVertices4[edge.vertices[1]];
-		//const auto segment = StereographicSegment::fromEndpoints(e0, e1);
-		//Box3 box;
-		//switch (segment.type) {
-		//	using enum StereographicSegment::Type;
-		//case CIRCULAR: {
-		//	const auto& s = segment.circular;
-		//	box = Box3::containingCircleArcTube(s.center, s.start, s.initialVelocity, s.angle, width);
-		//	break;
-		//}
-		//	
-		//case LINE: {
-		//	const auto& s = segment.line;
-		//	box = Box3::containingRoundCappedCyllinder(s.e[0], s.e[1], width);
-		//	break;
-		//}
-
-		//}
-		//if (frustum.intersects(box)) {
-		//	edgesDrawn++;
-		//	// Using a line instead of a arc shouldn't matter here. Visually it's already wrong, because it's not using the projected version so making it a bit more wrong shouldn't make too much of a difference.
-		//	/*switch (segment.type) {
-		//		using enum StereographicSegment::Type;
-		//	case CIRCULAR: {
-		//		const auto& s = segment.circular;
-		//		renderer.line(s.start + s.center, s.sample(s.angle), width, Color3::WHITE);
-		//		break;
-		//	}
-
-		//	case LINE: {
-		//		const auto& s = segment.line;
-		//		renderer.line(s.e[0], s.e[1], width, Color3::WHITE);
-		//		break;
-		//	}
-		//	}*/
-		//	renderer.stereographicLineSegment(segment, width, false);
-		//}
-		//break;
-		//Box3 box{ .center = segment.circular }
 	}
 
 	 //should also win if every non bomb cell is revealed
@@ -441,12 +471,12 @@ void Minesweeper::update(GameRenderer& renderer) {
 		}
 	}
 
-	ImGui::Text("%d/%d edges drawn", edgesDrawn, t.edges.size());
+	//ImGui::Text("%d/%d edges drawn", edgesDrawn, t.edges.size());
 
 	renderer.renderHemispheres();
 	renderer.renderCyllinders();
 
-	ImGui::Text("line triangle count %d", renderer.lineGenerator.indices.size() / 3);
+	//ImGui::Text("line triangle count %d", renderer.lineGenerator.indices.size() / 3);
 	renderer.coloredShadingTrianglesAddMesh(renderer.lineGenerator, Color3::WHITE);
 	renderer.lineGenerator.reset();
 	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
@@ -538,8 +568,12 @@ void Minesweeper::menuGui() {
 			case CELL_120:
 				bombCountSetting = 10;
 				break;
+			case SUBDIVIDED_HYPERCUBE:
+				bombCount = 20;
+				break;
 			case CELL_600:
-				bombCountSetting = 50;
+				//bombCountSetting = 120;
+				bombCountSetting = 60;
 				break;
 			case Board::CELL_600_RECTIFIED:
 				bombCountSetting = 20;
@@ -565,15 +599,11 @@ void Minesweeper::menuGui() {
 				//ImGui::SetNextItemWidth(-FLT_MIN);
 			};
 			//addEntry("move forward", "W");
-			//addEntry("move forward", "W");
 			addEntry("reveal", "left click");
 			addEntry("mark", "right click");
 			addEntry("toggle menu", "escape");
 			ImGui::EndTable();
 		}
-		//ImGui::Text("left click to reveal");
-		//ImGui::Text("right click to mark");
-		//ImGui::Text("escape to toggle the menu");
 
 		if (uiTableBegin("controls")) {
 			sliderFloat("mouse sensitivity", mouseSensitivity, 0.5, 2.0f);
@@ -604,9 +634,11 @@ void Minesweeper::closeMenu() {
 }
 
 void Minesweeper::loadBoard(Board board) {
+	
 	switch (board) {
 		using enum Board;
 	case CELL_120: loadBoard(make120cell()); break;
+	case SUBDIVIDED_HYPERCUBE: loadBoard(subdiviedHypercube4(2)); break;
 	case CELL_600: loadBoard(make600cell()); break;
 	case CELL_600_RECTIFIED: loadBoard(makeRectified600cell()); break;
 	case CELL_24_SNUB: loadBoard(makeSnub24cell()); break;
@@ -614,6 +646,7 @@ void Minesweeper::loadBoard(Board board) {
 }
 
 void Minesweeper::loadBoard(const Polytope& polytope) {
+	highlightNeighbours = std::nullopt;
 	t = Tiling(polytope);
 	cellToNeighbours = t.cellsNeighbouringToCell();
 	cellHoverAnimationT.resize(t.cells.size(), 0.0f);

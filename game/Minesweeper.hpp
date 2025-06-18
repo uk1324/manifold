@@ -37,12 +37,14 @@ struct Minesweeper {
 	enum class Board {
 		CELL_24_SNUB,
 		CELL_120,
+		SUBDIVIDED_HYPERCUBE,
 		CELL_600,
 		CELL_600_RECTIFIED,
 	};
 	static constexpr const char* boardStrings[] = {
 		"snub 24 cell",
 		"120 cell",
+		"subdivided hypercube",
 		"600 cell",
 		"rectified 600 cell",
 	};
@@ -57,6 +59,8 @@ struct Minesweeper {
 	bool gameResetButNotStarted = true;
 
 	f32 mouseSensitivity = 1.0f;
+
+	std::optional<i32> highlightNeighbours;
 
 	std::vector<f32> cellHoverAnimationT;
 

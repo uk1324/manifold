@@ -544,76 +544,6 @@ Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex) {
 	return sortedEdgesIndices;
 }
 
-Polytope make600cell() {
-	Polytope r;
-	//for (i32 i = 0; i < std::size(vertices600cell); i++) {
-	//	const auto& p = vertices600cell[i];
-	//	r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
-	//}
-	//auto addCells = [](Polytope::CellsN& out, View<const i32> in, i32 subCellsPerCell) {
-	//	for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
-	//		Polytope::CellN cell;
-	//		for (i32 j = 0; j < subCellsPerCell; j++) {
-	//			cell.push_back(in[i + j]);
-	//		}
-	//		out.push_back(std::move(cell));
-	//	}
-	//};
-	//r.cells.push_back(Polytope::CellsN{});
-	//auto& edges = r.cells.back();
-	//addCells(edges, constView(edges600cell), 2);
-
-	//r.cells.push_back(Polytope::CellsN{});
-	//auto& faces = r.cells.back();
-	//addCells(faces, constView(faces600cell), 3);
-
-	//r.cells.push_back(Polytope::CellsN{});
-	//auto& cells = r.cells.back();
-	//addCells(cells, constView(cells600cell), 4);
-
-
-for (i32 i = 0; i < std::size(vertices600cell); i++) {
-	const auto& p = vertices600cell[i];
-	r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
-}
-auto addCells = [](Polytope::CellsN& out, i32 cellCount, View<const i32> subCellToCells, i32 cellsPerSubCell) {
-	out.resize(cellCount);
-
-	for (i32 subCellI = 0; subCellI < subCellToCells.size() / cellsPerSubCell; subCellI++) {
-		for (i32 i = 0; i < cellsPerSubCell; i++) {
-			auto cellI = subCellToCells[subCellI * cellsPerSubCell + i];
-			out[cellI].push_back(subCellI);
-		}
-	}
-	/*for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
-		Polytope::CellN cell;
-		for (i32 j = 0; j < subCellsPerCell; j++) {
-			cell.push_back(in[i + j]);
-		}
-		out.push_back(std::move(cell));
-	}*/
-	};
-r.cells.push_back(Polytope::CellsN{});
-auto& edges = r.cells.back();
-for (i32 i = 0; i < std::size(edges600cell); i += 2) {
-	Polytope::CellN cell;
-	for (i32 j = 0; j < 2; j++) {
-		cell.push_back(edges600cell[i + j]);
-	}
-	edges.push_back(std::move(cell));
-}
-
-r.cells.push_back(Polytope::CellsN{});
-auto& faces = r.cells.back();
-addCells(faces, i32(std::size(faces600cell)) / 3, constView(edgeToFaces600cell), 5);
-
-r.cells.push_back(Polytope::CellsN{});
-auto& cells = r.cells.back();
-addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
-
-return r;
-}
-
 struct Vec4SignSwitchIterator {
 	Vec4 v;
 	Vec4SignSwitchIterator(f32 x, f32 y, f32 z, f32 w, bool switchSignX, bool switchSignY, bool switchSignZ, bool switchSignW);
@@ -692,6 +622,98 @@ void addPermuations(VertexSet& vertices, f32 x, f32 y, f32 z, f32 w, bool addOnl
 
 void add24CellVertices(VertexSet& vertices) {
 	addPermuations(vertices, 0.0f, 0.0f, 2.0f, 2.0f, 0, 0, 1, 1);
+}
+
+Polytope make600cell() {
+	{
+		const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+		VertexSet v;
+		addPermuations(v, 0, 0, 0, 1);
+		addPermuations(v, 0.5f, 0.5f, 0.5f, 0.5f);
+		addPermuations(v, p / 2.0f, 0.5f, 1.0f / (2.0f * p), 0.0f, true);
+		/*const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+		const auto p2 = p * p;
+		const auto pm1 = 1.0f / p;
+		const auto pm2 = 1.0f / p2;
+		const auto s5 = sqrt(5.0f);
+		add24CellVertices(v);
+		addPermuations(v, p, p, p, pm2, 1, 1, 1, 1);
+		addPermuations(v, 1.0f, 1.0f, 1.0f, s5, 1, 1, 1, 1);
+		addPermuations(v, pm1, pm1, pm1, p2, 1, 1, 1, 1);
+		addPermuations(v, 0.0f, pm1, p, s5, 0, 1, 1, 1, true);
+		addPermuations(v, 0.0f, pm2, 1.0f, p2, 0, 1, 1, 1, true);
+		addPermuations(v, pm1, 1.0f, p, 2.0f, 1, 1, 1, 1, true);*/
+		const auto vertices = vertexSetToVertexList(v);
+		return convexHull(vertices);
+	}
+
+	Polytope r;
+	//for (i32 i = 0; i < std::size(vertices600cell); i++) {
+	//	const auto& p = vertices600cell[i];
+	//	r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
+	//}
+	//auto addCells = [](Polytope::CellsN& out, View<const i32> in, i32 subCellsPerCell) {
+	//	for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
+	//		Polytope::CellN cell;
+	//		for (i32 j = 0; j < subCellsPerCell; j++) {
+	//			cell.push_back(in[i + j]);
+	//		}
+	//		out.push_back(std::move(cell));
+	//	}
+	//};
+	//r.cells.push_back(Polytope::CellsN{});
+	//auto& edges = r.cells.back();
+	//addCells(edges, constView(edges600cell), 2);
+
+	//r.cells.push_back(Polytope::CellsN{});
+	//auto& faces = r.cells.back();
+	//addCells(faces, constView(faces600cell), 3);
+
+	//r.cells.push_back(Polytope::CellsN{});
+	//auto& cells = r.cells.back();
+	//addCells(cells, constView(cells600cell), 4);
+
+
+	for (i32 i = 0; i < std::size(vertices600cell); i++) {
+		const auto& p = vertices600cell[i];
+		r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
+	}
+	auto addCells = [](Polytope::CellsN& out, i32 cellCount, View<const i32> subCellToCells, i32 cellsPerSubCell) {
+		out.resize(cellCount);
+
+		for (i32 subCellI = 0; subCellI < subCellToCells.size() / cellsPerSubCell; subCellI++) {
+			for (i32 i = 0; i < cellsPerSubCell; i++) {
+				auto cellI = subCellToCells[subCellI * cellsPerSubCell + i];
+				out[cellI].push_back(subCellI);
+			}
+		}
+		/*for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
+			Polytope::CellN cell;
+			for (i32 j = 0; j < subCellsPerCell; j++) {
+				cell.push_back(in[i + j]);
+			}
+			out.push_back(std::move(cell));
+		}*/
+		};
+	r.cells.push_back(Polytope::CellsN{});
+	auto& edges = r.cells.back();
+	for (i32 i = 0; i < std::size(edges600cell); i += 2) {
+		Polytope::CellN cell;
+		for (i32 j = 0; j < 2; j++) {
+			cell.push_back(edges600cell[i + j]);
+		}
+		edges.push_back(std::move(cell));
+	}
+
+	r.cells.push_back(Polytope::CellsN{});
+	auto& faces = r.cells.back();
+	addCells(faces, i32(std::size(faces600cell)) / 3, constView(edgeToFaces600cell), 5);
+
+	r.cells.push_back(Polytope::CellsN{});
+	auto& cells = r.cells.back();
+	addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
+
+	return r;
 }
 
 Polytope make120cell() {
