@@ -13,6 +13,8 @@ struct Minesweeper {
 
 	Tiling t;
 
+	bool isMenuOpen = true;
+
 	std::vector<std::vector<CellIndex>> cellToNeighbours;
 
 	std::vector<bool> isBomb;

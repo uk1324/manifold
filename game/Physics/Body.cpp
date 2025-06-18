@@ -13,7 +13,7 @@ Body::Body()
 	friction = 0.2f;
 
 	//width.Set(1.0f, 1.0f);
-	mass = FLT_MAX;
+	mass = std::numeric_limits<f32>::infinity();
 	invMass = 0.0f;
 	//I = FLT_MAX;
 	//invI = 0.0f;
@@ -33,7 +33,7 @@ void Body::set(float radiusToSet, float massToSet) {
 	//width = w;
 	//mass = m;
 
-	if (mass < FLT_MAX)
+	if (mass < std::numeric_limits<f32>::infinity())
 	{
 		invMass = 1.0f / mass;
 		//I = mass * (width.x * width.x + width.y * width.y) / 12.0f;
@@ -41,7 +41,7 @@ void Body::set(float radiusToSet, float massToSet) {
 	} else
 	{
 		invMass = 0.0f;
-		//I = FLT_MAX;
+		//I = std:::numeric_limits<f32>::infiinity();
 		//invI = 0.0f;
 	}
 }

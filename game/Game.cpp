@@ -41,6 +41,7 @@ void Game::update(GameRenderer& renderer) {
 	if (Input::isKeyDown(KeyCode::TAB)) {
 		selectedCamera = static_cast<CameraType>((static_cast<int>(selectedCamera) + 1) % 2);
 	}
+	ImGui::ShowDemoWindow();
 
 	gameOfLifeStep();
 

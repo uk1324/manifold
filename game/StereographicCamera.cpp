@@ -35,6 +35,9 @@ void StereographicCamera::update(float dt) {
 
 	lastMousePosition = Input::cursorPosWindowSpace();
 
+	if (dt == 0.0f) {
+		return;
+	}
 
 	//// x+ is right both in window space and in the used coordinate system.
 	//// The coordinate system is left handed so by applying the left hand rule a positive angle change turns the camera right.

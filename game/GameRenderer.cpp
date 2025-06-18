@@ -94,8 +94,10 @@ i32 infinitePlaneIndices[]{
 
 #define FONT_FOLDER "engine/assets/fonts"
 
+#include "generated/FontData.hpp"
+
 GameRenderer GameRenderer::make() {
-	auto instancesVbo = Vbo(1024ull * 20);
+	auto instancesVbo = Vbo::dynamicDraw(1024ull * 20);
 
 	auto makeColoredShadedMesh = [&instancesVbo](const std::vector<Vertex3Pn>& vertices, const std::vector<i32>& indices) {
 		return makeMesh<ColoredShader>(constView(vertices), constView(indices), instancesVbo);
@@ -298,10 +300,19 @@ GameRenderer GameRenderer::make() {
 		MOVE(sphereImpostorMeshTri),
 		MOVE(text3QuadMesh),
 		.text3Shader = MAKE_GENERATED_SHADER(TEXT_3),
-		.font = Font::loadSdfWithCachingAtDefaultPath(FONT_FOLDER, "RobotoMono-Regular"),
+		#ifdef __EMSCRIPTEN__
+		.font = loadFontSdfFromMemory(fontHeight, fontGlyphs(), fontImage, fontImageSizeX, fontImageSizeY),
+		//.font = Font{ .fontAtlas = Texture::generate()},
+		#else
+		//.font = Font::loadSdfWithCachingAtDefaultPath(FONT_FOLDER, "RobotoMono-Regular"),
+		.font = loadFontSdfFromMemory(fontHeight, fontGlyphs(), fontImage, fontImageSizeX, fontImageSizeY),
+		#endif
+
 		MOVE(gfx2d),
 		MOVE(instancesVbo),
 	};
+
+	//saveFontToCpp("cached/RobotoMono-Regular.png", "cached/RobotoMono-Regular.json");
 
 	return renderer;
 }
@@ -324,6 +335,7 @@ void GameRenderer::frameUpdate(Mat4 view, Vec3 cameraPosition, const Stereograph
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_BLEND);
 }
@@ -825,8 +837,8 @@ void GameRenderer::centertedText(Vec3 center, f32 size, std::string_view text, V
 
 void GameRenderer::renderText() {
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+	/*glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);*/
 
 	text3Shader.use();
 	text3Shader.setTexture("fontAtlas", 0, font.fontAtlas);

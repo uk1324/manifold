@@ -1,0 +1,26 @@
+Instalation
+Install CMake and ninja
+Install emsdk 
+https://emscripten.org/docs/getting_started/downloads.html#installation-instructions-using-the-emsdk-recommended
+
+Buidling
+
+
+cd into emsdk
+emsdk_env.bat
+cd into the project directory
+
+mkdir build
+// Calling it inside the build folder so the build files won't be placed into the source directories. This is call an out of source build.
+cd build 
+
+// On the first build run
+emcmake cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+// After that to build use
+ninja
+
+// -DCMAKE_POLICY_VERSION_MINIMUM=3.5 is added, because qhull uses minimum version 3.0 which is deprecated and the project won't build without it.
+
+
+To run a local http server can use
+python -m http.server

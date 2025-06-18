@@ -18,6 +18,12 @@
 if bomb count = cell count then just set win on first move.
 */
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/html5.h>
+#endif 
+#include <iostream>
+
+
 Minesweeper::Minesweeper()
 	: t(Polytope())
 	, rng(dev()) {
@@ -57,6 +63,7 @@ Minesweeper::Minesweeper()
 	style.GrabRounding = 3;
 
 	loadBoard(Board::CELL_120);
+
 }
 
 bool ButtonCenteredOnLine(const char* label, float alignment = 0.5f) {
@@ -78,11 +85,20 @@ struct GameInput {
 };
 
 void Minesweeper::update(GameRenderer& renderer) {
-	if (Input::isKeyDown(KeyCode::ESCAPE)) {
+	/*if (Input::isKeyDown(KeyCode::ESCAPE)) {
 		Window::toggleCursor();
+	}*/
+	if (Input::isKeyDown(KeyCode::M)) {
+		if (isMenuOpen) {
+			closeMenu();
+		} else {
+			openMenu();
+		}
+		//isMenuOpen = !isMenuOpen;
+		//Window::toggleCursor();
 	}
 	{
-		const auto cursorEnabled = Window::isCursorEnabled();
+		const auto cursorEnabled = isMenuOpen;
 		const auto flags =
 			ImGuiConfigFlags_NavNoCaptureKeyboard |
 			ImGuiConfigFlags_NoMouse |
@@ -100,7 +116,7 @@ void Minesweeper::update(GameRenderer& renderer) {
 		}
 	}
 	GameInput input;
-	const auto updateMovement = !Window::isCursorEnabled();
+	const auto updateMovement = !isMenuOpen;
 	if (updateMovement) {
 		if (Input::isMouseButtonDown(MouseButton::LEFT)) {
 			input.leftMouseDown = true;
@@ -109,6 +125,13 @@ void Minesweeper::update(GameRenderer& renderer) {
 			input.rightMouseDown = true;
 		}
 	}
+	/*auto p = Input::cursorPosWindowSpace();*/
+	/*#ifdef __EMSCRIPTEN__
+	auto p0 = Vec2(Input::virtualCursor.x, Input::virtualCursor.y);
+	auto p1 = Vec2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
+	ImGui::InputFloat2("aa1", p0.data());
+	ImGui::InputFloat2("aa2", p1.data());
+	#endif */
 
 	//togglableCursorUpdate();
 
@@ -117,7 +140,13 @@ void Minesweeper::update(GameRenderer& renderer) {
 	}
 
 	const auto ray = Ray3(stereographicCamera.pos3d(), stereographicCamera.forward3d());
-	stereographicCamera.update(Constants::dt);
+	{
+		auto cameraDt = Constants::dt;
+		if (isMenuOpen) {
+			cameraDt = 0.0f;
+		}
+		stereographicCamera.update(cameraDt);
+	}
 
 	const auto view = stereographicCamera.viewMatrix();
 	const auto cameraPosition = stereographicCamera.pos3d();
@@ -489,7 +518,39 @@ void Minesweeper::update(GameRenderer& renderer) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	renderer.gfx2d.camera.aspectRatio = Window::aspectRatio();
+	//renderer.gfx2d.disk(Input::cursorPosClipSpace(), 0.025f, Color3::GREEN);
 	renderer.gfx2d.disk(Vec2(0.0f), 0.025f, Color3::GREEN);
+	const auto pos = Input::cursorPosWindowSpace();
+	if (isMenuOpen) {
+		auto& dl = *ImGui::GetForegroundDrawList();
+		f32 size = 10.0f;
+		//f32 angle
+
+		f32 angle = 1.0f;
+		const auto tip = Vec2(0.0f);
+		const auto ear0 = tip - Vec2::oriented(angle) * size * 0.75f;
+		const auto ear1 = tip - Vec2::oriented(-angle) * size * 0.75f;
+		const auto centerMiddle = tip - Vec2(size / 2.0, 0.0f);
+		const auto e0 = tip + Vec2(size * 0.3f);
+		const auto e1 = tip - Vec2(size * 0.3f);
+
+		auto addTri = [&](Vec2 v0, Vec2 v1, Vec2 v2, u32 color) {
+			v0 += tip;
+			v1 += tip;
+			v2 += tip;
+			dl.AddTriangle(ImVec2(v0.x, v0.y), ImVec2(v1.x, v1.y), ImVec2(v2.x, v2.y), color);
+
+		};
+		const u32 white = 0xFFFFFFFF;
+		addTri(tip, ear0, e0, white);
+		addTri(tip, ear1, e1, white);
+		addTri(e0, e1, tip, white);
+		//const auto ear0Center = ear0 + Vec2::oriented()
+
+		//dl.AddTriangleFilled(pos + Vec2()
+		/*ImGui::GetForegroundDrawList()->AddCircleFilled(ImVec2(pos.x, pos.y), 5.0f, 0xFF000000);
+		ImGui::GetForegroundDrawList()->AddCircleFilled(ImVec2(pos.x, pos.y), 4.0f, 0xFFFFFFFF);*/
+	}
 	renderer.gfx2d.drawDisks();
 	glDisable(GL_BLEND);
 	glEnable(GL_DEPTH_TEST);
@@ -538,7 +599,6 @@ void Minesweeper::menuGui() {
 		ImGui::SliderInt(prependWithHashHash(name), &value, min, max);
 		value = std::clamp(value, min, max);
 	};
-
 	const auto& io = ImGui::GetIO();
 	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 3.0f, 0.0f), ImGuiCond_Always);
@@ -621,16 +681,27 @@ void Minesweeper::menuGui() {
 		closeMenu();
 	}
 	ImGui::End();
-
-	
 }
 
 void Minesweeper::openMenu() {
-	Window::enableCursor();
+	isMenuOpen = true;
+	#ifdef __EMSCRIPTEN__
+	const auto center = Window::size() / 2.0f;
+	Input::virtualCursor = Vec2T<f64>(center.x, center.y);
+	#else
+	Window::toggleCursor();
+	#endif 
+	/*#ifdef __EMSCRIPTEN__
+	#include <emscripten/html5.h>
+	#endif 
+	Window::enableCursor();*/
 }
 
 void Minesweeper::closeMenu() {
+	isMenuOpen = false;
+	#ifndef __EMSCRIPTEN__
 	Window::disableCursor();
+	#endif 
 }
 
 void Minesweeper::loadBoard(Board board) {
