@@ -25,6 +25,7 @@ FixedUpdateLoop l(60.0f);
 #include <opengl/gl.h>
 void loop() {
 	if (l.isRunning()) {
+	//if (true) {
 		// The order in which EngineUpdateLoop doesn't work, because of when loop is called and what happens before and after the call to it.
 		Engine::updateFrameStart();
 		//if (Input::isKeyDown(KeyCode::A)) {
@@ -35,8 +36,11 @@ void loop() {
 		ImGui::ShowDemoWindow();
 		Engine::updateFrameEnd();*/
 		if (mainLoop != nullptr) {
+			//Timer t;
 			mainLoop->update();
+			//t.guiTookMiliseconds("mainLoop.update()");
 		}
+
 		Engine::updateFrameEnd();
 	} else {
 		Engine::terminateAll();
@@ -84,6 +88,13 @@ int main() {
 		"#canvas", nullptr, false, 
 		+[](int eventType, const EmscriptenMouseEvent* mouseEvent, void* userData) -> bool {
 			emscripten_request_pointerlock("#canvas", false);
+			// Without this things break. For example open game on itch.io. Press run. The click away on the background. Then click the game. The game will have pointerlock, but it won't be focused on the game.
+			// https://itch.io/t/1881072/solved-problem-of-keys-not-working-loss-of-focus-etc-on-itchio-for-web-games
+			EM_ASM(
+				const canvas = document.getElementById("canvas");
+				canvas.setAttribute('tabindex', '0');
+				canvas.focus();
+			);
 			return true;
 		}
 	);
@@ -116,10 +127,13 @@ int main() {
 	}, FONT);
 
 	EngineUpdateLoop updateLoop(60.0f);
+	Timer t;
 	MainLoop loop;
-
+	t.tookSeconds("initializing MainLoop");
 	while (updateLoop.isRunning()) {
+		//Timer t;
 		loop.update();
+		//t.guiTookMiliseconds("mainLoop.update()");
 	}
 
 	Engine::terminateAll();

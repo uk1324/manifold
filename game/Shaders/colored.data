@@ -7,7 +7,6 @@ shader Colored {
 	vertexStruct = Vertex3Pn;
 	vertUniforms = {
 		Mat4 transform;
-		Mat4 view;
 	};
 	fragInstance = {
 		Vec3 color;

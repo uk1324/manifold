@@ -1,4 +1,4 @@
-Finding the image of a circular arc.
+﻿Finding the image of a circular arc.
 If you have 2 points on a 3 sphere then the geodesics connecting them is a great circle though them.
 A great circle is the intersection of a plane though the origin with the 3 sphere.
 
@@ -41,3 +41,8 @@ That is first find the image of the circle. To do this find the images of the st
 From the center you can calculate the arclength.
 
 Then the positions are going to be r(t) = cos(t) * initial + sin(t) * velocity, t in [0, arclength].
+
+​The game boards are 
+regular convex 4-polytopes​:  120-cell, 600-cell
+semi-regular convex​ 4-polytopes:  snub 24-cell, rectified 600-cell
+and a hypercube, which is cubical cells subdivied into 9 smaller cubes.

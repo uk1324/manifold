@@ -90,16 +90,16 @@ Tiling::Tiling(const Polytope& c) {
 			return normalIn4Space;
 			};
 
-		i32 previousI = i32(f.vertices.size()) - 1;
+		/*i32 previousI = i32(f.vertices.size()) - 1;
 		for (i32 i = 0; i < f.vertices.size(); i++) {
 			f.edgeNormals.push_back(planeThoughPoints(
 				vertices[f.vertices[previousI]],
 				vertices[f.vertices[i]])
 			);
 			previousI = i;
-		}
+		}*/
 
-		const auto fanBaseVertexI = f.vertices[0];
+		/*const auto fanBaseVertexI = f.vertices[0];
 		const auto& fanBaseVertex = vertices[fanBaseVertexI];
 		for (i32 i = 1; i < i32(f.vertices.size()) - 1; i++) {
 			const auto i0 = f.vertices[i];
@@ -115,7 +115,7 @@ Tiling::Tiling(const Polytope& c) {
 				}
 			};
 			f.triangulation.push_back(std::move(triangle));
-		}
+		}*/
 
 		faces.push_back(f);
 	}
@@ -150,14 +150,14 @@ Tiling::Tiling(const Polytope& c) {
 			}
 		}
 
-		for (i32 faceI = 0; faceI < faces.size(); faceI++) {
-			auto& cells = faceToCells[faceI];
-			ASSERT(cells.size() <= 2);
-			for (i32 i = 0; i < 2; i++) {
-				faces[faceI].cells.add(cells[i]);
-				//r.faces[faceI].cells[i] = cells[i];
-			}
-		}
+		//for (i32 faceI = 0; faceI < faces.size(); faceI++) {
+		//	auto& cells = faceToCells[faceI];
+		//	ASSERT(cells.size() <= 2);
+		//	for (i32 i = 0; i < 2; i++) {
+		//		faces[faceI].cells.add(cells[i]);
+		//		//r.faces[faceI].cells[i] = cells[i];
+		//	}
+		//}
 	}
 
 	for (i32 cellI = 0; cellI < cells.size(); cellI++) {
@@ -177,6 +177,7 @@ Tiling::Tiling(const Polytope& c) {
 				cellVertices.insert(vertex);
 			}
 		}
+		//cell.vertices = std::vector(cellVertices.begin(), cellVertices.end());
 		cell.vertices = std::move(cellVertices);
 		//r.cellsVertices.push_back(std::move(vertices));
 
@@ -191,7 +192,9 @@ Tiling::Tiling(const Polytope& c) {
 	
 }
 
+#include <Timer.hpp>
 std::vector<std::vector<i32>> Tiling::cellsNeighbouringToCell() {
+	Timer t;
 	std::vector<std::vector<i32>> r;
 	r.resize(cells.size());
 	for (i32 cellI = 0; cellI < cells.size(); cellI++) {
@@ -204,5 +207,6 @@ std::vector<std::vector<i32>> Tiling::cellsNeighbouringToCell() {
 			}
 		}
 	}
+	t.tookSeconds("test");
 	return r;
 }

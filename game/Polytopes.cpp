@@ -624,99 +624,64 @@ void add24CellVertices(VertexSet& vertices) {
 	addPermuations(vertices, 0.0f, 0.0f, 2.0f, 2.0f, 0, 0, 1, 1);
 }
 
-Polytope make600cell() {
-	{
-		const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
-		VertexSet v;
-		addPermuations(v, 0, 0, 0, 1);
-		addPermuations(v, 0.5f, 0.5f, 0.5f, 0.5f);
-		addPermuations(v, p / 2.0f, 0.5f, 1.0f / (2.0f * p), 0.0f, true);
-		/*const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
-		const auto p2 = p * p;
-		const auto pm1 = 1.0f / p;
-		const auto pm2 = 1.0f / p2;
-		const auto s5 = sqrt(5.0f);
-		add24CellVertices(v);
-		addPermuations(v, p, p, p, pm2, 1, 1, 1, 1);
-		addPermuations(v, 1.0f, 1.0f, 1.0f, s5, 1, 1, 1, 1);
-		addPermuations(v, pm1, pm1, pm1, p2, 1, 1, 1, 1);
-		addPermuations(v, 0.0f, pm1, p, s5, 0, 1, 1, 1, true);
-		addPermuations(v, 0.0f, pm2, 1.0f, p2, 0, 1, 1, 1, true);
-		addPermuations(v, pm1, 1.0f, p, 2.0f, 1, 1, 1, 1, true);*/
-		const auto vertices = vertexSetToVertexList(v);
-		return convexHull(vertices);
-	}
-
+Polytope makePolytope4(
+	View<const Vec4> vertices,
+	View<const i32> edgesVertices,
+	View<const i32> facesEdges,
+	View<const i32> edgesPerFace,
+	View<const i32> cellsFaces,
+	View<const i32> facesPerCell) {
 	Polytope r;
-	//for (i32 i = 0; i < std::size(vertices600cell); i++) {
-	//	const auto& p = vertices600cell[i];
-	//	r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
-	//}
-	//auto addCells = [](Polytope::CellsN& out, View<const i32> in, i32 subCellsPerCell) {
-	//	for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
-	//		Polytope::CellN cell;
-	//		for (i32 j = 0; j < subCellsPerCell; j++) {
-	//			cell.push_back(in[i + j]);
-	//		}
-	//		out.push_back(std::move(cell));
-	//	}
-	//};
-	//r.cells.push_back(Polytope::CellsN{});
-	//auto& edges = r.cells.back();
-	//addCells(edges, constView(edges600cell), 2);
-
-	//r.cells.push_back(Polytope::CellsN{});
-	//auto& faces = r.cells.back();
-	//addCells(faces, constView(faces600cell), 3);
-
-	//r.cells.push_back(Polytope::CellsN{});
-	//auto& cells = r.cells.back();
-	//addCells(cells, constView(cells600cell), 4);
-
-
-	for (i32 i = 0; i < std::size(vertices600cell); i++) {
-		const auto& p = vertices600cell[i];
-		r.vertices.push_back(Polytope::PointN{ p.x, p.y, p.z, p.w });
+	r.cells.resize(3);
+	for (const auto& v : vertices) {
+		r.vertices.push_back({ v.x, v.y, v.z, v.w });
 	}
-	auto addCells = [](Polytope::CellsN& out, i32 cellCount, View<const i32> subCellToCells, i32 cellsPerSubCell) {
-		out.resize(cellCount);
 
-		for (i32 subCellI = 0; subCellI < subCellToCells.size() / cellsPerSubCell; subCellI++) {
-			for (i32 i = 0; i < cellsPerSubCell; i++) {
-				auto cellI = subCellToCells[subCellI * cellsPerSubCell + i];
-				out[cellI].push_back(subCellI);
-			}
-		}
-		/*for (i32 i = 0; i < in.size(); i += subCellsPerCell) {
+	auto& edges = r.cellsOfDimension(1);
+	for (i32 i = 0; i < edgesVertices.size(); i += 2) {
+		edges.push_back({ edgesVertices[i], edgesVertices[i + 1] });
+	}
+
+	auto add = [&](i32 dimension, View<const i32> cellSubCells, View<const i32> subCellsPerCell) {
+		auto& cells = r.cellsOfDimension(dimension);
+		i32 i = 0;
+		for (const auto& subCellCountInCell : subCellsPerCell) {
 			Polytope::CellN cell;
-			for (i32 j = 0; j < subCellsPerCell; j++) {
-				cell.push_back(in[i + j]);
+
+			i32 subCellsInserted = 0;
+			while (subCellsInserted < subCellCountInCell) {
+				cell.push_back(cellSubCells[i]);
+				i++;
+				subCellsInserted++;
 			}
-			out.push_back(std::move(cell));
-		}*/
-		};
-	r.cells.push_back(Polytope::CellsN{});
-	auto& edges = r.cells.back();
-	for (i32 i = 0; i < std::size(edges600cell); i += 2) {
-		Polytope::CellN cell;
-		for (i32 j = 0; j < 2; j++) {
-			cell.push_back(edges600cell[i + j]);
+
+			cells.push_back(std::move(cell));
 		}
-		edges.push_back(std::move(cell));
-	}
-
-	r.cells.push_back(Polytope::CellsN{});
-	auto& faces = r.cells.back();
-	addCells(faces, i32(std::size(faces600cell)) / 3, constView(edgeToFaces600cell), 5);
-
-	r.cells.push_back(Polytope::CellsN{});
-	auto& cells = r.cells.back();
-	addCells(cells, i32(std::size(cells600cell)) / 4, constView(faceToCells600cell), 2);
-
+		};
+	add(2, facesEdges, edgesPerFace);
+	add(3, cellsFaces, facesPerCell);
 	return r;
 }
 
-Polytope make120cell() {
+#define MAKE_POLYTOPE4(name) makePolytope4(constView(name##vertices), constView(name##EdgesVertices), constView(name##FacesEdges), constView(name##EdgesPerFace), constView(name##CellsFaces), constView(name##FacesPerCell))
+
+Polytope generate600cell() {
+	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
+	VertexSet v;
+	addPermuations(v, 0, 0, 0, 1);
+	addPermuations(v, 0.5f, 0.5f, 0.5f, 0.5f);
+	addPermuations(v, p / 2.0f, 0.5f, 1.0f / (2.0f * p), 0.0f, true);
+	const auto vertices = vertexSetToVertexList(v);
+	return convexHull(vertices);
+}
+
+#include "600cell.hpp"
+
+Polytope make600cell() {
+	return MAKE_POLYTOPE4(cell600);
+}
+
+Polytope generate120cell(){
 	//https://en.wikipedia.org/wiki/120-cell#%E2%88%9A8_radius_coordinates
 	VertexSet v;
 	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
@@ -733,6 +698,13 @@ Polytope make120cell() {
 	addPermuations(v, pm1, 1.0f, p, 2.0f, 1, 1, 1, 1, true);
 	const auto vertices = vertexSetToVertexList(v);
 	return convexHull(vertices);
+}
+
+#include "120cell.hpp"
+
+Polytope make120cell() {
+	return MAKE_POLYTOPE4(cell120);
+	//return generate120cell();
 }
 
 Polytope make24cell() {
@@ -755,6 +727,48 @@ Polytope make5cell() {
 		vertex -= Vec4(1.0f, 1.0f, 1.0f, 1.0f) / (2.0f - 1.0f / p);
 	}
 	return convexHull(vertices);
+}
+
+#include "SourceGenerator.hpp"
+
+std::string outputPolytope4DataCpp(const char* name, const Polytope p) {
+	SourceGenerator g;
+	g << "#pragma once\n";
+	g << "#include <engine/Math/Vec4.hpp>\n";
+	g << "static const Vec4 " << name << "vertices[]{\n";
+	g.indentationStart();
+	for (const auto& vertex : p.vertices) {
+		g.separatedList(vertex, ", ", "Vec4(", "),\n");
+	}
+	g.indentationEnd();
+	g << "};\n";
+
+	auto outputNCell = [&](const char* cellName, i32 n) {
+		g.indentationStart();
+		g << "static const i32 " << name << cellName << "[]{\n";
+		for (const auto& cell : p.cellsOfDimension(n)) {
+			g.separatedList(cell, ", ", "", ",\n");
+		}
+		g << "};\n";
+		g.indentationEnd();
+	};
+	auto outputNCellSizes = [&](const char* cellName, i32 n) {
+		g.indentationStart();
+		g << "static const i32 " << name << cellName << "[]{\n";
+		for (const auto& cell : p.cellsOfDimension(n)) {
+			g << cell.size() << ",\n";
+		}
+		g << "};\n";
+		g.indentationEnd();
+	};
+	
+	outputNCell("EdgesVertices", 1);
+	outputNCell("FacesEdges", 2);
+	outputNCellSizes("EdgesPerFace", 2);
+	outputNCell("CellsFaces", 3);
+	outputNCellSizes("FacesPerCell", 3);
+
+	return std::move(g.string());
 }
 
 Polytope makeRectified5cell() {
@@ -784,7 +798,7 @@ Polytope makeRectified5cell() {
 	return convexHull(v);
 }
 
-Polytope makeRectified600cell() {
+Polytope generateRectified600cell() {
 	// https://www.qfbox.info/4d/rect600cell
 	VertexSet v;
 	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
@@ -799,13 +813,30 @@ Polytope makeRectified600cell() {
 	return convexHull(vertexSetToVertexList(v));
 }
 
-Polytope makeSnub24cell() {
+#include "Rectified600cell.hpp"
+Polytope makeRectified600cell() {
+	return MAKE_POLYTOPE4(rectified600cell);
+}
+
+Polytope generateSnub24cell() {
 	// https://www.qfbox.info/4d/snub24cell
 	VertexSet v;
 	const auto p = (1.0f + sqrt(5.0f)) / 2.0f;
 	const auto p2 = p * p;
 	addPermuations(v, 0.0f, 1.0f, p, p2, true);
 	return convexHull(vertexSetToVertexList(v));
+}
+
+#include "Snub24cell.hpp"
+
+Polytope makeSnub24cell() {
+	return MAKE_POLYTOPE4(snub24cell);
+}
+
+#include "SubdiviedHypercube.hpp"
+
+Polytope makeSubdiviedHypercube2() {
+	return MAKE_POLYTOPE4(subdiviedHypercube);
 }
 
 std::vector<i32> verticesOfFaceWithSortedEdges(const Polytope& p, i32 faceIndex) {

@@ -40,47 +40,47 @@ struct GameRenderer {
 	void sphere(Vec3 center, f32 radius, Vec3 color);
 	void renderHemispheres();
 
-	Mesh coneMesh;
-	std::vector<ColoredInstance> cones;
-	void cone(Vec3 bottom, Vec3 top, f32 radius, Vec3 color);
-	void renderCones();
+	//Mesh coneMesh;
+	//std::vector<ColoredInstance> cones;
+	//void cone(Vec3 bottom, Vec3 top, f32 radius, Vec3 color);
+	//void renderCones();
 
-	Mesh circleMesh;
-	std::vector<ColoredInstance> circles;
-	void renderCircles();
+	//Mesh circleMesh;
+	//std::vector<ColoredInstance> circles;
+	//void renderCircles();
 
 	Mesh cyllinderMesh;
 	std::vector<ColoredInstance> cyllinders;
 	void renderCyllinders();
 
-	Mesh cubeMesh;
-	std::vector<ColoredInstance> cubes;
-	void cube(Vec3 color);
-	void renderCubes();
+	//Mesh cubeMesh;
+	//std::vector<ColoredInstance> cubes;
+	//void cube(Vec3 color);
+	//void renderCubes();
 
 	void line(Vec3 a, Vec3 b, f32 radius, Vec3 color, bool caps = true);
 
-	TriangleRenderer<Vertex3Pnc> coloredShadingTriangles;
-	ShaderProgram& coloredShadingShader;
-	Mat4 coloredShadingModel = Mat4::identity;
-	void renderColoredShadingTriangles(const ColoredShadingInstance& instance);
-	void coloredShadingTrianglesAddMesh(const std::vector<Vec3>& positions, const std::vector<Vec3>& normals, const std::vector<i32>& indices, Vec3 color);
-	void coloredShadingTrianglesAddMesh(const LineGenerator& lineGenerator, Vec3 color);
+	TriangleRenderer<Vertex3Pn> coloredTriangles;
+	//ShaderProgram& coloredShadingShader;
+	//Mat4 coloredShadingModel = Mat4::identity;
+	void renderColoredTriangles(const ColoredInstance& instance);
+	void coloredTrianglesAddMesh(const std::vector<Vec3>& positions, const std::vector<Vec3>& normals, const std::vector<i32>& indices, Vec3 color);
+	void coloredTrianglesAddMesh(const LineGenerator& lineGenerator, Vec3 color);
 
-	ShaderProgram& homogenousShader;
-	Mesh infinitePlaneMesh;
-	std::vector<HomogenousInstance> infinitePlanes;
-	void renderInfinitePlanes();
+	//ShaderProgram& homogenousShader;
+	//Mesh infinitePlaneMesh;
+	//std::vector<HomogenousInstance> infinitePlanes;
+	//void renderInfinitePlanes();
 
-	ShaderProgram& sphereImpostorsShader;
-	ShaderProgram& sphereImpostors2Shader;
-	Mesh sphereImpostorMesh;
-	Mesh sphereImpostorMeshTri;
-	std::vector<SphereImpostorInstance> sphereImpostors;
-	std::vector<SphereImpostor2Instance> sphereImpostorsCubes;
-	void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 n4, Vec4 planeNormal);
-	void sphereImpostorCube(Vec4 center4, Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
-	void renderSphereImpostors();
+	//ShaderProgram& sphereImpostorsShader;
+	//ShaderProgram& sphereImpostors2Shader;
+	//Mesh sphereImpostorMesh;
+	//Mesh sphereImpostorMeshTri;
+	//std::vector<SphereImpostorInstance> sphereImpostors;
+	//std::vector<SphereImpostor2Instance> sphereImpostorsCubes;
+	//void sphereImpostor(Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 n4, Vec4 planeNormal);
+	//void sphereImpostorCube(Vec4 center4, Mat4 transform, Vec3 position, f32 radius, Vec4 n0, Vec4 n1, Vec4 n2, Vec4 n3, Vec4 planeNormal);
+	//void renderSphereImpostors();
 
 	bool useImpostorsTriangles = true;
 
@@ -102,7 +102,7 @@ struct GameRenderer {
 	void renderText();
 	Font font;
 
-	Gfx2d gfx2d;
+	//Gfx2d gfx2d;
 
 	Vec4 cameraPos4 = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	Mat4 viewInverse4 = Mat4::identity;

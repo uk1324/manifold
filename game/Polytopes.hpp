@@ -50,14 +50,23 @@ Polytope::CellN faceEdgesSorted(const Polytope& p, i32 faceIndex);
 
 
 // regular
+Polytope generate600cell();
 Polytope make600cell();
+Polytope generate120cell();
 Polytope make120cell();
 Polytope make24cell();
 Polytope make5cell();
 
+std::string outputPolytope4DataCpp(const char* name, const Polytope p);
+
 // semi-regular
 Polytope makeRectified5cell();
+Polytope makeRectified5cell();
+Polytope generateRectified600cell();
 Polytope makeRectified600cell();
+Polytope generateSnub24cell();
 Polytope makeSnub24cell();
 
+
+Polytope makeSubdiviedHypercube2();
 // uniform

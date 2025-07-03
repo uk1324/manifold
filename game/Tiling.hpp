@@ -18,15 +18,16 @@ struct Tiling {
 	};
 	struct Face {
 		std::vector<i32> vertices;
-		std::vector<Vec4> edgeNormals;
-		StaticList<i32, 2> cells;
-		std::vector<Triangle> triangulation;
+		//std::vector<Vec4> edgeNormals;
+		//StaticList<i32, 2> cells;
+		//std::vector<Triangle> triangulation;
 	};
 	struct Cell {
 		std::vector<i32> faces;
 		std::vector<Vec4> faceNormals;
 		Vec4 centroid;
 		std::set<i32> vertices;
+		//std::vector<i32> vertices;
 	};
 
 	std::vector<Vec4> vertices;

@@ -24,3 +24,5 @@ ninja
 
 To run a local http server can use
 python -m http.server
+
+To build in release mode use the normal release mode option in cmake when calling emcmake.

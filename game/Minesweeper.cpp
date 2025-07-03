@@ -12,6 +12,8 @@
 #include <game/4d.hpp>
 #include <engine/Math/Circle.hpp>
 #include <engine/Math/Angles.hpp>
+#include <StringStream.hpp>
+#include <Put.hpp>
 
 // cells are neighbours if they share a vertex.
 /*
@@ -23,6 +25,16 @@ if bomb count = cell count then just set win on first move.
 #endif 
 #include <iostream>
 
+#include <Timer.hpp>
+#include <fstream>
+
+i32 boardCellCount[]{
+	144,
+	120,
+	216,
+	600,
+	720
+};
 
 Minesweeper::Minesweeper()
 	: t(Polytope())
@@ -62,7 +74,30 @@ Minesweeper::Minesweeper()
 	style.PopupRounding = 4;
 	style.GrabRounding = 3;
 
+	const auto defaultDensity = 0.15f;
+	for (i32 i = 0; i < 5; i++) {
+		bombCountSettings[i] = floor(boardCellCount[i] * defaultDensity);
+	}
+	/*bombCountSettings[i32(Board::CELL_24_SNUB)] = floor(144 * defaultDensity);
+	bombCountSettings[i32(Board::CELL_120)] = floor(120 * defaultDensity);
+	bombCountSettings[i32(Board::SUBDIVIDED_HYPERCUBE)] = floor(216 * defaultDensity);
+	bombCountSettings[i32(Board::CELL_600)] = floor(600 * defaultDensity);
+	bombCountSettings[i32(Board::CELL_600_RECTIFIED)] = floor(720 * defaultDensity);*/
+
+	//const auto ttt = make120cell();
+	//Timer t;
 	loadBoard(Board::CELL_120);
+	//t.tookSeconds("loading board");
+
+	//const auto p = makeSnub24cell();
+	//const auto source = outputPolytope4DataCpp("snub24cell", p);
+	//std::ofstreamm o("game/Snub24cell.hpp");
+	//o << source;
+	//exit(0);
+
+	//const auto p = makeRectified600cell();
+	
+	return;
 
 }
 
@@ -135,9 +170,12 @@ void Minesweeper::update(GameRenderer& renderer) {
 
 	//togglableCursorUpdate();
 
+	#ifndef __EMSCRIPTEN__
 	if (Input::isKeyDown(KeyCode::X)) {
 		Window::close();
 	}
+	#endif 
+
 
 	const auto ray = Ray3(stereographicCamera.pos3d(), stereographicCamera.forward3d());
 	{
@@ -506,54 +544,126 @@ void Minesweeper::update(GameRenderer& renderer) {
 	renderer.renderCyllinders();
 
 	//ImGui::Text("line triangle count %d", renderer.lineGenerator.indices.size() / 3);
-	renderer.coloredShadingTrianglesAddMesh(renderer.lineGenerator, Color3::WHITE);
+	renderer.coloredTrianglesAddMesh(renderer.lineGenerator, Color3::WHITE);
 	renderer.lineGenerator.reset();
-	renderer.renderColoredShadingTriangles(ColoredShadingInstance{
-		.model = Mat4::identity
+	renderer.renderColoredTriangles(ColoredInstance{
+		.color = Color3::WHITE,
+		.model = Mat4::identity,
 	});
 
-	renderer.renderText();
-
-	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	renderer.gfx2d.camera.aspectRatio = Window::aspectRatio();
+	renderer.renderText();
+	glDisable(GL_BLEND);
+
+	/*glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);*/
+	//renderer.gfx2d.camera.aspectRatio = Window::aspectRatio();
 	//renderer.gfx2d.disk(Input::cursorPosClipSpace(), 0.025f, Color3::GREEN);
-	renderer.gfx2d.disk(Vec2(0.0f), 0.025f, Color3::GREEN);
-	const auto pos = Input::cursorPosWindowSpace();
-	if (isMenuOpen) {
+	//renderer.gfx2d.disk(Vec2(0.0f), 0.025f, Color3::GREEN);
+	/*renderer.gfx2d.drawDisks();
+	glDisable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);*/
+
+	auto drawArrow = [](Vec2 pos, f32 size, u32 color) {
 		auto& dl = *ImGui::GetForegroundDrawList();
-		f32 size = 10.0f;
-		//f32 angle
-
-		f32 angle = 1.0f;
+		//f32 angle = 1.13f;
+		/*f32 angle = 0.36f;*/
+		f32 angle = PI<f32> / 2.0f - 0.36f;
 		const auto tip = Vec2(0.0f);
-		const auto ear0 = tip - Vec2::oriented(angle) * size * 0.75f;
-		const auto ear1 = tip - Vec2::oriented(-angle) * size * 0.75f;
-		const auto centerMiddle = tip - Vec2(size / 2.0, 0.0f);
-		const auto e0 = tip + Vec2(size * 0.3f);
-		const auto e1 = tip - Vec2(size * 0.3f);
+		const auto ear0 = tip + Vec2::oriented(angle + PI<f32> / 2.0f) * size * 15.0f;
+		const auto ear1 = Vec2(ear0.x, -ear0.y);
+		const auto centerMiddle = tip - Vec2(size * 12.0f, 0.0f);
+		const auto width = 1.5f * size;
+		const auto e0 = centerMiddle + Vec2(0.0f, width);
+		const auto e1 = Vec2(e0.x, -e0.y);
+		const auto centerBack = tip - Vec2(size * 20.0f, 0.0f);
+		const auto b0 = centerBack + Vec2(0.0f, width);
+		const auto b1 = Vec2(b0.x, -b0.y);
 
-		auto addTri = [&](Vec2 v0, Vec2 v1, Vec2 v2, u32 color) {
-			v0 += tip;
-			v1 += tip;
-			v2 += tip;
-			dl.AddTriangle(ImVec2(v0.x, v0.y), ImVec2(v1.x, v1.y), ImVec2(v2.x, v2.y), color);
+		const auto center = (tip + centerBack) / 2.0f;
 
+		Vec2 points[] {
+			tip, ear0, e0, b0, b1, e1, ear1, tip, ear0
 		};
+		const auto m = Mat3x2::rotate(PI<f32> + angle) * Mat3x2::translate(pos);
+		//c.y = 0.0f;
+		for (auto& p : points) {
+			/*p -= c;
+			p *= scale;
+			p += c;*/
+			p *= m;
+		}
+		auto ps = reinterpret_cast<ImVec2*>(points);
+		const auto psCount = std::size(points);
+		dl.AddPolyline(ps, psCount, 0xFF000000, ImDrawFlags_None, 1.5f * size);
+		dl.AddConcavePolyFilled(ps, psCount - 2, color);
+	};	
+	if (isMenuOpen) {
+		#ifdef __EMSCRIPTEN__	
+		Input::virtualCursor.x = std::clamp(Input::virtualCursor.x, 0.0, f64(Window::size().x));
+		Input::virtualCursor.y = std::clamp(Input::virtualCursor.y, 0.0, f64(Window::size().y));
+		#endif
+
 		const u32 white = 0xFFFFFFFF;
-		addTri(tip, ear0, e0, white);
-		addTri(tip, ear1, e1, white);
-		addTri(e0, e1, tip, white);
+		const u32 black = 0xFF000000;
+		const auto pos = Input::cursorPosWindowSpace();
+		//drawArrow(pos, 1.0f, black, 1.4f);
+		//drawArrow(pos, 1.0f, white, 1.0f);
+		drawArrow(pos, 0.6f, white);
 		//const auto ear0Center = ear0 + Vec2::oriented()
 
 		//dl.AddTriangleFilled(pos + Vec2()
 		/*ImGui::GetForegroundDrawList()->AddCircleFilled(ImVec2(pos.x, pos.y), 5.0f, 0xFF000000);
 		ImGui::GetForegroundDrawList()->AddCircleFilled(ImVec2(pos.x, pos.y), 4.0f, 0xFFFFFFFF);*/
+	} else {
+		auto& dl = *ImGui::GetForegroundDrawList();
+		auto io = ImGui::GetIO();
+		{
+			i32 markedCount = 0;
+			i32 revealedCount = 0;
+			for (i32 i = 0; i < t.cells.size(); i++) {
+				if (isMarked[i]) {
+					markedCount++;
+				}
+				if (isRevealed[i]) {
+					revealedCount++;
+				}
+			}
+			if (state != State::LOST && state != State::WON) {
+				//StringStream s;
+				std::stringstream s;
+				put(s, "bombs: %\nmarked: %\nrevealed: %/%", bombCount, markedCount, revealedCount, t.cells.size());
+				//put(s, "bombs: %", bombCount);
+				auto& font = io.FontDefault;
+				//put("%", s.string());
+				f32 size = 30.0f;
+				const auto addText = [&](f32 x, f32 y, u32 color = 0xF0000000) {
+					f32 offset = 5.0f;
+					const auto& str = s.str();
+					dl.AddText(font, size, ImVec2(x + offset, y + offset), color, str.c_str(), str.c_str() + str.size());
+					};
+				addText(1, 1);
+				addText(-1, -1);
+				addText(-1, 1);
+				addText(1, -1);
+				addText(0, 0, 0xFFFFFFFF);
+			}
+		}
+		{
+			const auto pos = ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+			const auto size = std::min(io.DisplaySize.y, io.DisplaySize.x) * 0.03f;
+			//const auto color = IM_COL32(0, 0xFF, 0, 0xFF);
+			const auto color = IM_COL32(0xFF, 0xFF, 0xFF, 0xFF);
+
+			//dl.AddCircleFilled(pos, size, color);
+			const auto scale = 10.0f;
+			dl.AddRectFilled(ImVec2(pos.x - size / scale, pos.y - size / 2.0f), ImVec2(pos.x + size / scale, pos.y + size / 2.0f), color);
+			dl.AddRectFilled(ImVec2(pos.x - size / 2.0f, pos.y - size / scale), ImVec2(pos.x + size / 2.0f, pos.y + size / scale), color);
+		}
+		
 	}
-	renderer.gfx2d.drawDisks();
-	glDisable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
 }
 
 void Minesweeper::menuGui() {
@@ -601,7 +711,8 @@ void Minesweeper::menuGui() {
 	};
 	const auto& io = ImGui::GetIO();
 	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 3.0f, 0.0f), ImGuiCond_Always);
+	//ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 3.0f, 0.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 2.5f, 0.0f), ImGuiCond_Always);
 	auto& style = ImGui::GetStyle();
 	//ImGuiStyleVar_WindowTitleAlign
 	style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
@@ -612,39 +723,40 @@ void Minesweeper::menuGui() {
 		using enum State;
 	case BEFORE_FIRST_MOVE: title = ""; break;
 	case GAME_IN_PROGRESS: title = ""; break;
-	case LOST: title = "you lost"; break;
-	case WON: title = "you won"; break;
+	case LOST: title = "you lose"; break;
+	case WON: title = "you win"; break;
 	}
 	title += "##menu";
 
-	ImGui::Begin(title.c_str(), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+	const auto oldMenuOpen = isMenuOpen;
+	ImGui::Begin(title.c_str(), &isMenuOpen, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+	if (isMenuOpen != oldMenuOpen) {
+		if (isMenuOpen) {
+			openMenu();
+		} else {
+			closeMenu();
+		}
+	}
 	ImGui::PopStyleColor();
 	// display cell count maybe.
 
-	if (uiTableBegin("game")) {
-		if (combo("board", reinterpret_cast<int*>(&boardSetting), constView(boardStrings))) {
-			switch (boardSetting) {
-				using enum Board;
-			case CELL_120:
-				bombCountSetting = 10;
-				break;
-			case SUBDIVIDED_HYPERCUBE:
-				bombCount = 20;
-				break;
-			case CELL_600:
-				//bombCountSetting = 120;
-				bombCountSetting = 60;
-				break;
-			case Board::CELL_600_RECTIFIED:
-				bombCountSetting = 20;
-				break;
-			case Board::CELL_24_SNUB:
-				bombCount = 20;
-				break;
-			}
-		}
-		sliderInt("bomb count", bombCountSetting, 0, t.cells.size());
+	/*Tiling tiling(makeSubdiviedHypercube2());
+	const auto n = tiling.cellsNeighbouringToCell();
+	i32 maxNeighbourCount = 0;
+	for (i32 i = 0; i < t.cells.size(); i++) {
+		maxNeighbourCount = std::max(i32(n[i].size()), maxNeighbourCount);
+	}*/
+	i32 maxNeighbourCounts[]{
+		38, // CELL_24_SNUB,
+		12, // CELL_120,
+		26, // SUBDIVIDED_HYPERCUBE,
+		56, // CELL_600,
+		32, // CELL_600_RECTIFIED,
+	};
 
+	if (uiTableBegin("game")) {
+		combo("board", reinterpret_cast<int*>(&boardSetting), constView(boardStrings));
+		sliderInt("bomb count", bombCountSettings[i32(boardSetting)], 0, boardCellCount[i32(boardSetting)] - maxNeighbourCounts[i32(boardSetting)] - 1);
 		ImGui::EndTable();
 	}
 
@@ -658,10 +770,14 @@ void Minesweeper::menuGui() {
 				ImGui::Text(b);
 				//ImGui::SetNextItemWidth(-FLT_MIN);
 			};
-			//addEntry("move forward", "W");
+			addEntry("movement", "WASD");
+			addEntry("move up", "space");
+			addEntry("move down", "shift");
 			addEntry("reveal", "left click");
 			addEntry("mark", "right click");
-			addEntry("toggle menu", "escape");
+			addEntry("show neighbours", "middle click");
+			addEntry("toggle menu", "M");
+			addEntry("enable fullscreen", "F");
 			ImGui::EndTable();
 		}
 
@@ -686,8 +802,9 @@ void Minesweeper::menuGui() {
 void Minesweeper::openMenu() {
 	isMenuOpen = true;
 	#ifdef __EMSCRIPTEN__
-	const auto center = Window::size() / 2.0f;
-	Input::virtualCursor = Vec2T<f64>(center.x, center.y);
+	auto& displaySize = ImGui::GetIO().DisplaySize;
+	//const auto center = Window::size() / 2.0f;
+	Input::virtualCursor = Vec2T<f64>(displaySize.x / 2.0f, displaySize.y / 2.0f);
 	#else
 	Window::toggleCursor();
 	#endif 
@@ -705,11 +822,11 @@ void Minesweeper::closeMenu() {
 }
 
 void Minesweeper::loadBoard(Board board) {
-	
+	loadedBoard = board;
 	switch (board) {
 		using enum Board;
 	case CELL_120: loadBoard(make120cell()); break;
-	case SUBDIVIDED_HYPERCUBE: loadBoard(subdiviedHypercube4(2)); break;
+	case SUBDIVIDED_HYPERCUBE: loadBoard(makeSubdiviedHypercube2()); break;
 	case CELL_600: loadBoard(make600cell()); break;
 	case CELL_600_RECTIFIED: loadBoard(makeRectified600cell()); break;
 	case CELL_24_SNUB: loadBoard(makeSnub24cell()); break;
@@ -718,6 +835,7 @@ void Minesweeper::loadBoard(Board board) {
 
 void Minesweeper::loadBoard(const Polytope& polytope) {
 	highlightNeighbours = std::nullopt;
+	bombCount = bombCountSettings[i32(loadedBoard)];
 	t = Tiling(polytope);
 	cellToNeighbours = t.cellsNeighbouringToCell();
 	cellHoverAnimationT.resize(t.cells.size(), 0.0f);
@@ -731,10 +849,17 @@ void Minesweeper::loadBoard(const Polytope& polytope) {
 		);
 		stereographicCamera.transformation = movement;
 	};
-	const auto a = t.vertices[t.edges[0].vertices[0]];
+	auto& face = t.faces[0];
+	Vec4 center(0.0f);
+	for (const auto& vertex : face.vertices) {
+		center += t.vertices[vertex];
+	}
+	center /= face.vertices.size();
+	center = center.normalized();
+	/*const auto a = t.vertices[t.edges[0].vertices[0]];
 	const auto b = t.vertices[t.edges[0].vertices[1]];
-	const auto target = (a + b).normalized();
-	moveTo(target);
+	const auto target = (a + b).normalized();*/
+	moveTo(center);
 }
 
 void Minesweeper::initialize() {
@@ -807,7 +932,6 @@ First move.
 Intuitively the 5th option seems most fair to me, because it almost always (expect the rare additional case) actually generates a fully random board.
 */
 void Minesweeper::startGame(CellIndex firstUncoveredCell) {
-	bombCount = bombCountSetting;
 	std::set<CellIndex> cellsToAvoid;
 	switch (firstMoveSetting) {
 		using enum FirstMoveSetting;

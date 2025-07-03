@@ -52,9 +52,11 @@ struct Minesweeper {
 	};
 	void loadBoard(Board board);
 	void loadBoard(const Polytope& polytope);
+	Board loadedBoard = Board::CELL_120;
 
 	Board boardSetting = Board::CELL_120;
-	i32 bombCountSetting = 10;
+	i32 bombCountSettings[5];
+	//i32 bombCountSetting = 10;
 
 	i32 bombCount = 0;
 
